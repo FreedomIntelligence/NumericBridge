@@ -14,6 +14,18 @@ Use the [shared execution tools](../../precision-compare/references/comparison.m
   In a batch, prioritize actionable open issues over new cases within budget.
 </handoff>
 
+<delegation when="a case is delegated">
+  Assign one case owner across target and reference, from comparison through
+  diagnosis and applicable original-workload verification. Split independent
+  cases for parallel work. Give the owner the confirmed scope, resource grant,
+  budget and existing checkpoint.
+  The coordinator checks owner state on progress requests and worker returns.
+  Observe a live owner; resume an idle worker at the next authorized check.
+  Reconcile native runs before replacing an unavailable worker or launching
+  again. The coordinator handles routine follow-up and applies local delivery
+  checks; ask the user only for a missing decision or grant.
+</delegation>
+
 <issue_record>
   Record findings that affect execution or results in the case's issues.md when
   found, including setup blockers. Update the same entry after diagnosis and

@@ -12,19 +12,34 @@ description: Diagnose reproducible failures of supported native paths and numeri
    configuration and earliest failing operation. For a numerical difference,
    check input/state, settings and coordinate alignment before replaying it.
    Repeat only to resolve reproducibility or variation.
-2. **Localize.** Start with captured boundaries; add [internal observations](../precision-compare/references/layerwise.md)
-   only around the suspect interval. Report the earliest observed failure or
-   divergence and the closest checked upstream boundary that passed, if known.
-3. **Test the cause.** Inspect the relevant source and change one factor at a
-   time. For diverged upstream state, [replay with identical inputs and state](examples/causal-replay.md)
-   to distinguish introduced from propagated error. Judge numerical correctness
-   against the intended algorithm, an invariant or an independent reference.
+2. **Choose a boundary.** Keep the earliest observed divergence or failure and
+   the closest checked upstream boundary that passed. For numerical differences,
+   also consider later boundaries where the task-relevant error grows. Use
+   [internal observations](../precision-compare/references/layerwise.md) only where
+   they distinguish candidates. Error growth helps choose a probe; it does not
+   identify the source.
+3. **Test one explanation.** Inspect the source and vary one factor. For a
+   numerical replay, first reproduce each side's own capture within justified
+   tolerance. Then [replay the same operands and state](examples/causal-replay.md)
+   on both sides, including the incoming gradient for a backward check. Try the
+   other side's captured operands if input dependence could change the conclusion.
+
+| Replay result | Next check |
+| --- | --- |
+| Self-replay fails | Check capture, state restoration and runtime dispatch. |
+| A difference persists on matched inputs | Narrow to a child operation and check it against the intended algorithm, an invariant or an independent reference. |
+| The difference falls within expected variation on matched inputs | Trace the differing inputs upstream. To test amplification, hold the implementation fixed and vary the suspect input. |
+| A local check improves after a change | Check the original task endpoint. If it does not improve, retain the local finding and revisit the other candidates. |
+
+An operation can introduce and amplify error. Use the task's existing metrics;
+keep injected state and diagnostic constraints out of original-workload verification.
 
 ```xml
 <diagnosis_handoff>
   In issues.md, classify the issue as setup/capture, unsupported capability,
   expected numerical policy, supported defect or unresolved. Link source and
-  evidence, checked boundaries and ruled-out explanations. Continue beyond
+  evidence, checked boundaries and ruled-out explanations. For each probe,
+  record its hypothesis, control, finding and next check. Continue beyond
   localization while a focused check can advance the cause within scope and
   budget. If blocked, leave the concrete blocker and next check. For a supported
   defect, hand off the trigger and focused regression to authorized repair.
@@ -36,7 +51,8 @@ description: Diagnose reproducible failures of supported native paths and numeri
 - Test one patch, upgrade or configuration change at a time. Keep case-specific
   patches with the case and reuse matching before evidence, inputs and settings.
 - Show the focused regression fail before and pass after, then verify the
-  original small native case. For an execution defect, verify the original
+  original small native case. If run variation could explain an endpoint gain,
+  restore the baseline and recheck. For an execution defect, verify the original
   failing path and its required evidence; report numerical coverage separately.
   Reuse the regression run when it covers both checks. Extend only for missing
   coverage or agreed scope.
