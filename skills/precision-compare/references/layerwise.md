@@ -1,39 +1,72 @@
 # Layerwise comparison
 
-Use within a user-confirmed scope for internal observations, including authorization already supplied in a repair request. Choose samples, boundaries, collectors and trials autonomously within that scope and resource budget. Ask when changing the comparison question or resource limit, or when a material semantic choice remains unresolved.
+Within a confirmed scope (a repair request includes it), choose samples,
+boundaries, collectors and trials autonomously within the resource budget. Ask
+only when changing the comparison question or the resource limit.
 
 ## Collection
 
-- Start with a few corresponding block boundaries; refine selected intervals into submodules or APIs. Match computational meaning, not just names, shapes or call order.
-- Replay the model-level inputs and state through each native implementation. Intermediate differences include upstream propagation; identical-input replay of an isolated layer is a separately selected experiment.
-- Identify each observation by sample/token coordinates, step/microbatch, semantic boundary, native module path, invocation, direction, input/output tensor path, rank and shard/view. Preserve dtype, shape, layout and selected slices; snapshot values at the capture boundary before later mutation.
-- Use statistics for screening. Compute paired tensor metrics from actual values at matching coordinates. Record instrumentation changes to compilation, fusion or caching and use the [tensor definitions](comparison.md#tensors) for comparison. Report sampled boundaries, metrics, mappings, uncovered regions and candidate intervals for further sampling.
+Use [capture_boundaries.py](../scripts/capture_boundaries.py) on both sides; the
+same hooks run on GPU and NPU, and the outputs feed
+[localize.py](../../precision-repair/scripts/localize.py) and
+[replay.py](../../precision-repair/scripts/replay.py) without conversion.
 
-## msProbe quick reference
+1. **Screen.** Capture the block boundaries (`default_boundaries(model)`) for a
+   token subset (`valid_tokens(mask, limit=64)`, same list on both sides) with
+   `inventory=True` on the first run. Token subsets keep full-tensor capture cheap
+   and give the per-token cosine that statistics alone cannot.
+2. **Add noise.** Repeat the capture once on one side; pass it as `--noise-a` so
+   growth within run-to-run variation is ignored.
+3. **Rank and refine.** Run `localize.py --side-a A.npz --side-b B.npz --order A.json`;
+   capture the children it names in `next.capture`, again for both sides. Several
+   candidate intervals can share one run.
+4. **Replay the leaf.** Save the leaf module's call on both sides
+   (`save_calls=[path]`), then run each side's module on both calls with
+   `replay_module` (and `dtype=torch.float64` on CPU for a reference) to build the
+   [cross-replay spec](../../precision-repair/examples/causal-replay.md); use
+   `inject` to run it inside the full model instead.
 
-msProbe is an optional collection backend. The bundled Python tool [`plan_modules`](../scripts/msprobe_capture.py) prepares bounded L0 capture plans; the task adapter calls msProbe to execute collection and maps its records into observation artifacts. Use this summary to choose the backend and its public interfaces. Use native outputs or task-owned hooks for other paths; different sides may use different collectors.
+Pair boundaries by computational meaning, not names or call order; record the
+module path, invocation, direction, rank and token selection (the inventory does).
+Intermediate differences include upstream propagation; only same-input replay
+isolates a module. For backward boundaries capture with `directions=('backward',)`;
+`output` is the incoming gradient. `first_nonfinite` in the inventory names the
+first boundary with NaN/Inf. Capture with the KV cache disabled unless the cache is
+under test, and compare model outputs with capture on and off once to confirm the
+hooks do not change execution.
 
-| Need | Available capability |
+## Graph execution and msProbe
+
+Hooks fire only in eager execution. CUDA graphs, ACLGraph, `torch.compile` and
+compiled serving paths bypass them; running eager for diagnosis is a narrower
+check of a different path. When the graph path itself is in question, compare
+eager against graph outputs first, or use msProbe:
+
+| Situation | Collector |
 |---|---|
-| Platforms | PyTorch collection on GPU and NPU; check the installed release for other backends and execution modes |
-| Capture granularity | `L0` modules, `L1` APIs, or `mix` |
-| Observations | Forward inputs/outputs and parameters; backward input/output gradients and parameter gradients, including nested tensor paths |
-| Data volume | `statistics` for summaries; `tensor` for actual arrays; selected tensor capture can supplement statistics |
-| Selection | `step`, `rank`, `scope`/`list`, `data_mode` for forward/backward and input/output; slicing where supported |
-| Entry points | `msprobe.pytorch.PrecisionDebugger(config_path=...)`, `start(model=...)`, `stop()`, `step()` |
-| Gaps in hooks | `PrecisionDebugger.save` for selected variables; check the release-specific signature and backward options |
-| Comparison | Module/API matching and tensor-error reports; adapt matching to the chosen cross-implementation boundaries |
-
-Parameter-gradient counters count `grad_fn` triggers, not module calls. Map them to the task's accumulation/synchronization boundaries. Keep the task's random inputs and numerical policy when integrating collection helpers.
+| Eager PyTorch training or inference (Transformers, TRL, most trainers) | `capture_boundaries.py` |
+| ACLGraph whole-network capture, Inductor comparison on Ascend | msProbe |
+| vLLM/SGLang serving with dynamic start/stop | msProbe, or the engine in eager mode with hooks |
+| VeRL/Slime train-inference consistency already wired to msProbe | msProbe |
 
 ## Integrate and verify
 
-1. Inspect each side's framework, device and eager/compiled execution mode. Reuse msProbe if installed; otherwise select and pin a compatible `mindstudio-probe` release using the [installation guide](https://msprobe.readthedocs.io/zh-cn/latest/zh/install_guide/msprobe_install_guide.html). Constrain dependency resolution to the selected framework/runtime and numerical dependencies; test imports of the actual model class and collector before allocating devices. Use another collector if integration requires changing the compared implementation.
-2. Keep configuration and adapter code with the task. Select `task` (`statistics` or `tensor`), `dump_path`, `level`, explicit `step` and `rank`, and the task-specific `scope`/`list` and `data_mode`. For one-call L0 observations, use [plan_modules](../scripts/msprobe_capture.py) with trial-derived output sizes to generate complete selectors and estimate tensor payload, including direct parameters. L0 list entries use substring matching; check the selected module set and actual disk use in the trial.
-3. Construct `PrecisionDebugger(config_path=...)` in each executing worker early enough to instrument the selected calls. Bracket the native execution with `start(model=...)` and `stop()`; call `step()` after the captured iteration to finish writes and advance the capture step. Preserve the task's RNG and numerical settings rather than copying `seed_all()` from tutorials. Map debugger steps and gradient callbacks to the actual microbatch/accumulation stages.
-4. Trial a small portion of the approved workload. Verify expected boundaries fired, per-rank files completed, and shapes, invocations and coordinates match the planned observations. Compare model-level outputs with collection disabled and enabled from the same initial state. Record instrumentation effects; adapt or replace collection when it changes the execution being compared.
-5. Build explicit semantic mappings for the selected boundaries. Reuse msProbe comparison where its pairing and metric definitions fit; otherwise export selected actual tensors as `stage: observations` through the [comparison interfaces](comparison.md). Each tensor carries the task's matching logical `coordinates`; retain native capture metadata alongside it. Preserve source paths and the mapping from native records to logical coordinates, including unmatched observations and per-rank coverage.
+For msProbe, pin a compatible `mindstudio-probe` release
+([install guide](https://msprobe.readthedocs.io/zh-cn/latest/zh/install_guide/msprobe_install_guide.html))
+constrained to the selected framework and runtime, and test imports of the model
+class and collector before allocating devices. Build L0 selectors with
+[`plan_modules`](../scripts/msprobe_capture.py) from the capture inventory's
+`modules` sizes (L0 list entries match substrings). Construct
+`PrecisionDebugger(config_path=...)` in each worker before the selected calls,
+bracket execution with `start(model=...)`/`stop()`, and call `step()` after the
+captured iteration. Parameter-gradient counters count `grad_fn` triggers, not
+module calls.
 
-Refine intervals within the approved budget using observed differences and coverage. Fix collector integration failures and retry autonomously; report sampled differences and unresolved coverage when the scope or budget is exhausted.
-
-Consult only the relevant [capture](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/dump/pytorch_data_dump_instruct.html), [configuration](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/dump/config_json_introduct.html) or [comparison](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/accuracy_compare/pytorch_accuracy_compare_instruct.html) section for option details or an unsupported path; use the [single-point save guide](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/dump/debugger_save_instruct.html) for uncovered variables. Inspect source only as needed.
+For any collector, trial a small portion first: expected boundaries fire, per-rank
+files complete, shapes and invocations match the plan, and outputs with collection
+on and off agree. Map records to logical coordinates and keep source paths,
+unmatched observations and per-rank coverage. For formal observation comparison,
+export them as `stage: observations` through the [comparison interfaces](comparison.md).
+See the msProbe [capture](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/dump/pytorch_data_dump_instruct.html)
+and [configuration](https://msprobe.readthedocs.io/zh-cn/latest/zh/user_guide/dump/config_json_introduct.html)
+guides for options.

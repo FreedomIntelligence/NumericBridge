@@ -628,10 +628,10 @@ native work and must stay within authorization. Case-owned adapters supply
 scheduling, native capture and semantic mappings. These tasks are not all
 implemented by one generic command.
 
-Exit 0 from a comparator means metrics were computed; it does not mean a numerical
-tolerance passed. Until a criterion is agreed and frozen, use `thresholds: null`
-and report differences. Software verification tolerances are not model acceptance
-tolerances.
+Comparator exit 0 means metrics were computed. Judge them with
+`acceptance.py`: the frozen user criterion when one is agreed, otherwise the
+versioned default profile `nb-default-v1`, and record which profile was used.
+Software verification tolerances are not model acceptance tolerances.
 
 ## 14 Deliverables and release gate
 
@@ -668,8 +668,8 @@ The report contains:
    original-workload impact and reserved-input validation clearly distinguished.
 5. Precision, task-quality and performance effects of each evaluated policy,
    including failed, slower and non-improving outcomes.
-6. Numerical acceptance criteria/status, limitations, immutable evidence and
-   replay scope. No threshold means no acceptance claim.
+6. Numerical acceptance verdict with its profile (user or `nb-default-v1`),
+   limitations, immutable evidence and replay scope.
 
 **Release gate:** all required applicable cells for the selected profiles are
 complete, or the release explicitly lists remaining cells and narrows its claims

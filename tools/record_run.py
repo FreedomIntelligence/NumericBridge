@@ -3,58 +3,34 @@
 Call: record_run(output_root, side, task, timeout, argv, cwd=None, execution=None) -> (Path, dict)
 CLI: python scripts/record_run.py --output-root ROOT --side SIDE --task TASK --timeout SECONDS -- ARGV...
 Input: Literal argv or callable(Path) -> argv; execution is an optional JSON file path.
-Example: record_run("runs", "peer", "capture", 300, lambda run: ["collector", "--output", str(run/"artifacts")], execution="env.json")
-Output: Fresh UTC run, command.json, full logs and bounded failure tails; API returns (path, record).
-Requires: Standard library; new run path; timeout terminates the owned process group on POSIX. CLI propagates normalized child status.
+Output: Fresh run with command.json and full logs; failures add log tails and failure_class/category.
+Requires: Standard library; new run path; timeout terminates the owned process group on POSIX.
 
 Details:
-CLI: record_run.py --output-root ROOT --side ID --task TASK --timeout SECONDS
-                  [--cwd DIR] [--execution E.json] [--tail-bytes 2048] -- ARGV...
-API: record_run(output_root, side, task, timeout, argv, cwd=None, execution=None) -> (Path, dict).
-Execution JSON: {"argv_prefix":[literal,...], "env":{"NAME":"value", "REMOVE":null},
-"path_prepend":["/environment/bin",...]}; all fields optional, values literal.
-The prefix wraps each command (e.g. an interpreter or task-owned launch adapter).
-Overrides apply to the local child; remote adapters own forwarding them to jobs.
-Paths in path_prepend are absolute. No shell activation or variable expansion.
-Use the same file for a minimal native preflight and capture; workflow can pass
-it between stages and invalidate dependents when its content changes.
-The validated execution profile is retained in run/execution.json with its hash;
-the inherited environment is not copied.
-API: summarize_run(folder, record=None, tail_bytes=2048, include_tails=False) reads
-status/log paths without launching; include_tails also covers output-check failures.
-Existing cwd selects the child directory, independently of the profile location.
-Python callers may pass argv as a callable(Path) -> literal argv to use the newly
-reserved run directory. Preparation errors retain a launch_failed run without
-starting a child. CLI argv is always literal.
-IDs contain ASCII alphanumeric segments separated by single hyphens. Timeout
-must be finite and positive. Invalid inputs and existing run directories fail
-before launch; existing runs are never reused. The name is
-<side>-<task>-YYYYmmddTHHMMSSZ. Same-second collisions are errors, not retries.
-
-command.json records start/end UTC, literal argv, resolved cwd, timeout, child
-PID, status, returncode, raw child_returncode, and monotonic wall_seconds.
-stdout.bin/stderr.bin receive bytes directly from the child, without buffering
-output in the recorder. No environment snapshot is taken. Argv and child output
-are retained as supplied. Execution uses no shell. Status is running, completed,
-failed, timed_out, launch_failed, or interrupted. Normal exits retain the child
-exit code; signals become 128 + signal; timeout returns 124, launch failure 127,
-interruption 130. CLI validation/output errors return 2.
-
-CLI stdout is one JSON summary containing run, status, returncode and logs.
-Each logs entry (stdout/stderr) gives path and byte count. Unsuccessful runs
-also include the final --tail-bytes bytes per stream (default 2048, 0 disables),
-decoded as UTF-8 with replacement, and a truncated flag. Launch errors include
-error type/message. Successful output stays in files. The Python API and durable
-command.json retain their existing shape; log tails are read only for the CLI.
-
-POSIX children start a new session; on timeout/interruption, terminate that
-owned process group, wait up to 0.5 seconds for the leader, then kill the group
-(including descendants that ignore SIGTERM). Descendants that deliberately
-leave the process group are outside this guarantee. Elsewhere only the direct
-child is terminated. Ordinary successful completion does not kill background
-work. Files and command metadata remain in place on failure.
+CLI: [--cwd DIR] [--execution E.json] [--tail-bytes 2048]; stdout is one JSON summary
+(run, status, returncode, logs with path/bytes; failures add tails and the class).
+Execution JSON: {"argv_prefix":[...], "env":{"NAME":"value","REMOVE":null},
+"path_prepend":["/abs/bin",...]}; literal values, no shell or expansion. The prefix
+wraps each command; overrides apply to the local child (remote adapters forward
+them). The profile is retained in run/execution.json with its hash.
+A callable argv receives the reserved run directory. Run names are
+<side>-<task>-YYYYmmddTHHMMSSZ with alphanumeric-hyphen IDs; existing directories
+and same-second collisions fail before launch.
+command.json: start/end UTC, argv, cwd, timeout, child PID, status (running,
+completed, failed, timed_out, launch_failed, interrupted), returncode (child exit;
+128+signal; 124 timeout; 127 launch failure; 130 interruption), child_returncode and
+wall_seconds. stdout.bin/stderr.bin receive child bytes directly.
+summarize_run(folder, record=None, tail_bytes=2048, include_tails=False) reads a run
+without launching. classify_failure(record, text) maps status and the last 16 KiB of
+logs to failure_class (out_of_memory, collective_timeout, device_unavailable,
+import_error, missing_file, unsupported_operation, collective_error,
+nonfinite_values, killed, python_exception, timed_out, launch_failed, interrupted,
+unknown) and category (setup_or_resource, unsupported, reproducible_failure,
+interrupted) with the matching line as evidence.
+On timeout/interruption the POSIX process group gets SIGTERM, then SIGKILL after
+0.5 s; descendants that leave the group are not covered.
 """
-__all__ = ['record_run', 'summarize_run']
+__all__ = ['record_run', 'summarize_run', 'classify_failure']
 
 import argparse
 from datetime import datetime, timezone
@@ -198,8 +174,48 @@ def record_run(output_root, side, task, timeout, argv, cwd=None, execution=None)
     return folder, record
 
 
+FAILURE_PATTERNS = (
+    ('out_of_memory', 'setup_or_resource', r'out of memory|OutOfMemoryError|ACL_ERROR_RT_MEMORY_ALLOCATION|'
+                                           r'memory allocation failed|Cannot allocate memory|std::bad_alloc'),
+    ('collective_timeout', 'setup_or_resource', r'(NCCL|HCCL|ProcessGroup|Gloo)[^\n]*(timeout|timed out|time out)|'
+                                                r'Watchdog caught collective'),
+    ('device_unavailable', 'setup_or_resource', r'no CUDA GPUs are available|CUDA_ERROR_NO_DEVICE|devices? (is|are) busy|'
+                                                r'DEVICE_BUSY|invalid device ordinal|rtSetDevice'),
+    ('import_error', 'setup_or_resource', r'ModuleNotFoundError|ImportError|undefined symbol|'
+                                          r'cannot open shared object file|GLIBC\S* not found'),
+    ('missing_file', 'setup_or_resource', r'FileNotFoundError|No such file or directory'),
+    ('unsupported_operation', 'unsupported', r'NotImplementedError|not implemented for|is not supported|not supported on|'
+                                             r'Could not run \S+ with arguments from the'),
+    ('collective_error', 'reproducible_failure', r'NCCL error|HCCL error|nccl(Internal|System|Invalid)\w*Error'),
+    ('nonfinite_values', 'reproducible_failure', r'(loss|grad\w*) (is|became) (nan|inf)|NaN or Inf found'),
+)
+
+
+def classify_failure(record, text):
+    """Rule-based class/category for an unsuccessful run from its status and log tail text."""
+    status = record.get('status')
+    if status == 'completed':
+        return None
+    if status in ('timed_out', 'launch_failed', 'interrupted'):
+        category = 'interrupted' if status == 'interrupted' else 'setup_or_resource'
+        return dict(failure_class=status, category=category, evidence=str(record.get('error', '')) or None)
+    for name, category, pattern in FAILURE_PATTERNS:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            start, end = text.rfind('\n', 0, match.start()) + 1, text.find('\n', match.end())
+            line = text[start:end if end >= 0 else len(text)]
+            return dict(failure_class=name, category=category, evidence=line.strip()[:300])
+    if record.get('returncode') in (137, 128 + 9):
+        return dict(failure_class='killed', category='setup_or_resource', evidence='SIGKILL (host memory limit or scheduler)')
+    exceptions = re.findall(r'^(\w+(?:Error|Exception)): ?(.*)$', text, re.MULTILINE)
+    if exceptions:
+        name, message = exceptions[-1]
+        return dict(failure_class='python_exception', category='reproducible_failure', evidence=f'{name}: {message}'[:300])
+    return dict(failure_class='unknown', category='reproducible_failure', evidence=None)
+
+
 def summarize_run(folder, record=None, tail_bytes=2048, include_tails=False):
-    """Return compact status/log paths and bounded failure tails for an existing run."""
+    """Return compact status/log paths, bounded failure tails and a failure class for an existing run."""
     folder = Path(folder)
     if type(tail_bytes) is not int or tail_bytes < 0:
         raise ValueError("tail_bytes must be nonnegative")
@@ -209,16 +225,23 @@ def summarize_run(folder, record=None, tail_bytes=2048, include_tails=False):
                   returncode=record['returncode'], logs={})
     if 'error' in record:
         result['error'] = record['error']
+    scan = []
     for name in ('stdout', 'stderr'):
         path = folder / (name + '.bin')
         with path.open('rb') as stream:
             size = stream.seek(0, os.SEEK_END)
             entry = dict(path=str(path), bytes=size)
+            if record['status'] != 'completed':
+                stream.seek(max(0, size - 16384))
+                scan.append(stream.read().decode('utf-8', errors='replace'))
             if (record['status'] != 'completed' or include_tails) and tail_bytes:
                 stream.seek(max(0, size - tail_bytes))
                 entry.update(tail=stream.read(tail_bytes).decode('utf-8', errors='replace'),
                              truncated=size > tail_bytes)
         result['logs'][name] = entry
+    failure = classify_failure(record, '\n'.join(scan))
+    if failure:
+        result.update(failure)
     return result
 
 

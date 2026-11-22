@@ -2,97 +2,97 @@
 
 ## Tools
 
-Follow the entrypoint's [tool-use requirements](../SKILL.md#tool-use). Query missing interface details without importing dependencies:
+Query interfaces without importing dependencies; use `--full` when building
+manifests, plans or capture integration:
 
 ```sh
 python scripts/tool_help.py --list                  # module + purpose
-python scripts/tool_help.py compare_trees           # short declaration + signature
-python scripts/tool_help.py --full tree_compare     # detailed contract + interfaces
+python scripts/tool_help.py compare_trees           # declaration + signature
+python scripts/tool_help.py --full tree_compare     # full contract
 ```
-
-Module names return short declarations; API names add current signatures. Script `--help` also uses short declarations. Qualify ambiguous APIs as `module:API`; batch queries share declarations. Modules with `__all__` expose only those APIs. When building new manifests/plans or integrating capture, query selected tools with `--full` directly for their schemas and constraints.
 
 | Operation | Interface | Input → output |
 |---|---|---|
-| Discover interfaces | [tool_help](../scripts/tool_help.py): `--list` or API names | Names → short declarations/signatures; `--full` → detailed contracts |
-| Compare arrays | [array_compare](../scripts/array_compare.py): `compare_arrays` | Named arrays / NPZ → equality, coverage; `mode=nonfinite` adds categories and paired-finite metrics |
-| Compare state | [tree_compare](../scripts/tree_compare.py): `compare_trees`, `compare_checkpoints` | Nested state / Torch files → structure, metadata, numeric differences |
+| Compare arrays | [array_compare](../scripts/array_compare.py): `compare_arrays` | Named arrays / NPZ → equality, coverage; `mode=nonfinite` adds categories |
+| Compare state | [tree_compare](../scripts/tree_compare.py): `compare_trees`, `compare_checkpoints` | Nested state / Torch files → structure, metadata, differences |
 | Group results | [group_metrics](../scripts/group_metrics.py): `reduce_groups` | Coordinates, groups, reducer → global/per-group results |
-| Compare tensor artifacts | [compare_tensors](../scripts/compare_tensors.py): `compare`, `--mode metrics` / `nonfinite` | Contract + two manifests → metrics or anomaly counts/finite-subset metrics |
+| Compare tensor artifacts | [compare_tensors](../scripts/compare_tensors.py) | Contract + two manifests → metrics, or `--mode nonfinite` anomaly counts |
 | Compare target scores | [compare_target_scores](../scripts/compare_target_scores.py) | Contract + score records → NLL and logprob errors |
 | Compare distributions | [compare_distributions](../scripts/compare_distributions.py) | Contract + manifests → top-100 union/tail metrics |
-| Query remote distributions | [query_distributions](../scripts/query_distributions.py): `inventory`, `query`, `compare` | Source inventories + union queries → metrics; arrays stay at source |
+| Query remote distributions | [query_distributions](../scripts/query_distributions.py) | Source inventories + union queries → metrics; arrays stay at source |
 | Compare assistant-body scores | [compare_scores](../scripts/compare_scores.py) | Cache-off scoring artifacts → metrics and execution checks |
+| Judge results | [acceptance](../scripts/acceptance.py) | Comparator reports → verdict and route ([limits](acceptance.md)) |
 | Validate artifacts | [validate_artifacts](../scripts/validate_artifacts.py) | Contract + one manifest → validity/coverage |
-| Export / compare tensor views | [tensor_artifacts](../scripts/tensor_artifacts.py): `export`, `compare-views` | Rank inventories / view pairs → logical manifests / comparisons |
-| Capture inference | [inference_capture](../scripts/inference_capture.py): `FixedHistory`, `derive_logprobs`, `export_records` | Fixed tokens + native logits → validated histories/scores |
-| Plan internal capture | [msprobe_capture](../scripts/msprobe_capture.py): `plan_modules` | Modules + sizes → bounded L0 plan ([integration](layerwise.md#integrate-and-verify)) |
-| Probe runtime | [runtime_probe](../scripts/runtime_probe.py): `probe_runtime`, `runtime_identity`, `save_identity`, `check_identity` | Imports / selected files → runtime evidence or reusable results |
-| Record execution | [record_run](../scripts/record_run.py): `record_run`, `summarize_run` | Argv + optional execution JSON → native receipt, logs, bounded failure summary |
-| Find prepared resources | [resource_catalog](../scripts/resource_catalog.py): `register`, `find` | Resource identities + successful receipt → verified lookup |
-| Resume workflow | [workflow](../scripts/workflow.py): `run`, `status` | Dependency plan + workspace → reuse/execution/continuation |
-| Collect / package evidence | [evidence_bundle](../scripts/evidence_bundle.py): `fetch`, `pack`, `verify`, `extract` | Selected remote files → verified local files; optional portable ZIP |
-| Replay evidence | [replay_bundle](../scripts/replay_bundle.py) | Bundle + replay specification → reproduced reports/checks |
+| Export / compare tensor views | [tensor_artifacts](../scripts/tensor_artifacts.py) | Rank inventories / view pairs → logical manifests / comparisons |
+| Capture inference | [inference_capture](../scripts/inference_capture.py) | Fixed tokens + native logits → validated histories/scores |
+| Capture module boundaries | [capture_boundaries](../scripts/capture_boundaries.py): `BoundaryCapture`, `replay_module` | Eager Torch model + module paths → token-subset arrays, inventory, replayable calls ([layerwise](layerwise.md)) |
+| Plan msProbe capture | [msprobe_capture](../scripts/msprobe_capture.py): `plan_modules` | Modules + sizes → bounded L0 plan ([integration](layerwise.md#integrate-and-verify)) |
+| Probe runtime | [runtime_probe](../scripts/runtime_probe.py) | Imports / selected files → runtime evidence or reusable results |
+| Record execution | [record_run](../scripts/record_run.py) | Argv + execution JSON → receipt, logs, failure summary |
+| Find prepared resources | [resource_catalog](../scripts/resource_catalog.py) | Resource identities + receipt → verified lookup |
+| Run / resume a plan | [workflow](../scripts/workflow.py): `run`, `status` | Dependency plan + workspace → reuse, execution, next action |
+| Collect / package evidence | [evidence_bundle](../scripts/evidence_bundle.py) | Remote files → verified local files; portable ZIP |
+| Replay evidence | [replay_bundle](../scripts/replay_bundle.py) | Bundle + replay spec → reproduced reports |
 
-Tensor and array comparators accept `mode=metrics` (default) or `mode=nonfinite`. The latter returns category counts and paired-finite metrics; array groups share the same scan, including anomalies in unpaired expected arrays. Full coverage and subset coverage remain separate. `--chunk-size` controls streaming reads; `--max-locations` caps nonfinite coordinate examples.
+Adapters own semantic correspondence, masks, shifts, input/state and dtype
+identity; equal names or shapes do not establish correspondence. A leaf adapter
+may return `{dtype: native_dtype, values: exported_array}` to keep dtype identity.
+`exact_equal` requires finite, equal values and equal dtypes; other metrics use
+FP64. Use `--all-findings` (`max_findings=None`) for every differing coordinate.
+Pass `groups={name: array_names}` to `compare_arrays` for grouped reports from
+one scan; use `reduce_groups` for other coordinate reducers.
 
-
-Adapters establish semantic correspondence, input/state and dtype identity. Equal names/shapes alone do not establish correspondence. Native mappings avoid file conversion; other formats use task-owned loaders and leaf adapters. A leaf adapter may return `{dtype: native_dtype, values: exported_array}` to retain dtype identity during conversion.
-
-Array/tree comparisons require finite, exactly equal numeric values for `exact_equal`; optional metrics use FP64 arithmetic. Same-shape arrays with different dtypes retain dtype findings and support error metrics; `exact_equal` still requires matching dtypes. Findings are bounded examples; counts retain all differences. For every coordinate/value, use `--all-findings` or Python `max_findings=None`; checkpoint findings retain original state paths and native dtypes. Check an independent task inventory for omissions shared by both sides. Add traversal only for requested details absent from reports.
-
-For named arrays, pass `groups={name: array_names}` to `compare_arrays` (CLI: `--groups groups.json`): global and group reports reuse one scan. For other coordinate reducers, use `group_metrics.reduce_groups`. Groups may overlap; missing observations remain explicit and complete groups retain their metrics.
-
-The [gradient example](../examples/compare_gradients.py) directly compares native CPU FP32/BF16 gradients (Torch and NumPy required).
-
-Supporting modules provide [artifact readers](../scripts/artifact_io.py), [execution-condition checks](../scripts/conditions.py) and [target-score arithmetic](../scripts/score_metrics.py). Reuse them inside tools and task adapters; their module docstrings own the interfaces. Task adapters own native masks, logical mappings, losses and objective reductions.
-
-For manifest-based tools, run from the skill directory. The score, distribution and tensor comparators share `--contract`, `--side-a`, `--side-b` and `--output`; the validator uses `--manifest` for one side's input. Use fresh output paths. For a worked collection task, see the [fixed-history inference example](../examples/fixed-history-inference.md).
+Manifest tools run from the skill directory and share `--contract`, `--side-a`,
+`--side-b` and `--output` (fresh paths). Put equal conditions in `common` and
+declared differences in `side_conditions`; each rank records actual settings and
+imported versions, checked by [conditions](../scripts/conditions.py). Declare
+per-side `state` for intentionally different initial representations. See the
+[fixed-history example](../examples/fixed-history-inference.md) and the
+[gradient example](../examples/compare_gradients.py).
 
 ```sh
 python scripts/compare_tensors.py --contract gradients.json --side-a a.json --side-b b.json --output report.json
+python scripts/acceptance.py --report report.json --output acceptance.json
 ```
 
-When preparing manifests, use the selected interface. Distribution matrix rows belong inside each `scores` descriptor, e.g. `scores: {path: rows.npy, row: 3}`; multirow arrays require an explicit row. Put equal conditions in `common` and task-selected differences in `side_conditions`; each rank records its actual settings and imported versions. [Condition checks](../scripts/conditions.py) compare these against the contract-owned rank inventory. For task-selected different initial parameter representations, declare per-side `state`; common `state` retains exact before-value checks. Implement missing task-specific integration and reuse the shared arithmetic.
-
-Distribution/tensor schemas share [artifact_io.py](../scripts/artifact_io.py). Query `tool_help.py --full artifact_io` for integration contracts; tool source inspection follows the entrypoint requirements.
-
-Contracts set `thresholds: null`. Outputs contain metrics, coordinate counts and unavailable comparisons. Exit codes: 0=comparison metrics computed successfully, 1=unavailable comparison, 2=CLI/output error. Exit 0 does not establish that a user's accuracy tolerance is met.
+Comparator contracts keep `thresholds: null`; comparator exit codes are
+0=metrics, 1=unavailable comparison, 2=CLI error. Judge results with
+[acceptance](acceptance.md).
 
 ## Shared tasks
 
-Shared execution, resource/runtime identities and evidence transport are implemented
-in the task-independent `tools` package. The script paths below remain
-compatible entrypoints. From a repository checkout, export skills with
-`python -B -m scripts install --output NEW_SKILL_DIRECTORY`; the
-export includes the core so installed commands work without the checkout or RSI.
-Numerical comparison and task-specific collection remain in this skill.
+Execution, identities and evidence transport live in the shared `tools` package;
+the script paths here are its entrypoints.
 
-Keep execution options and identity manifests in adapter files; return their paths and compact receipts. `runtime_probe.save_identity(paths, manifest_path, results=None)` retains selected file hashes and completed results in a new manifest. Include source/config/data/runtime identities and evidence files relevant to those results. `check_identity(manifest_path)` returns saved results only if every identity matches; it neither runs the workload nor recomputes metrics. CLI: `python scripts/runtime_probe.py --identity MANIFEST`. Existing manually prepared manifests may use retained metadata for large resources. Reuse one execution JSON across native preflight and capture:
+Keep execution options and identity manifests in adapter files.
+`runtime_probe.save_identity(paths, manifest, results)` stores file hashes with
+completed results; `check_identity(manifest)` returns them only while every
+identity matches. Use one execution JSON for preflight and capture:
 
 ```json
 {"argv_prefix":["/env/bin/python"],"path_prepend":["/env/bin"],"env":{"HF_HUB_OFFLINE":"1"}}
 ```
 
-Fields are optional and literal; `env` values of null remove inherited variables. Prefixes may select a task-owned launcher instead of Python. Overrides apply where the recorder runs; remote launchers forward job settings. Environment adapters own scheduling, current allocation/device binding and runtime/cache paths. Prepared environments expose their verified launch command and terminal receipt; reuse them instead of rediscovering submission. Reuse prepared model identity receipts while the resource identity matches; refresh affected identity checks when it changes. Follow the [native preflight contract](../../framework-adapt/SKILL.md#native-preflight) before fresh collection. In `workflow.py`, declare the task's preflight receipt as an output and use `checks` to enforce its pass conditions when a successful command alone does not establish readiness.
+Fields are literal; `null` env values remove inherited variables. Environment
+adapters own scheduling, device binding and runtime/cache paths; reuse a prepared
+environment's verified launch command. In a workflow plan, declare the preflight
+receipt as an output and enforce its pass conditions with `checks`.
 
 ### Wait for native execution
 
-Use completion notifications or a bounded blocking wait. Keep scheduler polling,
-timeout and native terminal status in the launcher or case adapter; batch
-independent probes.
-
-Use `record_run` to retain logs and obtain a compact failure diagnostic:
+Use completion notifications or a bounded blocking wait; keep scheduler polling
+and terminal status in the launcher or adapter. Record each command:
 
 ```sh
 python scripts/record_run.py --execution environment.json --output-root runs --side SIDE --task capture --timeout 300 -- COLLECTOR ARGS
 ```
 
-Its CLI returns log paths and byte counts; failures include the final 2048 bytes
-per stream (`--tail-bytes` adjusts this). Job submission alone does not establish
-workload completion.
+Failures return log tails and a `failure_class` (for example `out_of_memory`,
+`import_error`, `collective_timeout`, `unsupported_operation`). A submitted job
+is complete only at its native terminal status.
 
-Fetch selected terminal artifacts in one transport per side. `fetch` verifies paths, hashes and sizes; its temporary transfer archive is removed. Use the receipt and `EXPORT.json` for per-file evidence, without rescanning unchanged outputs. Adapters check uncovered task identities and semantics. Large arrays remain at source; size-limit failures retain no partial output.
+Fetch terminal artifacts in one transport per side; `fetch` verifies paths,
+hashes and sizes, and large arrays stay at source:
 
 ```json
 {"transport":["ssh","HOST","bash -lc 'python3 -I -'"],"source_dir":"/work/native-run","include":["*.json","*/command.json","*/stderr.bin"]}
@@ -102,64 +102,68 @@ Fetch selected terminal artifacts in one transport per side. `fetch` verifies pa
 python scripts/evidence_bundle.py fetch fetch.json NEW_SIDE_DIRECTORY
 ```
 
-Continue the existing workload workspace across components. Reuse verified evidence unless inputs, runtime identity, scope or requested freshness change. For repeated dependency-linked commands, use a workflow plan declaring relevant inputs, outputs, checks and dependencies. Adapters take input/output paths and workload settings as parameters; derive inventories, phase boundaries and report labels from settings and computed fields. A stage selects `execution: "environment.json"` or `execution: "{artifact:adapt:execution}"` from a direct dependency. Profile changes invalidate consumers and descendants; failed continuations include bounded native log tails. Stage-specific settings belong in stage inputs; changing the shared workload identity invalidates every stage. Its [docstring](../scripts/workflow.py) defines the interface.
+For dependency-linked commands, use a workflow plan (interface in its
+[docstring](../scripts/workflow.py)). It reuses stages whose declared inputs,
+dependency outputs, executables and execution profile are unchanged, runs
+independent stages concurrently with `--jobs`, and returns `next_action` with
+the skill to load on failure. Numeric `checks` (`min`, `max`) can route a failed
+acceptance to `on_check_failure: precision-repair`. Start a plan from
+`python scripts/workflow.py init --task inference|sft|rl --sides A,B --output plan.json`;
+the [Torch example](../examples/workflow_demo.py) shows reuse, a repair and
+original-workload verification.
 
 ```sh
-python scripts/workflow.py run --plan task.json --workspace work
+python scripts/workflow.py run --plan task.json --workspace work [--jobs 2]
 python scripts/workflow.py status --plan task.json --workspace work
 ```
 
-`status` inspects reuse without launching. `run` reuses valid stages and runs
-missing work; an unchanged failed attempt returns `next_action` for inspection.
-
 ### Recover an interrupted stage
 
-Use the same plan and workspace for preflight, capture, diagnosis or verification.
-Inspect `next_action` and the recorder. When `next_action.run` and
-`declared_outputs` are present, they locate candidate artifacts; otherwise use the
-workspace attempt history and the case's scheduler job or process identifiers.
-Check the exact native job/process, since a launcher can fail while it is active.
-Follow an active job. If its state is unknown, keep the dependent run blocked
-and advance independent work. Once terminal, verify actual success and the
-original input, runtime, device, output and coverage checks before reusing any
-landed result. Preserve a failed wrapper receipt and record verified recovery
-separately. Resume only missing or affected work. A file or wrapper exit alone
-is not proof of native success. The runner does not wake a stopped session.
-
-For result-review requests, return verified retained outputs and their source paths. For fresh measurements, use `--refresh` on the requested capture or comparison stage(s); descendants rerun while valid preparation and unrelated stages remain reusable. Changed inputs invalidate affected stages automatically. Reopen instructions/interfaces when they change or an integration question remains. Task-owned correctness checks can route to repair.
-
-Use the resource catalog when prepared environments/adapters need discovery across workloads. Register reusable resources with successful native command receipts. A single task can use its existing paths directly.
-
-The [native Torch example](../examples/workflow_demo.py) demonstrates preparation reuse, a controlled repair and original-workload verification; unchanged replay launches zero native commands.
+Rerun the same plan and workspace. Use `next_action.run`, `declared_outputs` and
+the case's job/process IDs to find the native run. Follow an active job; while
+its state is unknown, keep dependents blocked and advance independent work. Once
+terminal, reuse landed results only after their input, runtime, device, output
+and coverage checks pass, and record the recovery separately from the failed
+wrapper. Use `--refresh STAGE` for requested fresh measurements; descendants
+rerun and unrelated stages stay reused. Register resources reused across
+workloads in the resource catalog.
 
 ## Portable evidence
 
-For requested portable evidence or replay, use `evidence_bundle.py` to pack selected artifacts; ordinary delivery uses existing artifact paths. Its index records original/exported SHA256 and byte counts. Optional literal replacements apply to UTF-8 text while preserving numeric arrays; keep the replacement file outside the selected directory. The tool docstring defines file selection and size limits.
+When requested, pack selected artifacts; the index keeps original/exported
+SHA256 and sizes. Replay needs `REPLAY.json` with named cases (see the
+[replay docstring](../scripts/replay_bundle.py)).
 
 ```sh
 python scripts/evidence_bundle.py pack SELECTED_FILES NEW.zip
 python scripts/evidence_bundle.py verify NEW.zip
-python scripts/evidence_bundle.py extract NEW.zip NEW_DIRECTORY
 python scripts/replay_bundle.py --bundle NEW.zip --output-root runs
 ```
 
-For replay, include `REPLAY.json` with named cases selecting a supported validator/comparator, relative input paths and expected report fields. Tensor cases may set `mode=metrics|nonfinite`. Preserve side identities and order. Replay uses the installed skill CLIs and retained arrays; expected-value checks establish reproducibility of those metrics. The [replay tool docstring](../scripts/replay_bundle.py) owns case fields and supported operations.
-
 ## Coordinates
 
-Pair target scores by sample/target position/token, distributions by sample/prediction position, and tensors by logical tensor/element. In causal inference, prediction position $t-1$ predicts target position $t$. For `stage: observations`, declare each tensor's logical sampling `coordinates` in the contract and both manifests; retain sample/token selection, boundary, invocation and execution stage as applicable. Native names map to this identity in the adapter. Reconstruct logical coordinates from shards, packed batches and fused projections; retain tied-weight mappings and reduction tags. Check expected coordinates, masks and ranks, and verify converted initial values. Exclude padding, deduplicate equal replicas, and retain differing replicas as explicit views. Distinguish absent gradients from present zeros.
+Pair target scores by sample/target position/token, distributions by
+sample/prediction position, and tensors by logical tensor/element. In causal
+inference, prediction position $t-1$ predicts target position $t$. For
+`stage: observations`, declare each tensor's logical `coordinates` (sample/token
+selection, boundary, invocation, execution stage) in the contract and both
+manifests. Reconstruct logical coordinates from shards, packed batches and fused
+projections; keep tied-weight mappings and reduction tags. Exclude padding,
+deduplicate equal replicas, keep differing replicas as explicit views, and
+distinguish absent gradients from present zeros.
 
 ## Target-token scores
 
-For two executions' logprobs $\ell_{a,i},\ell_{b,i}$ over $N$ valid targets, report each side's NLL and their absolute difference:
+For logprobs $\ell_{a,i},\ell_{b,i}$ over $N$ valid targets, report each side's
+NLL and their absolute difference:
 
 $$
 \mathrm{NLL}_{s} = -\frac{1}{N}\sum_{i=1}^{N} \ell_{s,i}
 $$
 
-For $e_i=|\ell_{a,i}-\ell_{b,i}|$, report MAE, P99 and maximum with its coordinate.
-
-Use the global valid-target count. Native loss retains its implemented reduction. Percentiles use all paired errors, linearly interpolated at $a(N-1)$; P99 uses $a=0.99$.
+For $e_i=|\ell_{a,i}-\ell_{b,i}|$, report MAE, P99 (linear at $0.99(N-1)$) and
+maximum with its coordinate. Use the global valid-target count; native loss keeps
+its implemented reduction.
 
 ## Tensors
 
@@ -169,11 +173,13 @@ For paired tensors $a$ and $b$, use stable FP64 reductions:
 |---|---|
 | L2 error | $\lVert a-b\rVert_2$ |
 | RMSE | $\lVert a-b\rVert_2/\sqrt{N}$ |
-| Cosine | $a^\top b/(\lVert a\rVert_2\lVert b\rVert_2)$ |
+| Cosine | $a^\top b/(\lVert a\rVert_2\lVert b\rVert_2)$, null when a norm is zero |
+| Norm ratio | $\lVert b\rVert_2/\lVert a\rVert_2$ |
 | Maximum absolute error | $\max_i \lvert a_i-b_i\rvert$ |
 
-Global metrics concatenate coordinates. Retain counts and signal/error norms. Actual updates are $\theta_{after}-\theta_{before}$, promoting stored values to at least FP32 before subtraction.
-
-Cosine is undefined when either norm is zero. Represent undefined metrics as null with a reason.
-
-Use finite target scores/tensors; distribution logprobs permit `-inf` for zero probability. For tensor NaN or Inf, use `compare_tensors.py --mode nonfinite` with the same contract and manifests. Report anomaly counts and paired finite coverage separately from finite-subset error metrics; matching nonfinite locations do not establish correctness. Query `tool_help.py --full compare_tensors` for detailed capture encodings and diagnostic semantics. Retain the original arrays for repair and evidence replay.
+Global metrics concatenate coordinates; keep counts and norms. For hidden-state
+observations, also compute cosine per valid token and report its mean, P1 and
+minimum, since a global cosine hides a few bad tokens. Actual updates are
+$\theta_{after}-\theta_{before}$ with stored values promoted to at least FP32.
+For NaN or Inf, run `compare_tensors.py --mode nonfinite` on the same inputs and
+report anomaly counts and paired-finite coverage beside the finite-subset metrics.

@@ -1,6 +1,6 @@
 # Community submission guide
 
-Select public findings from the local issue record and linked evidence. Follow
+Select public findings from diagnosis.json and its linked evidence; follow
 [the workflow](../../numericbridge/references/workflow.md#community-contribution)
 for preview and consent.
 
@@ -8,48 +8,43 @@ for preview and consent.
 
 | Work completed | What to record |
 |---|---|
-| Comparison | Tested configurations, workload, coverage and measured differences. It can stand alone; record acceptance separately. |
-| Diagnosis | Link the observed issue and investigation to the comparison or native failure. Cite the evidence for its classification. |
-| Solution | Link each candidate to the issue and record its own scope, configuration, outcome and tradeoffs. Distinguish source review, workaround and original-path verification. |
+| Comparison | Tested configurations, workload, coverage, measured differences and the acceptance verdict with its profile. |
+| Diagnosis | The observed issue and investigation linked to the comparison or native failure, with the evidence for its classification. |
+| Solution | Each candidate linked to the issue with its scope, configuration, outcome and tradeoffs; mark source review, workaround or original-path verification. |
 
 Record hardware, checkpoint and revision, tested framework/version, task and
-settings. Use `model.architecture` and `model.size` for search; use `tiny` for a
-custom miniature fixture and retain its dimensions and seed. Use `frameworks`
-for tested frameworks, `libraries` for dependencies and `affected_library` for
-the repair target. Keep versions and commits in their own fields.
+settings. Use `model.architecture` and `model.size` for search (`tiny` for a custom
+miniature fixture, with its dimensions and seed), `frameworks` for tested
+frameworks, `libraries` for dependencies and `affected_library` for the repair
+target, with versions and commits in their own fields.
 
 ## Write the public entry
 
-Describe the symptom or observed effect in a short title and summary; keep
-settings and metrics in structured fields. Use `content.title` and optional
-`content.summary` in `zh` and/or `en` (`details.content` for lifecycle entities).
-`content.workflows` describes affected tasks; experiment settings describe what
-ran. Clarify historical wording by typed ID in `data/content.json`.
-
-Include only the evidence needed to trace the result. Keep raw logs, prompts,
-private paths and host details local; retain public stack identities.
+Give the symptom in a short title and summary (`content.title`, optional
+`content.summary`, in `zh` and/or `en`; `details.content` for lifecycle entities);
+keep settings and metrics in structured fields. `content.workflows` describes
+affected tasks. Clarify historical wording by typed ID in `data/content.json`.
+Include only the evidence needed to trace the result; keep raw logs, prompts,
+private paths and host details local.
 
 ## Prepare an upstream PR draft
 
-For a verified patch intended for upstream, identify the repository and base
-branch. Read that branch's contribution guide, PR template and relevant linked
-requirements. Use the template, or **Problem / Change / Validation / Patch**
-if absent or unreadable; record which guidance could not be checked.
+For a verified patch intended for upstream, read the target repository's base
+branch contribution guide and PR template; otherwise use **Problem / Change /
+Validation / Patch** and note which guidance could not be checked. Include a
+title, existing issue link, affected setup, minimal reproducer, matched
+before/after results, commands run and the patch. Leave pending checks unchecked
+and record a PR URL only once it exists.
 
-Include a title, any existing issue link, affected setup, minimal reproducer,
-matched before/after results, commands run and the patch or public link. Keep
-pending checks and attestations unchecked. Record a PR URL only once it exists.
-
-Attach the draft through the record's `evidence` reference. In the
-`prepare_community_submission` evidence map, add `upstream_pr_draft` to a new
-`evidence/submissions/*.json` document with `repository`, `base_branch`, `title`,
-`body_markdown`, `guidance_urls` and `pending_checks`. Put the patch or link in
-the body or same document; the regular preview and consent cover it.
+Attach the draft as `upstream_pr_draft` in a new `evidence/submissions/*.json`
+document (`repository`, `base_branch`, `title`, `body_markdown`, `guidance_urls`,
+`pending_checks`) referenced from the `prepare_community_submission` evidence map;
+the regular preview and consent cover it.
 
 ## Local preview
 
-If contribution MCP is unavailable, retain the anonymized input. From the
-repository checkout, validate the local draft:
+Without the contribution MCP, keep the anonymized input and validate it from the
+repository checkout:
 
 ```sh
 python -B -m community.records.submission --input submission.json --output preview.json
