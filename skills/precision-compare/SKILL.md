@@ -1,6 +1,6 @@
 ---
 name: precision-compare
-description: Collect and compare numerical observations for inference, SFT and RL against an aligned reference or another configuration.
+description: Collect and compare numerical observations for inference, SFT and RL against an aligned reference or another configuration, and judge them with a versioned acceptance profile.
 ---
 
 # Precision comparison
@@ -9,27 +9,28 @@ Start from the workload, reference, observation points and available evidence.
 
 ## Collect
 
-Select exactly one recipe for the requested workload and read only that recipe:
+Read only the recipe for the requested workload:
 
 - [Inference](references/inference.md): scores, distributions, cache stages.
 - [SFT, full / LoRA](references/sft.md): objectives, gradients, stored updates.
 - [RL](references/rl.md): trajectories, objectives, updates.
 
-Read the [execution guide](references/comparison.md#wait-for-native-execution)
-when you need shared receipts, workflow continuation or a tool interface. Read
-[tool use](references/comparison.md#tools) only when selecting or integrating a
-comparator. Read [internal sampling](references/layerwise.md) only when the
-confirmed scope includes layerwise observations. Do not load unrelated recipes
-or references. Run independent captures concurrently when resources and
-isolation allow. Preserve native operators, state transitions and dtype identity.
+Read [comparison](references/comparison.md) for tools, shared execution and
+metric definitions, and [layerwise](references/layerwise.md) only when the scope
+includes internal observations. Run independent captures concurrently when
+resources and isolation allow. Preserve native operators, state transitions and
+dtype identity.
+
+## Judge
+
+Judge every formal comparison with [acceptance](references/acceptance.md) and
+follow its route: deliver, offer optional optimization, diagnose, stabilize or
+recover the capture.
 
 ## Tool use
 
-Install with the repository exporter to bundle the tools. Use Python 3.10+ and
-NumPy for array tools. Native execution uses the runtime required by the task.
-
-Select a [comparator](references/comparison.md#tools) and use adapters for
-task-specific coordinates, masks, shifts and state. Read [tool help](scripts/tool_help.py)
-for missing interface details. Inspect source for edits, failures and audits.
-Batch checks of retained results. Recompute affected results when their evidence
-changes or a check calls them into doubt.
+Install with the repository exporter to bundle the shared tools. Use Python 3.10+
+and NumPy for array tools; native execution uses the task's runtime. Select a
+[comparator](references/comparison.md#tools) and keep task-specific coordinates,
+masks, shifts and state in adapters. Read [tool help](scripts/tool_help.py) for
+interface details. Recompute affected results when their evidence changes.
