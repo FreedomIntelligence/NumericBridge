@@ -2350,7 +2350,7 @@ RENDER[""] = function renderHome() {
   view.innerHTML = `<div class="wrap">
     <header class="home-intro" data-ol="${tx("首页概览", "Overview")}" data-ol-number="·">
       <h1 class="h1">NumericBridge</h1>
-      <p class="home-tagline">${tx('面向推理、训练、强化学习的<strong>跨栈精度对齐</strong>框架与协作社区', '<strong>Cross-Stack Precision Alignment</strong> Framework and Collaborative Community for Inference, Training, and Reinforcement Learning')}</p>
+      <p class="home-tagline">${tx('面向推理与训练的<strong>跨栈精度对齐</strong>框架与协作社区', 'A framework and collaborative community for <strong>cross-stack precision alignment</strong> in inference and training')}</p>
       <ul class="home-affiliations" aria-label="${tx("参与机构", "Participating institutions")}">${institutions.map(name => `<li>${esc(name)}</li>`).join("")}</ul>
     </header>
     <section class="home-workflow" aria-label="${tx("适配流程", "Adaptation workflow")}" data-ol="${tx("流程概览", "Workflow")}">${sceneFlowHtml()}</section>
