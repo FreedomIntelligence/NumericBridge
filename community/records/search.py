@@ -20,7 +20,8 @@ HARDWARE_RULES = [
     dict(pattern=r'(?<![a-z0-9_])(?:[1-9][0-9]*\s*[x×]\s*)?h100(?![a-z0-9_])', name='NVIDIA H100', family='gpu'),
     dict(pattern=r'5090', name='RTX 5090', family='gpu'),
     dict(pattern=r'5060', name='RTX 5060', family='gpu'),
-    dict(pattern=r'\bb200\b', name='NVIDIA B200', family='gpu'),
+    # B20Z is the device name the B200 host reports (PCI 10de:2bb9), as H20Z is for H200.
+    dict(pattern=r'(?<![a-z0-9_])(?:[1-9][0-9]*\s*[x×]\s*)?b(?:200|20z)(?![a-z0-9_])', name='NVIDIA B200', family='gpu'),
     dict(pattern=r'nvidia|cuda|geforce', name='NVIDIA GPU', family='gpu'),
     dict(pattern=r'cpu|aarch64|x86_64|macos|wsl', name='CPU', family='cpu'),
 ]

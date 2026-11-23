@@ -97,7 +97,7 @@ stack remains in `libraries`. The legacy `cases` command can still look up
 packages in the environment. Use a model group such as
 `Qwen3 Dense` or `Qwen3 MoE` to browse, or an exact recorded checkpoint name
 for a recommendation. The API also accepts `model_size`, task and library version.
-The search normalizes indexed aliases, including H20Z → H200 and
+The search normalizes indexed aliases, including H20Z → H200, B20Z → B200 and
 910_9382 → Ascend 910C. Device count and execution settings remain with the
 configuration. Unknown names remain searchable as entered.
 

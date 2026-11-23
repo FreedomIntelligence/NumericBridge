@@ -75,7 +75,7 @@ recorded acceptance and links between the solution, verification and original
 workload. Resolution also requires a link from the solution to the selected issue.
 Partial, rejected and source-inspected candidates retain their own states.
 
-Hardware aliases group H20Z under H200 and 910_9382 under Ascend 910C. Device
+Hardware aliases group H20Z under H200, B20Z under B200 and 910_9382 under Ascend 910C. Device
 counts, topology and raw settings remain attached to the actual configuration.
 Unknown hardware and model names retain their identities.
 

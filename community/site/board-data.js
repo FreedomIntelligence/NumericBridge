@@ -18,6 +18,7 @@
     [rx("h100"), "NVIDIA H100", "gpu"],
     [rx("5090"), "RTX 5090", "gpu"],
     [rx("5060"), "RTX 5060", "gpu"],
+    [rx("(?<![a-z0-9_])b(?:200|20z)(?![a-z0-9_])"), "NVIDIA B200", "gpu"],
     [rx("nvidia|cuda|geforce"), "NVIDIA GPU", "gpu"],
     [rx("cpu|aarch64|x86_64|macos|wsl"), "CPU", "cpu"],
   ];
@@ -35,7 +36,7 @@
       .map(function (entry) { return entry[1]; });
     if (names.indexOf("Ascend 910C")>=0 || names.indexOf("Ascend 910B")>=0)
       names=names.filter(function (name) { return name!=="Ascend NPU"; });
-    if (names.some(function (name) { return /^(NVIDIA H|RTX )/.test(name); }))
+    if (names.some(function (name) { return name!=="NVIDIA GPU" && /^(NVIDIA |RTX )/.test(name); }))
       names=names.filter(function (name) { return name!=="NVIDIA GPU"; });
     // CPU offload in an accelerator environment is not a CPU platform result.
     if (names.some(function (name) { return name!=="CPU"; }))
