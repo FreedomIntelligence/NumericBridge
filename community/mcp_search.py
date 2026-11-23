@@ -47,6 +47,7 @@ def register_search(server: MCPServer, index_path: Path, *, index_sha256: str | 
         model_size: LookupText | None = None,
         limit: PageSize = 20,
         offset: PageOffset = 0,
+        related_limit: Annotated[int, Field(ge=0, le=20)] = 5,
     ) -> dict[str, Any]:
         """Search by target hardware, model, tested framework (library), and task.
 
@@ -54,10 +55,13 @@ def register_search(server: MCPServer, index_path: Path, *, index_sha256: str | 
         needed. Returns matching cases, issues, solutions and verification references,
         supported stack recommendations, and the index identity. No match is
         a normal result. Listed alternatives never replace a fixed version.
+        Without an exact match, `related` lists up to related_limit nearest cases
+        that differ in one field (for example another model of the same stack);
+        read their differences before reusing their issues or solutions.
         """
         request = dict(hardware=hardware, model=model, library=library, task=task,
                        version=version, model_size=model_size)
-        result = search(index, request, limit=limit, offset=offset)
+        result = search(index, request, limit=limit, offset=offset, related_limit=related_limit)
         result['retrieval'] = index_identity.copy()
         return result
 

@@ -12,8 +12,12 @@ for preview and consent.
 | Diagnosis | The observed issue and investigation linked to the comparison or native failure, with the evidence for its classification. |
 | Solution | Each candidate linked to the issue with its scope, configuration, outcome and tradeoffs; mark source review, workaround or original-path verification. |
 
-Record hardware, checkpoint and revision, tested framework/version, task and
-settings. Use `model.architecture` and `model.size` for search (`tiny` for a custom
+Group the submission under one `case` relation entity (`details.request` with
+hardware, model, framework, task and goal; `details.category`) with an `includes`
+link to every comparison, repair, issue and candidate it adds; search indexes
+cases, so records outside a case are not retrievable, and the preview then also
+checks their search facets. Record hardware, checkpoint and revision, tested
+framework/version, task and settings. Use `model.architecture` and `model.size` for search (`tiny` for a custom
 miniature fixture, with its dimensions and seed), `frameworks` for tested
 frameworks, `libraries` for dependencies and `affected_library` for the repair
 target, with versions and commits in their own fields.
