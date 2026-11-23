@@ -19,10 +19,29 @@ sequences or scale need more iterations or the target workload.
 
 ## Collection
 
-For the first full-loop comparison, use a fixed prompt set sized for a valid
-update, one optimizer update and the first rollout under the updated policy. Pair
-per-action scores only at matching histories, and distinguish common model state
-from independently updated state at the same step.
+For the first full-loop comparison, start with a fixed prompt set sized for a
+valid update, one optimizer update, and the first rollout using the updated
+policy. Keep evidence of policy consumption separate from evidence of numerical
+agreement. Pair per-action scores only at matching histories and distinguish
+common model state from independently updated state at the same step number.
+
+For each in-scope stage, verify the common initial model and optimizer state
+where applicable, then pair the required scoring, reward/advantage, loss,
+selected gradients and actual parameter deltas. When both native stacks are in
+scope and online divergence prevents those pairs, replay the smallest valid
+fixed trajectory batch on both stacks from the matched state. Reuse existing
+paired captures and replay only enough to cover the missing stage. Mark the
+aligned comparison incomplete if a required native capture is unavailable;
+CPU objective recomputation or a score-only probe covers only its own stages.
+
+For each claimed group-centered reward gradient check, retain mixed-group and
+valid-action counts after filtering and masking on both sides, plus a nonzero
+reward-driven reference gradient before cross-prompt aggregation. Put coverage
+in the comparison receipt. An optimizer step or nonzero total gradient cannot
+satisfy this check. If coverage is missing, reuse matching evidence or run the
+smallest [fixed mixed-reward replay](../examples/minimal-precision-batch.md#fixed-precision-batch)
+that covers it. Keep online and replay results separate; do not rerun the online
+batch just to fill this gap.
 
 For each in-scope stage, verify common initial model and optimizer state, then
 pair scoring, reward/advantage, loss, selected gradients and actual parameter

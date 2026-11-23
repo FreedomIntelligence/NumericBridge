@@ -84,7 +84,10 @@ Use [framework-adapt](../../framework-adapt/SKILL.md#execute) and its
 <action>
   Prepare target and reference independently, reusing matching environments and
   receipts. Confirm device binding and preflight each unverified native path with
-  its collectors.
+  its collectors. In each preflight worker, collect the environment receipt
+  (`tools.environment_receipt`) after the workload reaches its runtime path:
+  framework, backend plugin, runtime, driver and launch image, keeping unknown
+  distinct from not applicable.
 </action>
 
 <output>
@@ -230,7 +233,9 @@ Use the [community record guide](../../precision-compare/references/community-re
 ```xml
 <contribute when="local delivery has a shareable result or a contribution is being resumed">
   Honor a prior decline. Prepare an anonymized draft with minimum evidence and a PR
-  draft for any verified patch intended for upstream. Fix findings from
+  draft for any verified patch intended for upstream. Default to anonymous credit;
+  pass attribution_mode and attribution_name only for a user-chosen nickname or
+  GitHub @username. Fix findings from
   prepare_community_submission until it returns ready, show the exact preview and
   destination, then call submit_community with its draft ID and digest; that form
   is the approval. Decline or dismissal ends the offer. If submission is

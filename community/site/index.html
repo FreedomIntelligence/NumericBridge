@@ -122,8 +122,6 @@ br.d{display:inline}
 .langbtn{width:auto;min-width:40px;padding:0 9px;font:500 11px/1 var(--mono);letter-spacing:.06em}
 .acts .github-link{gap:6px}
 .github-link svg{width:16px;height:16px;flex:none;fill:currentColor}
-.mockbar{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--hair);font:10px/1.6 var(--mono);letter-spacing:.04em;color:var(--faint)}
-.mockbar b{font-weight:500;color:var(--red)}
 
 /* ---------- buttons ---------- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:18px;min-height:42px;padding:10px 18px;border:1px solid var(--line);border-radius:4px;font-size:13px;font-weight:500;line-height:1.3;white-space:nowrap;background:transparent;transition:background .2s,border-color .2s,transform .2s,color .2s}
@@ -1423,14 +1421,14 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
     <button class="iconbtn" id="theme" title="切换明暗" aria-label="切换明暗">◐</button>
   </div>
 </div></header>
-<div class="wrap mockbar" id="mockbar"><b id="mbTag">● 实测记录</b><span id="mbDesc">读数与结构直接取自 data/evaluations.json 与 data/repairs.json</span><span id="updated"></span></div>
 
 <main id="main">
-  <p class="wrap empty" id="boot">正在读取内嵌数据…</p>
+  <p class="wrap empty" id="boot" role="status">正在加载…</p>
   <section class="view" id="v-home" hidden></section>
   <section class="view" id="v-overview" hidden></section>
   <section class="view" id="v-list" hidden></section>
   <section class="view" id="v-records" hidden></section>
+  <section class="view" id="v-acknowledgments" hidden></section>
   <section class="view" id="v-compare" hidden></section>
   <section class="view" id="v-platform" hidden></section>
   <section class="view" id="v-repairs" hidden></section>
@@ -1444,7 +1442,7 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
 <footer class="foot"><div class="wrap">
   <a class="brand" href="#/"><svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><path d="M5 26Q24 -2 43 26" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path d="M13 16.7V26M35 16.7V26M19 13V26M29 13V26" stroke="currentColor" stroke-width="1.7"/><rect x="7.5" y="32.5" width="4.5" height="5.5" rx=".8" fill="currentColor"/><rect x="36" y="32.5" width="4.5" height="5.5" rx=".8" fill="currentColor"/><rect x="4" y="26" width="7" height="6.5" rx="1" fill="currentColor"/><rect x="12.25" y="26" width="7" height="6.5" rx="1" fill="currentColor"/><rect x="28.75" y="26" width="7" height="6.5" rx="1" fill="currentColor"/><rect x="37" y="26" width="7" height="6.5" rx="1" fill="currentColor"/><rect x="20.5" y="22" width="7" height="6.5" rx="1" fill="var(--red)"/></svg><span><b>NumericBridge</b><small>cross-stack numerics</small></span></a>
   <span id="footNote">跨硬件与软件栈的精度评测与修复记录。</span>
-  <span class="foot-links"><a href="#/?section=citation" id="footCite">引用</a><a href="#top" id="toTop">回到顶部 ↑</a></span>
+  <span class="foot-links"><a href="#/acknowledgments" id="footCredits">社区鸣谢</a><a href="#/cite" id="footCite">引用与数据</a><a href="#top" id="toTop">回到顶部 ↑</a></span>
 </div></footer>
 
 <div class="scrim" id="scrim"></div>
@@ -1462,7 +1460,7 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
 
 <script src="./board-data.js?v=ascend-910c"></script>
 <script src="./search.js?v=framework-scope-20261118"></script>
-<script src="./cases.js?v=home-coverage"></script>
+<script src="./cases.js?v=community-acknowledgments"></script>
 <script>
 "use strict";
 function start(DATA) {
@@ -2024,10 +2022,11 @@ function writeQuery(name, params) {
   const s = qs.toString().replace(/%2C/g, ",").replace(/%7C/g, "|");
   history.replaceState(null, "", `#/${name}${s ? "?" + s : ""}`);
 }
-const VIEWS = { "": "v-home", overview: "v-overview", list: "v-list", records: "v-records", compare: "v-compare", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how" };
+const VIEWS = { "": "v-home", overview: "v-overview", cite: "v-cite", list: "v-list", records: "v-records", compare: "v-compare", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how", acknowledgments: "v-acknowledgments" };
 const RENDER = {};
 RENDER.cases = h => NumericBridgeCases.mount(byId("v-cases"), h, { lang: LANG });
 RENDER.report = h => NumericBridgeCases.mountReport(byId("v-report"), h, { lang: LANG, copyLink: copyText });
+RENDER.acknowledgments = () => NumericBridgeCases.mountAcknowledgments(byId("v-acknowledgments"), LANG);
 RENDER.records = () => {
   const rows = [
     [tx("评测记录", "Evaluation records"), tx(`${fmtInt(EVALS.size)} 个评测 · ${fmtInt(ROWS.length)} 条实测比较`, `${fmtInt(EVALS.size)} evaluations · ${fmtInt(ROWS.length)} measured comparisons`), "#/list?group=eval&sort=date", "evaluations"],
@@ -2057,11 +2056,7 @@ function route() {
   const navKey = name === "platform" ? "compare" : name === "report" ? "cases" : name;
   $$("#nav a").forEach(a => a.dataset.route === navKey ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   byId("csv").hidden = !(name === "list" || name === "repairs");
-  byId("mockbar").hidden = ["", "how", "overview", "cases", "report", "compare", "repairs", "records"].includes(name);
-  byId("mbTag").textContent = tx("● 实测记录", "● Measured records");
-  byId("mbDesc").textContent = tx("读数与结构直接取自 data/evaluations.json 与 data/repairs.json", "Read directly from data/evaluations.json and data/repairs.json");
-  byId("updated").textContent = S.updated_at ? tx(`数据更新于 ${S.updated_at}`, `Updated ${S.updated_at}`) : "";
-  const key = name + "/" + (h.arg || "") + (citeJump ? "?section=citation" : "");
+  const key = name + "/" + (h.arg || "");
   RENDER[name](h);
   if (citeJump) byId("homeCitation").scrollIntoView({ block: "start", behavior: "instant" });
   else if (key !== lastView) window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
@@ -2350,7 +2345,7 @@ RENDER[""] = function renderHome() {
   view.innerHTML = `<div class="wrap">
     <header class="home-intro" data-ol="${tx("首页概览", "Overview")}" data-ol-number="·">
       <h1 class="h1">NumericBridge</h1>
-      <p class="home-tagline">${tx('面向推理与训练的<strong>跨栈精度对齐</strong>框架与协作社区', 'A framework and collaborative community for <strong>cross-stack precision alignment</strong> in inference and training')}</p>
+      <p class="home-tagline">${tx('面向推理、训练与强化学习的<strong>跨栈精度对齐</strong>框架与协作社区', 'A framework and collaborative community for <strong>cross-stack precision alignment</strong> in inference, training, and reinforcement learning')}</p>
       <ul class="home-affiliations" aria-label="${tx("参与机构", "Participating institutions")}">${institutions.map(name => `<li>${esc(name)}</li>`).join("")}</ul>
     </header>
     <section class="home-workflow" aria-label="${tx("适配流程", "Adaptation workflow")}" data-ol="${tx("流程概览", "Workflow")}">${sceneFlowHtml()}</section>
@@ -2369,6 +2364,15 @@ RENDER[""] = function renderHome() {
   </div>`;
   sceneFlow();
   renderHomeCoverage(byId("homeCoverageList"));
+  byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
+};
+RENDER.cite = function renderCitationPage() {
+  const view = byId("v-cite");
+  if (view.firstElementChild) return;
+  view.innerHTML = `<div class="wrap sec first">
+    <header class="sec-head"><h1 class="h2">${tx("数据与引用", "Data &amp; Citation")}</h1><a class="link" href="#/overview">${tx("评测概览 →", "Evaluation overview →")}</a></header>
+    <div class="cite" id="citeBox"></div>
+  </div>`;
   renderCite();
   byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
 };
@@ -4348,15 +4352,13 @@ byId("theme").onclick = () => {
 };
 syncThemeMeta();
 byId("toTop").onclick = e => { e.preventDefault(); scrollTo({ top: 0, behavior: "smooth" }); };
-byId("updated").textContent = S.updated_at ? tx(`数据更新于 ${S.updated_at}`, `Updated ${S.updated_at}`) : "";
 /* page chrome that lives in the static markup */
 document.documentElement.lang = LANG === "en" ? "en" : "zh-CN";
 if (LANG === "en") {
   const NAV_EN = { "": "Home", cases: "Cases", compare: "Hardware Comparison", how: "Framework Implementation" };
   $$("#nav a").forEach(a => { a.textContent = NAV_EN[a.dataset.route] ?? a.textContent; });
   const setT = (id, t) => { const el = byId(id); if (el) el.textContent = t; };
-  setT("footCite", "Citation"); setT("toTop", "Back to top ↑");
-  setT("mbTag", "● Measured records"); setT("mbDesc", "Read directly from data/evaluations.json and data/repairs.json");
+  setT("footCite", "Cite & data"); setT("footCredits", "Community acknowledgments"); setT("toTop", "Back to top ↑");
   setT("footNote", "Precision evaluations and repairs across hardware and software stacks.");
   byId("csv").innerHTML = "Export CSV <span>↓</span>";
   byId("theme").title = "Toggle theme"; byId("theme").setAttribute("aria-label", "Toggle theme");
@@ -4747,18 +4749,21 @@ function startEN() {
 
 startEN();
 addEventListener("hashchange", route);
-byId("boot").remove();
 route();
+byId("boot").remove();
 }
 
 /* The records are read from the site's own data files, so the board can never
    show a copy that has drifted from what the rest of the site serves. */
-buildBoard("./data/").then(start).catch(err => {
-  const el = document.getElementById("boot");
-  if (el) el.innerHTML = "读取 <code>data/evaluations.json</code> 与 <code>data/repairs.json</code> 失败："
-    + String((err && err.message) || err)
-    + "。<br>若在本地打开，请用静态服务器访问（<code>python3 -m http.server</code>）；"
-    + "<code>file://</code> 下浏览器不允许读取同目录文件。";
+const boot = document.getElementById("boot");
+const bootInEnglish = (() => {
+  try { return (new URLSearchParams(location.search).get("lang") || localStorage.getItem("nb-lang")) === "en"; }
+  catch (e) { return false; }
+})();
+if (bootInEnglish) boot.textContent = "Loading…";
+Promise.resolve().then(() => buildBoard("./data/")).then(start).catch(err => {
+  console.error("NumericBridge startup failed", err);
+  boot.textContent = bootInEnglish ? "Could not load community data. Refresh to try again." : "加载失败，请刷新重试。";
 });
 </script>
 </body>

@@ -2,7 +2,7 @@
 """Run and resume dependency-linked adaptation/comparison/repair commands (POSIX, stdlib).
 Call: run_workflow(plan_path, workspace, refresh=(), time_budget_seconds=None, jobs=1); inspect_workflow(plan_path, workspace); init_plan(task, sides)
 Input: Dependency plan with source/runtime inputs, outputs, checks and cumulative budget.
-Output: Verified reuse/execution receipts, artifact paths and next_action (skill, reason, failure class, log tails).
+Output: Verified receipts, next_action, runnable_actions and blocked_actions.
 Requires: Standard library/POSIX; status launches nothing; unchanged failures are retained; --refresh reruns selected stages and descendants.
 
 Details:
@@ -31,14 +31,36 @@ change its inputs or pass --refresh. Missing outputs, failed checks, changing in
 and unsuccessful commands are never reused. Checks express task-owned readiness or
 acceptance; a failed check routes to on_check_failure (e.g. precision-repair).
 
---jobs N runs up to N ready stages concurrently. After a failure no new stage
-starts; running stages finish and are recorded, and other failures are listed in
-other_actions. Budget reserves each running stage's timeout.
+--jobs N runs up to N ready stages concurrently; independent branches keep
+running after a failure. Budget reserves each running stage's timeout.
 next_action gives the stage, the skill to load, the reason and, for a run, its
 logs, declared outputs and record_run failure_class/category. Commands use
 record_run (logs, timeout, process-group cleanup). A process lock prevents
 concurrent runners; after a hard-killed runner, a still-live recorded child blocks
 duplicate launch.
+argv substitutes {run} (fresh stage directory), {root}, and
+{artifact:STAGE:NAME} (a declared dependency output), without shell evaluation.
+Outputs must be files/directories inside that run. Missing outputs, failed JSON
+checks, changing inputs and unsuccessful commands are never successful cache hits.
+No precision tolerance is supplied: checks express task-owned validation or
+correctness evidence; comparator exit 0 establishes metrics, not user acceptance.
+
+Workspace state.json contains attempts, content identities and artifact paths.
+Successful unchanged stages are reused after checking output hashes. A matching
+failure yields its continuation without rerunning; change its inputs or request
+--refresh. Refresh reruns the stage and descendants. cache:false stages execute
+on each run (e.g. a live environment probe); unchanged receipts permit downstream
+reuse. Failures route to the stage skill; a failed task-owned check may route to
+on_check_failure. The agent performs the indicated adaptation/repair, then calls
+run again to verify the affected dependency chain. No model service is invoked.
+
+Commands use record_run for literal argv, logs, timeout and process-group cleanup.
+Existing run bytes are preserved. A process lock prevents concurrent execution.
+Independent branches continue when another branch is blocked. After a hard-killed
+runner, a still-live recorded child blocks duplicate launch. A matching terminal
+command receipt is revalidated against current inputs and declared output checks.
+A local SSH exit is not remote terminal evidence; remote adapters must verify the
+exact remote owner before launch and provide checked outputs for remote completion.
 """
 
 __all__ = ['run_workflow', 'inspect_workflow', 'init_plan']
@@ -271,20 +293,23 @@ def _alive(pid):
         return True
 
 
-def _recover(workspace, state):
-    # Running receipts were persisted before launch. A hard-killed parent can leave
-    # a native child; never start the same work while that child still exists.
+def _recover(workspace, state, *, inspect=False):
     for receipt in state['history']:
         if receipt['status'] != 'running':
             continue
         folders = list((workspace / 'runs').glob(receipt['run_prefix'] + '*'))
-        for folder in folders:
-            command = folder / 'command.json'
-            if command.exists():
-                metadata = load_json(command)
-                _require(metadata['status'] != 'running' or not _alive(metadata.get('child_pid')),
-                         'previous native child may still be running: ' + str(command))
-                receipt.update(run=str(folder), wall_seconds=metadata.get('wall_seconds') or receipt['timeout'])
+        _require(len(folders) <= 1, 'ambiguous interrupted run: ' + receipt['run_prefix'])
+        if folders and (command := folders[0] / 'command.json').is_file():
+            metadata = load_json(command)
+            if metadata['status'] == 'running' and _alive(metadata.get('child_pid')):
+                _require(inspect, 'previous native child may still be running: ' + str(command))
+                continue
+            wall = metadata.get('wall_seconds')
+            receipt.update(run=str(folders[0]), wall_seconds=wall if _positive(wall) else receipt['timeout'])
+            if (metadata['status'] == 'completed' and metadata.get('returncode') == 0
+                    and metadata.get('end') and _positive(wall)):
+                receipt.update(status='pending_validation', returncode=0)
+                continue
         receipt.update(status='interrupted', reason='previous runner ended before recording verified outputs')
 
 
@@ -342,19 +367,19 @@ def _checks(stage, outputs):
                               f"[{check.get('min', '-inf')}, {check.get('max', 'inf')}]")
 
 
-def _report(spec, state, entries, next_action=None, other_actions=()):
-    result = dict(id=spec['id'], workload=spec.get('workload', {}), status='needs_action' if next_action else 'completed',
-                  spent_seconds=sum(x.get('wall_seconds', 0) for x in state['history']),
-                  budget_seconds=spec['budget_seconds'], attempts=len(state['history']),
-                  stages=entries, next_action=next_action)
-    if other_actions:
-        result['other_actions'] = list(other_actions)
-    return result
+def _report(spec, state, entries, actions):
+    ready = [a for a in actions if a['state'] == 'runnable']
+    blocked = [a for a in actions if a['state'] != 'runnable']
+    return dict(id=spec['id'], workload=spec.get('workload', {}), status='needs_action' if actions else 'completed',
+                spent_seconds=sum(x.get('wall_seconds', 0) for x in state['history']),
+                budget_seconds=spec['budget_seconds'], attempts=len(state['history']),
+                stages=entries, next_action=(ready or blocked or [None])[0],
+                runnable_actions=ready, blocked_actions=blocked)
 
 
-def _action(stage, reason, receipt=None):
+def _action(stage, reason, receipt=None, *, state="action_required"):
     result = dict(stage=stage['id'], skill=(receipt or {}).get('next_skill', stage['skill']),
-                  reason=reason, inputs=stage['inputs'], depends_on=stage['depends_on'])
+                  reason=reason, inputs=stage['inputs'], depends_on=stage['depends_on'], state=state)
     if receipt and receipt.get('run'):
         result.update(run=receipt['run'], stdout=str(Path(receipt['run']) / 'stdout.bin'),
                       stderr=str(Path(receipt['run']) / 'stderr.bin'),
@@ -378,27 +403,79 @@ def _inline(function, *args, **kwargs):
     return future
 
 
-def _finish(spec, root, stage, receipt, key, completed, folder, command):
+def _validate_outputs(receipt, stage, folder, key, root, completed, workload):
+    try:
+        receipt['outputs'] = _outputs(stage, folder)
+        _require(_digest(_signature(stage, root, completed, workload)) == key,
+                 'declared inputs changed during execution')
+        try:
+            _checks(stage, receipt['outputs'])
+        except CheckFailed as exc:
+            receipt['next_skill'] = stage.get('on_check_failure', stage['skill'])
+            raise ValueError(str(exc)) from exc
+    except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
+        receipt.update(status='invalid_outputs', reason=str(exc))
+
+
+def _finish(root, stage, receipt, key, completed, folder, command, workload):
     receipt.update(run=str(folder), status=command['status'], wall_seconds=command['wall_seconds'],
                    returncode=command['returncode'])
     if command['status'] == 'completed':
-        try:
-            receipt['outputs'] = _outputs(stage, folder)
-            _require(_digest(_signature(stage, root, completed, spec.get('workload', {}))) == key,
-                     'declared inputs changed during execution')
-            try:
-                _checks(stage, receipt['outputs'])
-            except CheckFailed as exc:
-                receipt['next_skill'] = stage.get('on_check_failure', stage['skill'])
-                raise ValueError(str(exc)) from exc
-        except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
-            receipt.update(status='invalid_outputs', reason=str(exc))
+        _validate_outputs(receipt, stage, folder, key, root, completed, workload)
     else:
         receipt['reason'] = 'native command ' + command['status']
 
 
+def _prepare(spec, root, stage, workspace, state, completed, entries, execute, forced, reserved, deadline):
+    """Reuse or recover a ready stage, or return an action dict or a launch (key, identity, timeout)."""
+    name, workload = stage['id'], spec.get('workload', {})
+    latest = _latest(state, name)
+    if latest and name not in forced and latest['status'] in ('running', 'interrupted'):
+        return _action(stage, latest.get('reason', latest['status']), latest,
+                       state='observe' if latest['status'] == 'running' else 'interrupted')
+    try:
+        identity = _signature(stage, root, completed, workload)
+        key = _digest(identity)
+    except (OSError, ValueError) as exc:
+        return _action(stage, str(exc))
+    same = latest and latest['key'] == key
+    recovered = False
+    if latest and name not in forced and latest['status'] == 'pending_validation' and not same:
+        return _action(stage, 'terminal inputs changed; reconcile prior run', latest, state='interrupted')
+    if same and name not in forced and latest['status'] == 'pending_validation':
+        if not execute:
+            return _action(stage, 'validate terminal outputs', latest, state='runnable')
+        folder = Path(latest['run'])
+        command = load_json(folder / 'command.json')
+        profile, _ = load_execution(_execution(stage, root, completed))
+        if command.get('cwd') != str(root) or command.get('argv') != profile.get('argv_prefix', []) + _argv(stage, root, folder, completed):
+            latest.update(status='invalid_outputs', reason='terminal command does not match reserved stage')
+        else:
+            latest['status'] = 'completed'
+            _validate_outputs(latest, stage, folder, key, root, completed, workload)
+        _save(workspace, state)
+        recovered = True
+    if (stage['cache'] or recovered or not execute) and name not in forced and same and _valid(latest):
+        completed[name] = latest
+        entries.append(dict(id=name, skill=stage['skill'], reused=True, run=latest['run'], outputs=latest['outputs']))
+        return None
+    if same and name not in forced and latest['status'] != 'completed':
+        return _action(stage, latest.get('reason', latest['status']), latest)
+    spent = sum(x.get('wall_seconds', 0) for x in state['history'])
+    remaining = spec['budget_seconds'] - spent - reserved
+    if deadline is not None:
+        remaining = min(remaining, deadline - time.monotonic())
+    if remaining <= 0:
+        return _action(stage, 'cumulative command budget exhausted', latest, state='budget')
+    if not execute:
+        return _action(stage, 'stage needs execution' if not same else 'cached outputs unavailable',
+                       latest, state='runnable')
+    return key, identity, min(stage['timeout'], remaining)
+
+
 def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None, jobs=1):
     completed, entries, actions = {}, [], []
+    workload = spec.get('workload', {})
     forced = set(refresh)
     _require(forced <= {s['id'] for s in stages}, 'unknown refresh stage')
     for stage in stages:
@@ -408,62 +485,45 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
     pool = ThreadPoolExecutor(max_workers=jobs) if execute and jobs > 1 else None
     try:
         while True:
-            for stage in list(pending):
-                if actions or len(running) >= max(jobs, 1):
-                    break
-                if not all(dep in completed for dep in stage['depends_on']):
-                    continue
-                name = stage['id']
-                try:
-                    identity = _signature(stage, root, completed, spec.get('workload', {}))
-                    key = _digest(identity)
-                except (OSError, ValueError) as exc:
+            progressed = True
+            while progressed and len(running) < jobs:
+                progressed = False
+                for stage in list(pending):
+                    if len(running) >= jobs:
+                        break
+                    if not all(dep in completed for dep in stage['depends_on']):
+                        continue
+                    reserved = sum(r['timeout'] for _, r, _ in running.values())
+                    outcome = _prepare(spec, root, stage, workspace, state, completed, entries,
+                                       execute, forced, reserved, deadline)
+                    if isinstance(outcome, dict) and outcome['state'] == 'budget' and running:
+                        break  # wait for running stages to release their reserved budget
                     pending.remove(stage)
-                    actions.append(_action(stage, str(exc)))
-                    break
-                latest = _latest(state, name)
-                same = latest and latest['key'] == key
-                if stage['cache'] and name not in forced and same and _valid(latest):
-                    pending.remove(stage)
-                    completed[name] = latest
-                    entries.append(dict(id=name, skill=stage['skill'], reused=True, run=latest['run'], outputs=latest['outputs']))
-                    continue
-                if not execute:
-                    pending.remove(stage)
-                    actions.append(_action(stage, 'stage needs execution' if not same else latest.get('reason', 'cached outputs unavailable'), latest))
-                    break
-                if same and name not in forced and latest['status'] != 'completed':
-                    pending.remove(stage)
-                    actions.append(_action(stage, latest.get('reason', latest['status']), latest))
-                    break
-                spent = sum(x.get('wall_seconds', 0) for x in state['history'])
-                remaining = spec['budget_seconds'] - spent - sum(r['timeout'] for _, r, _ in running.values())
-                if deadline is not None:
-                    remaining = min(remaining, deadline - time.monotonic())
-                if remaining <= 0:
-                    if not running:
-                        pending.remove(stage)
-                        actions.append(_action(stage, 'cumulative command budget exhausted', latest))
-                    break
-                pending.remove(stage)
-                timeout = min(stage['timeout'], remaining)
-                task = f"{spec['id']}-{name}-attempt{len(state['history']) + 1}"
-                receipt = dict(stage=name, skill=stage['skill'], key=key, identity=identity, status='running', outputs={},
-                               run_prefix=f"{stage['side']}-{task}-", timeout=timeout, wall_seconds=0)
-                state['history'].append(receipt)
-                _save(workspace, state)
-                argv = lambda run, stage=stage: _argv(stage, root, run, completed)
-                submit = pool.submit if pool else _inline
-                future = submit(record_run, workspace / 'runs', stage['side'], task, timeout, argv, root,
-                                execution=_execution(stage, root, completed))
-                running[future] = (stage, receipt, key)
+                    progressed = True
+                    if isinstance(outcome, dict):
+                        actions.append(outcome)
+                        continue
+                    if outcome is None:
+                        continue
+                    key, identity, timeout = outcome
+                    name = stage['id']
+                    task = f"{spec['id']}-{name}-attempt{len(state['history']) + 1}"
+                    receipt = dict(stage=name, skill=stage['skill'], key=key, identity=identity, status='running',
+                                   outputs={}, run_prefix=f"{stage['side']}-{task}-", timeout=timeout, wall_seconds=0)
+                    state['history'].append(receipt)
+                    _save(workspace, state)
+                    argv = lambda run, stage=stage: _argv(stage, root, run, completed)
+                    submit = pool.submit if pool else _inline
+                    future = submit(record_run, workspace / 'runs', stage['side'], task, timeout, argv, root,
+                                    execution=_execution(stage, root, completed))
+                    running[future] = (stage, receipt, key)
             if not running:
                 break
             done, _ = wait(list(running), return_when=FIRST_COMPLETED)
             for future in done:
                 stage, receipt, key = running.pop(future)
                 folder, command = future.result()
-                _finish(spec, root, stage, receipt, key, completed, folder, command)
+                _finish(root, stage, receipt, key, completed, folder, command, workload)
                 _save(workspace, state)
                 if receipt['status'] != 'completed':
                     actions.append(_action(stage, receipt.get('reason', receipt['status']), receipt))
@@ -474,7 +534,10 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
     finally:
         if pool:
             pool.shutdown(wait=True)
-    return _report(spec, state, entries, actions[0] if actions else None, actions[1:])
+    for stage in pending:
+        missing = [dep for dep in stage['depends_on'] if dep not in completed]
+        actions.append(_action(stage, 'waiting for dependencies: ' + ', '.join(missing), state='dependency'))
+    return _report(spec, state, entries, actions)
 
 
 def run_workflow(plan_path, workspace, refresh=(), time_budget_seconds=None, jobs=1):
@@ -499,6 +562,8 @@ def inspect_workflow(plan_path, workspace):
     spec, root, stages = _plan(plan_path)
     workspace = Path(workspace).resolve()
     state = _state(workspace, spec, root)
+    # Inspect terminal receipts without rewriting state or claiming an active child.
+    _recover(workspace, state, inspect=True)
     return _walk(spec, root, stages, workspace, state, False, ())
 
 

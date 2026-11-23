@@ -18,6 +18,14 @@ miniature fixture, with its dimensions and seed), `frameworks` for tested
 frameworks, `libraries` for dependencies and `affected_library` for the repair
 target, with versions and commits in their own fields.
 
+Copy each preflight worker's environment receipt into that evaluation side's
+`settings.runtime_environment` (or `environment.settings.runtime_environment`
+for the measured repair environment). Carry each solution verification's own
+versions. Retain the version source and keep unknown distinct from not
+applicable. Use the observed configuration for recommendations; keep candidate
+versions with the solution proposal until verified. Older records may omit the
+receipt.
+
 ## Write the public entry
 
 Give the symptom in a short title and summary (`content.title`, optional

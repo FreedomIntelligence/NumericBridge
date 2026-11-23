@@ -79,6 +79,8 @@ Use the [community case library](https://freedomintelligence.github.io/NumericBr
 
 Share a comparison or repair through the [community submission MCP](community/README.md#mcp-contribution). Include the model and library revisions, run configuration, observed difference and evidence. For a fix, include before-and-after results on the original workload. Community maintainers review submissions, publish records and coordinate any upstream PRs. [Community record guide](skills/precision-compare/references/community-records.md) · [Publication guidelines](docs/publication.md)
 
+[Community acknowledgments](https://freedomintelligence.github.io/NumericBridge/#/acknowledgments) recognizes contributors to published cases.
+
 Before submitting, run the repository and record checks from the repository root. [Developer guide](AGENTS.md)
 
 ```sh

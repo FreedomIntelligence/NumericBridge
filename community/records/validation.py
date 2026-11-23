@@ -6,6 +6,8 @@ import math
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
+
+from tools.environment_receipt import validate_receipt
 from .content import validate_content
 from .models import model_facets
 
@@ -39,6 +41,9 @@ def validate(site):
             for key in keys:
                 if key not in repair[section]:
                     raise ValueError(f'{identity}: missing {section}.{key}')
+        runtime_settings = repair['environment'].get('settings')
+        if isinstance(runtime_settings, dict) and 'runtime_environment' in runtime_settings:
+            validate_receipt(runtime_settings['runtime_environment'])
         coverage = repair['validation']['coverage']
         model_facets(repair['model'])
         observed, expected = coverage['observed'], coverage['expected']
@@ -134,6 +139,8 @@ def validate_evaluations(site):
                 raise ValueError('Each evaluation side needs its actual configuration')
             if any(not lib.get('name') or not lib.get('version') for lib in side['libraries']):
                 raise ValueError('Evaluation libraries need actual names/versions')
+            if 'runtime_environment' in side['settings']:
+                validate_receipt(side['settings']['runtime_environment'])
         if len(sides) < 2 or not record['comparisons']:
             raise ValueError('Evaluation needs at least two sides and a comparison')
         comparisons = set()

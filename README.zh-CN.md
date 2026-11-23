@@ -79,6 +79,8 @@ python skills/precision-compare/examples/compare_gradients.py
 
 通过[社区投稿 MCP](community/README.md#mcp-contribution)分享比较结果或修复案例。请附上模型和依赖库版本、运行配置、观测差异和证据。分享修复时，附上同一原始负载修复前后的结果。社区维护者负责审核、入库和必要的上游 PR。[社区记录指南](skills/precision-compare/references/community-records.md) · [发布规则](docs/publication.md)
 
+[社区鸣谢](https://freedomintelligence.github.io/NumericBridge/#/acknowledgments)记录已收录案例的贡献。
+
 提交前，在仓库根目录运行仓库和社区记录检查。[开发指南](AGENTS.md)
 
 ```sh

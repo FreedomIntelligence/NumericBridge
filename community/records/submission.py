@@ -21,6 +21,28 @@ DIGEST = re.compile(r'[a-f0-9]{64}')
 EVIDENCE = re.compile(r'evidence/submissions/[a-z0-9]+(?:-[a-z0-9]+)*\.json')
 COLLECTIONS = {'evaluations': ('evaluations',), 'repairs': ('repairs', 'library_groups'),
                'relations': ('entities', 'links')}
+ATTRIBUTION_SCOPE = ('community_site', 'community_pr', 'upstream_pr')
+
+
+def attribution(mode='anonymous', name=None):
+    if mode == 'anonymous' and name is None:
+        return {'mode': mode}
+    if mode == 'github' and isinstance(name, str) and re.fullmatch(r'@[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', name) and len(name) <= 40:
+        return {'mode': mode, 'name': name, 'scope': list(ATTRIBUTION_SCOPE)}
+    if (mode == 'nickname' and isinstance(name, str) and 1 <= len(name) <= 40 and name == name.strip()
+            and any(c.isalnum() for c in name) and all(c.isalnum() or c in ' _-.' for c in name)):
+        return {'mode': mode, 'name': name, 'scope': list(ATTRIBUTION_SCOPE)}
+    raise ValueError('Choose anonymous without a name, a nickname, or a GitHub @username')
+
+
+def draft_attribution(draft):
+    if draft.get('schema_version') == 2 and 'attribution' not in draft:
+        return attribution()
+    credit = draft.get('attribution')
+    if (draft.get('schema_version') != 3 or not isinstance(credit, dict)
+            or credit != attribution(credit.get('mode'), credit.get('name'))):
+        raise ValueError('Invalid draft attribution or scope')
+    return credit
 
 
 def encode(value, *, compact=False):
@@ -96,7 +118,8 @@ class Submissions:
         changed.append(index)
         return {path: sha256((root / path).read_bytes()).hexdigest() for path in sorted(changed)}
 
-    def preview(self, title, additions):
+    def preview(self, title, additions, *, attribution_mode='anonymous', attribution_name=None):
+        credit = attribution(attribution_mode, attribution_name)
         if not isinstance(title, str) or not re.fullmatch(r'[^\x00-\x1f\x7f]{1,120}', title.strip()):
             raise ValueError('Use a single-line contribution title of at most 120 characters')
         if not any(items for name in COLLECTIONS for items in additions[name].values()):
@@ -106,11 +129,11 @@ class Submissions:
         base = git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
         with self.checkout(base) as root:
             files = self.apply(root, additions)
-        return dict(schema_version=2, title=title.strip(), destination=self.destination,
+        return dict(schema_version=3, title=title.strip(), destination=self.destination, attribution=credit,
                     base_commit=base, additions=additions, files=files)
 
-    def prepare(self, title, additions):
-        preview = self.preview(title, additions)
+    def prepare(self, title, additions, **attribution_options):
+        preview = self.preview(title, additions, **attribution_options)
         raw = encode(preview, compact=True)
         digest = sha256(raw).hexdigest()
         self.drafts.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -132,7 +155,8 @@ class Submissions:
         if sha256(raw).hexdigest() != digest:
             raise ValueError('Stored draft changed; prepare and review a new draft')
         reviewed = json.loads(raw)
-        if reviewed.get('schema_version') != 2 or reviewed.get('destination') != self.destination:
+        draft_attribution(reviewed)
+        if reviewed.get('destination') != self.destination:
             raise ValueError('Draft destination changed; prepare and review a new draft')
         return reviewed
 
@@ -150,7 +174,9 @@ def main():
         if len(raw) > 1024 * 1024:
             raise ValueError('Local preview input must not exceed 1 MiB')
         request = json.loads(raw)
-        preview = Submissions(root, args.output.parent).preview(request['title'], request['additions'])
+        credit = request.get('attribution', {'mode': 'anonymous'})
+        preview = Submissions(root, args.output.parent).preview(request['title'], request['additions'],
+            attribution_mode=credit['mode'], attribution_name=credit.get('name'))
         data = encode(dict(status='local_draft', preview=preview))
         with os.fdopen(os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
             stream.write(data)

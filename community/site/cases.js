@@ -13,6 +13,35 @@
   };
   const choiceGroup = (field, value) => choiceGroups[field]?.find(([, , pattern]) => pattern.test(value));
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let acknowledgmentRequest;
+  function loadAcknowledgments() {
+    return acknowledgmentRequest ||= fetch('./data/acknowledgments.json').then(response=>{
+      if(!response.ok)throw new Error('Acknowledgments unavailable');
+      return response.json();
+    }).then(data=>data.entries);
+  }
+  const creditName = ({mode,name}) => mode==='github'&&/^@[a-z\d]+(?:-[a-z\d]+)*$/i.test(name)
+    ? `<a class="link" href="https://github.com/${encodeURIComponent(name.slice(1))}">${esc(name)}</a>` : esc(name);
+  async function mountAcknowledgments(root,lang) {
+    const tx=(zh,en)=>lang==='en'?en:zh;
+    const request={};root._creditsRequest=request;
+    const active=()=>!root.hidden&&root._creditsRequest===request;
+    const title=`<h1 class="h2">${tx('社区鸣谢','Community acknowledgments')}</h1>`;
+    const write=html=>{if(active())root.innerHTML=`<div class="wrap lc-report">${title}${html}</div>`;};
+    write(`<p role="status">${tx('正在读取…','Loading…')}</p>`);
+    try {
+      const [entries,index]=await Promise.all([loadAcknowledgments(),loadIndex()]);
+      const cases=new Map(index.cases.map(({row})=>[row.id,row.details.title]));
+      const people=new Map();
+      for(const row of entries){
+        if(!cases.has(row.case_id)||!['nickname','github'].includes(row.mode))continue;
+        const id=`${row.mode}:${row.mode==='github'?row.name.toLowerCase():row.name}`;
+        if(!people.has(id))people.set(id,{person:row,rows:[]});
+        people.get(id).rows.push(row);
+      }
+      write(people.size?[...people.values()].map(({person,rows})=>`<section class="lc-report-section"><h2>${creditName(person)}</h2><ul>${rows.map(row=>`<li><a class="link" href="#/cases/${encodeURIComponent(row.case_id)}">${esc(cases.get(row.case_id))}</a> · ${esc(row.contribution[lang==='en'?'en':'zh'])}</li>`).join('')}</ul></section>`).join(''):`<p>${tx('暂无已公开的社区署名。','No public community credits yet.')}</p>`);
+    } catch {write(`<p>${tx('暂时无法读取社区鸣谢。','Unable to load community acknowledgments.')}</p>`);}
+  }
   const releaseVersion=/^v?\d+(?:\.\d+)+(?:[-.]?(?:a|b|rc|dev|post)\d*)*(?:\+(?:cpu|cu\d+|rocm[\d.]+))?$/i;
   const commitVersion=/^[a-f0-9]{7,64}$/i;
   // Parse display labels only. Filtering still uses the exact stored version.
@@ -325,8 +354,8 @@
     const stamp={};root._lifecycleRequest=stamp;
     root._lifecycleCleanup=()=>{root._lifecycleRequest=null;};
     root.innerHTML=`<div class="wrap lc-loading" role="status">${tx('正在读取案例…','Loading cases…')}</div>`;
-    let index;
-    try {index=await loadIndex();} catch(error) {
+    let index, acknowledgments;
+    try {[index,acknowledgments]=await Promise.all([loadIndex(),loadAcknowledgments().catch(()=>[])]);} catch(error) {
       if(root._lifecycleRequest!==stamp)return;
       root.innerHTML=`<div class="wrap lc-error" role="alert"><h1>${tx('案例库暂时无法读取','Case library unavailable')}</h1><p>${esc(error.message)}</p><button class="btn" data-retry>${tx('重试','Retry')}</button></div>`;
       root.querySelector('[data-retry]').onclick=()=>mount(root,hash,options);return;
@@ -710,7 +739,9 @@
         const text=description('issue',issue),r=resolutionRows.find(row=>row.issue.id===issue.id);
         return `<div class="lc-issue">${r?resolutionBadge(r.resolution):''}<h4>${esc(text.title)}</h4>${text.summary?`<p>${esc(text.summary)}</p>`:''}</div>`;
       }).join('')}</section>`:'';
-      detail.innerHTML=`<header class="lc-detail-head"><h2 id="lc-case-title" tabindex="-1">${esc(copy.title)}</h2>${focused?resolutionBadge(focused.resolution):''}</header>${copy.summary?`<p class="lc-detail-scope">${esc(copy.summary)}</p>`:''}${issueSection}${solutionSection}${result}${configurations||request}`;
+      const credits=acknowledgments.filter(row=>row.case_id===c.row.id&&['nickname','github'].includes(row.mode));
+      const thanks=credits.map(row=>`<p class="lc-detail-scope">${tx('感谢','Thanks to')} ${creditName(row)}${tx('：',': ')}${esc(row.contribution[options.lang==='en'?'en':'zh'])}</p>`).join('');
+      detail.innerHTML=`<header class="lc-detail-head"><h2 id="lc-case-title" tabindex="-1">${esc(copy.title)}</h2>${focused?resolutionBadge(focused.resolution):''}</header>${copy.summary?`<p class="lc-detail-scope">${esc(copy.summary)}</p>`:''}${thanks}${issueSection}${solutionSection}${result}${configurations||request}`;
       const body=detail.querySelector('#lc-solution-result');
       const refreshSolution=()=>{
         body.dataset.solution=selectedSolution.id;
@@ -903,6 +934,6 @@
     };
   }
 
-  global.NumericBridgeCases={buildIndex,filterCases,configurationDifferences,configurationMatches,assessCoverage,recommendConfiguration,configurationIssues,issueResolution,issueSolutions,loadCoverage,mount,mountReport};
+  global.NumericBridgeCases={buildIndex,filterCases,configurationDifferences,configurationMatches,assessCoverage,recommendConfiguration,configurationIssues,issueResolution,issueSolutions,loadCoverage,mount,mountReport,mountAcknowledgments};
   if(typeof module!=='undefined'&&module.exports)module.exports=global.NumericBridgeCases;
 })(typeof window!=='undefined'?window:globalThis);

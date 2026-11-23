@@ -65,6 +65,10 @@ community records or run model workloads.
 
 ## MCP contribution
 
+See the [Numeric workflow integration contract](numeric-workflow-integration.md)
+for the agent-facing interface and [private review operations](review-operations.md)
+for the maintainer CLI and backup procedure.
+
 The [workflow](../skills/numericbridge/references/workflow.md#community-contribution)
 prepares an anonymized preview and asks once before sending it to the community.
 The contributor needs no GitHub account or fork.
@@ -89,8 +93,33 @@ endpoint is configured. The following uses a placeholder hostname:
 
 ```sh
 python -B -m community.mcp_submission \
-  --intake https://community.example.org/v1/submissions --token-file /path/to/upload-token
+  --intake https://community.numericbridge.com/v1/submissions --token-file /path/to/upload-token \
+  --search-index community/site/data/search-index.json
 ```
+
+The contributor can choose anonymous (default), nickname, or GitHub
+`@username` without a GitHub login. Pass `attribution_mode` and, for named
+credit, `attribution_name` to `prepare_community_submission`. The same
+confirmation authorizes the exact result and named credit on the community
+site and in related PRs maintained by NumericBridge, including upstream PRs.
+
+If `submit_community` returns `approval_unavailable`, keep the saved draft.
+In your own terminal, use the same Python environment, inbox and credential as
+MCP to review and confirm that draft:
+
+```sh
+python -B -m community.submit_reviewed --draft-sha256 DRAFT_SHA256 \
+  --intake https://community.numericbridge.com/v1/submissions --token-file /path/to/upload-token
+```
+
+Use `--drafts` if the MCP was configured with a different draft directory.
+The command displays the draft and only sends it after you type `SEND`. A
+receipt means the inbox saved it for review; it does not publish to GitHub.
+
+With `--search-index`, this one client entry exposes all three tools. Use an
+absolute index path when launching from a different directory. Restart the MCP
+after updating its index, or configure a separate connection to the public
+search MCP for the server-managed snapshot.
 
 The client must present the MCP form to the user. In clients that launch from
 another directory, use the absolute Python executable and set `PYTHONPATH` to
@@ -127,16 +156,26 @@ community host with HTTPS and persistent private storage. For a Linux host:
    `sudo systemctl enable --now numericbridge-intake`. The service binds to
    loopback; save and back up `/var/lib/numericbridge/inbox` separately from the
    code. Restart the service when rotating the upload token.
-3. Point a community subdomain at the host. With Caddy 2.10 or later, use the
-   [reverse proxy config](deploy/Caddyfile) and set `NUMERICBRIDGE_INTAKE_HOST`
-   to that hostname in the Caddy service environment. The proxy routes only
-   `POST /v1/submissions` and `GET /healthz`. Set an appropriate request rate
-   limit at the public ingress. An existing HTTPS proxy can use the same routes.
+3. Set `NUMERICBRIDGE_COMMUNITY_HOST=community.numericbridge.com` in
+   `/etc/numericbridge/search.env`, install the
+   [search unit](deploy/numericbridge-search.service), and enable it with
+   `sudo systemctl enable --now numericbridge-search`. The
+   [Nginx staging config](deploy/numericbridge-nginx.conf) exposes both routes
+   on loopback port 8788 for SSH tunneling. For public access, point
+   `community.numericbridge.com` to the service host and use the same routes
+   in its HTTPS virtual host. With Caddy 2.10 or later, use the
+   [reverse proxy config](deploy/Caddyfile) and set the same hostname in its
+   service environment. Search exposes `POST /mcp` via stateless Streamable
+   HTTP; intake exposes `POST /v1/submissions` and `GET /healthz`. Set request
+   rate limits at the public ingress.
 4. Call `GET /healthz` over HTTPS, check that an unauthorized `POST` returns
    `401`, then test with a synthetic draft. Set the GitHub Actions repository
    variable `NUMERICBRIDGE_INTAKE_URL` to the verified public HTTPS endpoint and
-   run the Pages workflow. Distribute the upload credential privately; only
-   the endpoint URL belongs in the Pages build.
+   run the Pages workflow. Verify the public MCP with `tools/list` and a known
+   `search_community` query. Distribute the upload credential privately; only
+   the endpoint URL belongs in the Pages build. After publishing approved
+   records, update the host checkout to the deployed catalog revision and
+   restart `numericbridge-search` to load its new index.
 
 For local testing, run `python -B -m community.intake --inbox PATH --token-file PATH`
 and use `http://127.0.0.1:8770/v1/submissions` as the MCP intake URL.
@@ -144,6 +183,13 @@ Keep `origin/main` current on the review host. Each `submission-<sha256>.json`
 holds the approved bytes for maintainers to review. Maintainers decide what to
 add to the catalog and whether to contact upstream. A case is searchable once
 the deployed index returns its record ID.
+
+After accepting a named submission, run `python -B -m community.records.acknowledgments
+--receipt RECEIPT --case CASE_ID --zh DESCRIPTION --en DESCRIPTION` against the
+review checkout. Add the returned entry to `community/site/data/acknowledgments.json`
+with the accepted case and use the same name and contribution in the community
+and related upstream PR bodies. An anonymous receipt returns `null`. Keep the
+receipt private. The maintainer opens PRs and handles any upstream follow-up.
 
 The former `precision_community` package is now `community.records`. Existing
 command flags remain the same. The former root `site/` moved to `community/site/`;

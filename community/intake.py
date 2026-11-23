@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .records.submission import COLLECTIONS, DIGEST, Submissions, encode, git
+from .records.submission import COLLECTIONS, DIGEST, Submissions, draft_attribution, encode, git
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -95,10 +95,12 @@ class Inbox:
             return self.receipt(receipt_id, True)
 
         draft = json.loads(raw)
-        if (not isinstance(draft, dict) or set(draft) != {'schema_version', 'title', 'destination',
-                'base_commit', 'additions', 'files'} or type(draft['schema_version']) is not int
-                or draft['schema_version'] != 2 or raw != encode(draft, compact=True)):
+        keys = {'schema_version', 'title', 'destination', 'base_commit', 'additions', 'files'}
+        if (not isinstance(draft, dict) or type(draft.get('schema_version')) is not int
+                or set(draft) != (keys | {'attribution'} if draft['schema_version'] == 3 else keys)
+                or raw != encode(draft, compact=True)):
             raise ValueError('Invalid submission format')
+        credit = draft_attribution(draft)
         endpoint(draft['destination'])
         additions = draft['additions']
         if (not isinstance(additions, dict) or set(additions) != {*COLLECTIONS, 'evidence'}
@@ -110,7 +112,8 @@ class Inbox:
             raise ValueError('Invalid community additions')
         # Validate against the community baseline, without changing the approved bytes.
         # The submitter's catalog commit and generated files are preview metadata.
-        self.records.preview(draft['title'], additions)
+        self.records.preview(draft['title'], additions, attribution_mode=credit['mode'],
+                             attribution_name=credit.get('name'))
         fd, temporary = tempfile.mkstemp(dir=self.directory, prefix='.incoming-')
         try:
             with os.fdopen(fd, 'wb') as stream:

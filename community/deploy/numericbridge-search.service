@@ -1,0 +1,19 @@
+[Unit]
+Description=NumericBridge public community search MCP
+After=network.target
+
+[Service]
+User=numericbridge
+Group=numericbridge
+WorkingDirectory=/opt/numericbridge
+EnvironmentFile=/etc/numericbridge/search.env
+ExecStart=/opt/numericbridge/.venv/bin/python -B -m community.mcp_search --host 127.0.0.1 --port 8786 --allow-host ${NUMERICBRIDGE_COMMUNITY_HOST}
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

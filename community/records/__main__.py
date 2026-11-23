@@ -49,9 +49,11 @@ def main():
             parser.error('--output is unavailable for validate')
         from .validation import validate, validate_evaluations
         from .differences import validate as differences
+        from .acknowledgments import validate as validate_acknowledgments
         repairs = validate(args.site)
         evaluations = validate_evaluations(args.site)
         views, metrics = differences(args.site)
+        validate_acknowledgments(args.site, catalog)
         snapshot = args.site / 'data/search-index.json'
         if snapshot.exists():
             from .search import validate_snapshot

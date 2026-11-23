@@ -23,6 +23,51 @@ python scripts/triage.py --acceptance acceptance.json --report scores.json [--co
 python scripts/diagnosis_state.py init --state diagnosis.json --acceptance acceptance.json --triage triage.json
 python scripts/diagnosis_state.py next --state diagnosis.json
 python scripts/diagnosis_state.py record --state diagnosis.json --hypothesis H1 --label LABEL --finding TEXT --evidence PATH
+1. **Reproduce the observation.** Reuse the native small case, identities,
+   collectors and captures. Check that inputs, initial state, effective settings
+   and observed coordinates are comparable; resolve capture or configuration
+   mismatches first. Repeat only when needed to distinguish a stable discrepancy
+   from run-to-run variation. Preserve the intended execution semantics.
+2. **Choose the next boundary.** Start with existing stage captures. Keep the
+   first observed divergence and any later boundary that substantially increases
+   the error relevant to the task. Add [internal observations](../precision-compare/references/layerwise.md)
+   only where they distinguish these candidates. Record the nearest upstream
+   agreement and gaps in coverage; a large difference ranks a candidate but
+   does not identify its cause.
+3. **Run a discriminating replay.** First reproduce each side's own captured
+   result within the justified tolerance. At the chosen boundary, give both
+   implementations the same actual operands and state, including the incoming
+   gradient for a backward check. Use the other side's captured operands if
+   input dependence could change the conclusion. See [causal replay](examples/causal-replay.md).
+
+| Replay result | Next check |
+| --- | --- |
+| A native self-replay fails | Check capture, state and dispatch before attributing a cause. |
+| A difference persists with matched inputs | Narrow to a child operation; compare with the intended algorithm, an invariant or an independent reference. |
+| The difference falls within expected variation with matched inputs | Trace back to the differing inputs. If amplification matters, hold the implementation fixed and vary only the suspect input. |
+| A single change improves the local check | Check its effect on the original task endpoint. If that endpoint does not improve, keep the local finding and revisit the remaining candidates. |
+
+An operation can introduce and amplify error at the same time. Keep injected
+state and diagnostic constraints out of original workload verification. Use
+the task's existing metrics and comparable observations.
+
+```xml
+<diagnosis_handoff>
+  Update the case's local issues.md with the discrepancy, paired coordinates,
+  coverage and checked boundaries, including gaps. For each probe, record the
+  hypothesis, one-factor control, finding and next check. Cite supporting evidence
+  and the source revision and code when identified. Classify the discrepancy
+  as a capture or setup problem, a numerical-policy difference, a supported
+  defect, or unresolved.
+  Stage localization is a checkpoint unless it meets an explicit scope limit.
+  Otherwise, reuse the triggering case to narrow the interval until evidence
+  establishes a cause or no focused check or pending result can advance diagnosis
+  within the authorized scope and budget. Run the smallest check that can
+  distinguish the remaining explanations. If blocked, report the narrowest
+  supported interval, what was ruled out, the concrete blocker and the next check.
+  For a supported defect, propose a patch and pass a focused regression check
+  to verification when repair is in scope.
+</diagnosis_handoff>
 ```
 
 1. **Check alignment.** Exact-check failures (inputs, masks, rewards, counts,

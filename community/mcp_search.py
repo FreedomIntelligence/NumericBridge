@@ -22,10 +22,15 @@ PageOffset = Annotated[int, Field(strict=True, ge=0, le=100000)]
 
 def create_server(index_path: Path = DEFAULT_INDEX, *, index_sha256: str | None = None) -> MCPServer:
     """Load one reviewed snapshot at startup; tool callers cannot select its source."""
-    index, receipt = load_index(index_path, index_sha256)
-    index_identity = {key: receipt[key] for key in ('index_sha256', 'bytes')}
     server = MCPServer('numericbridge-community', version='1.0.0', subscriptions=False,
                        instructions='Search public NumericBridge precision evaluations and repair evidence.')
+    register_search(server, index_path, index_sha256=index_sha256)
+    return server
+
+
+def register_search(server: MCPServer, index_path: Path, *, index_sha256: str | None = None) -> None:
+    index, receipt = load_index(index_path, index_sha256)
+    index_identity = {key: receipt[key] for key in ('index_sha256', 'bytes')}
 
     @server.tool(
         title='Search NumericBridge community',
@@ -55,9 +60,6 @@ def create_server(index_path: Path = DEFAULT_INDEX, *, index_sha256: str | None 
         result = search(index, request, limit=limit, offset=offset)
         result['retrieval'] = index_identity.copy()
         return result
-
-    return server
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
