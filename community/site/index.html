@@ -2022,7 +2022,7 @@ function writeQuery(name, params) {
   const s = qs.toString().replace(/%2C/g, ",").replace(/%7C/g, "|");
   history.replaceState(null, "", `#/${name}${s ? "?" + s : ""}`);
 }
-const VIEWS = { "": "v-home", overview: "v-overview", cite: "v-cite", list: "v-list", records: "v-records", compare: "v-compare", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how", acknowledgments: "v-acknowledgments" };
+const VIEWS = { "": "v-home", overview: "v-overview", list: "v-list", records: "v-records", compare: "v-compare", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how", acknowledgments: "v-acknowledgments" };
 const RENDER = {};
 RENDER.cases = h => NumericBridgeCases.mount(byId("v-cases"), h, { lang: LANG });
 RENDER.report = h => NumericBridgeCases.mountReport(byId("v-report"), h, { lang: LANG, copyLink: copyText });
@@ -2365,14 +2365,6 @@ RENDER[""] = function renderHome() {
   sceneFlow();
   renderHomeCoverage(byId("homeCoverageList"));
   byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
-};
-RENDER.cite = function renderCitationPage() {
-  const view = byId("v-cite");
-  if (view.firstElementChild) return;
-  view.innerHTML = `<div class="wrap sec first">
-    <header class="sec-head"><h1 class="h2">${tx("数据与引用", "Data &amp; Citation")}</h1><a class="link" href="#/overview">${tx("评测概览 →", "Evaluation overview →")}</a></header>
-    <div class="cite" id="citeBox"></div>
-  </div>`;
   renderCite();
   byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
 };
