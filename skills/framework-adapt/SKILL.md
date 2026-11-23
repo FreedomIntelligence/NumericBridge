@@ -43,9 +43,15 @@ shrink; there is no fixed batch, sequence length or step count.
   whether the path runs under graph capture (hooks then need eager or msProbe);
   determinism settings; and one same-side repeat of the smallest capture so
   comparison has repeat noise.
+- **Dependency audit.** Before the first preflight in an environment, and after
+  any `import_error`, check the whole environment at once: compare each
+  framework distribution's declared requirements (`importlib.metadata`) with the
+  installed versions and import the native entry modules. Install every missing
+  or conflicting item in a case-private environment or overlay, then preflight.
 - **Failures.** `record_run` and `workflow.py` report `failure_class` and
-  `category`: correct `setup_or_resource` within scope, report `unsupported`, and
-  route `reproducible_failure` of a supported path to diagnosis.
+  `category`: correct `setup_or_resource` within scope and retry, report
+  `unsupported`, and route `reproducible_failure` of a supported path to
+  diagnosis.
 
 ## Return
 
