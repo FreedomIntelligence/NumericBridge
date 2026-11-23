@@ -80,8 +80,11 @@ receipt as an output and enforce its pass conditions with `checks`.
 
 ### Wait for native execution
 
-Use completion notifications or a bounded blocking wait; keep scheduler polling
-and terminal status in the launcher or adapter. Record each command:
+Follow each submitted job to its native terminal status in the same session:
+use completion notifications or a bounded blocking wait, or check the job every
+few minutes and advance independent work in between. Do not end the session to
+wait. Keep scheduler polling and terminal status in the launcher or adapter.
+Record each command:
 
 ```sh
 python scripts/record_run.py --execution environment.json --output-root runs --side SIDE --task capture --timeout 300 -- COLLECTOR ARGS

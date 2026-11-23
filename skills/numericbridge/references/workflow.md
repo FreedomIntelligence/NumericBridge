@@ -15,6 +15,18 @@ independent sides in parallel and returns the next skill on failure.
   issues over new cases within budget.
 </handoff>
 
+<continuous_run>
+  Run the case in one continuous session until local delivery or an access
+  blocker (request.md). Waiting is not a reason to end the turn: after launching
+  a native job, follow it to its terminal status with a bounded blocking wait or
+  by checking every few minutes, and advance independent work meanwhile. On a
+  failure, read failure_class and the log tail, correct it within the grant and
+  retry; route only unsupported or reproducible failures onward. Write the case
+  state and handoff at each stage change as a checkpoint, then continue. Set
+  needs_human only for an access blocker, after retrying with backoff (about
+  every 10 minutes for up to 2 hours) and finishing independent work.
+</continuous_run>
+
 <delegation when="a case is delegated">
   One owner per case covers target and reference from comparison through
   diagnosis and original-workload verification; split independent cases for
