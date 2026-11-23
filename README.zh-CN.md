@@ -87,8 +87,8 @@ python -B -m scripts validate
 python -B -m community.records validate
 ```
 
-## 产业界与学术界用户
+## 支持单位
 
-![中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室和智子芯元（深圳）科技有限责任公司](docs/images/numericbridge-community.png)
+![中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司和深圳市大数据研究院](docs/images/numericbridge-community.png)
 
-[中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/)
+[中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/) · [深圳市大数据研究院](https://www.sribd.cn/)

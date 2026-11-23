@@ -87,8 +87,8 @@ python -B -m scripts validate
 python -B -m community.records validate
 ```
 
-## Trusted by Industry and Research
+## Supported by
 
-![Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab and AutoKernel](docs/images/numericbridge-community.png)
+![Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel and Shenzhen Research Institute of Big Data](docs/images/numericbridge-community.png)
 
-[Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/)
+[Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/) · [Shenzhen Research Institute of Big Data](https://www.sribd.cn/en)
