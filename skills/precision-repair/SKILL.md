@@ -13,6 +13,7 @@ Run tools from this skill directory. Each tool's `--help` gives its interface.
 | Find where the difference appears | [localize](scripts/localize.py) | Boundary growth ranking and the next capture |
 | Separate local source, propagation and amplification | [replay](scripts/replay.py) | Cross-replay label, perturbation gains, intervention verdicts |
 | Track hypotheses and checks | [diagnosis_state](scripts/diagnosis_state.py) | `diagnosis.json`, next open check, rendered `issues.md` |
+| Say which side deviates at an operator | [operator_verdict](scripts/operator_verdict.py) | Per-side error vs FP64, the stated bound, reading and patch direction |
 
 ## Diagnose
 
@@ -95,7 +96,8 @@ Loop steps:
    ([example](examples/causal-replay.md)); include the incoming gradient for a
    backward boundary. Recompute the leaf in FP64 on CPU from the same operands
    to tell which side deviates ([agreement and accuracy](../precision-compare/references/acceptance.md#agreement-and-accuracy));
-   either side may be the one to repair. `replay.py` assigns the label and next check.
+   `operator_verdict.py` applies that table with a stated dtype bound. Either
+   side may be the one to repair. `replay.py` assigns the label and next check.
 
 | Label | Meaning | Next check |
 |---|---|---|
@@ -147,7 +149,8 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
   reference implementation (for example its Transformers modeling code) before
   deciding on a draft; record whether the reference keeps higher precision.
 - Verify a numerical-policy patch at the operator: it moves the patched side
-  closer to FP64 on the captured operands. On the original case it must not
+  closer to FP64 on the captured operands (`operator_verdict.py` with `patched`
+  reports `closer`). On the original case it must not
   regress the task endpoint beyond repeat noise without an explanation. A wider
   A/B gap alone does not reject it, since the sides' errors can cancel; report
   the agreement change as a secondary result.

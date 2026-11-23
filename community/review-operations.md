@@ -10,7 +10,11 @@ sudo -u numericbridge .venv/bin/python -B -m community.review decide "$RECEIPT" 
   --reviewer "$REVIEWER" --reason 'Verified reproduction and evidence' --case "$CASE_ID"
 ```
 
-`needs_information` and `declined` record other review outcomes. New receipts
+`needs_information` and `declined` record other review outcomes. `list` shows
+each receipt's `supersedes` and `superseded_by`; a superseded receipt cannot be
+accepted or published, so decline it and review the latest one. Submitters read a
+receipt's current state through the inbox's authenticated
+`GET /v1/submissions/RECEIPT` (`community_submission_status` in MCP). New receipts
 are discovered from `inbox/` on the next CLI operation and start as
 `pending_review`. The original receipt is never modified. `show` includes
 private submission data and the event history; do not share its output publicly.

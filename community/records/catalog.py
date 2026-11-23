@@ -43,6 +43,32 @@ SLUG = re.compile(r'[a-z0-9]+(?:-[a-z0-9]+)*\Z')
 HASH = re.compile(r'[a-f0-9]{64}\Z')
 
 
+UPSTREAM_STATES = ('present', 'fixed', 'absent', 'unknown')
+
+
+def _upstream(value):
+    """Merged-code status of a candidate's defect: where it is still present and where it was fixed."""
+    fields = {'affected', 'fixed_in', 'fixed_commit', 'upgrade_blocker', 'refs'}
+    _require(isinstance(value, dict) and set(value) <= fields and {'affected', 'fixed_in'} <= set(value),
+             'upstream requires affected and fixed_in (optional fixed_commit, upgrade_blocker, refs)')
+    text = lambda v: isinstance(v, str) and bool(v.strip())
+    _require(isinstance(value['affected'], list) and all(text(v) for v in value['affected']),
+             'upstream.affected must list affected versions or refs')
+    _require(value['fixed_in'] is None or text(value['fixed_in']), 'upstream.fixed_in must be a version or null')
+    commit = value.get('fixed_commit')
+    _require(commit is None or isinstance(commit, str) and re.fullmatch('[a-f0-9]{40}', commit),
+             'upstream.fixed_commit must be a full merged commit')
+    _require(value.get('upgrade_blocker') is None or text(value['upgrade_blocker']),
+             'upstream.upgrade_blocker must be text or null')
+    refs = value.get('refs', [])
+    _require(isinstance(refs, list) and all(
+        isinstance(r, dict) and set(r) == {'ref', 'commit', 'state'} and text(r['ref'])
+        and isinstance(r['commit'], str) and re.fullmatch('[a-f0-9]{40}', r['commit'])
+        and r['state'] in UPSTREAM_STATES for r in refs), 'upstream.refs need ref, commit and state')
+    _require(value['fixed_in'] is None or commit is not None or any(r['state'] == 'fixed' for r in refs),
+             'upstream.fixed_in needs the merged fix commit or a fixed ref')
+
+
 def _require(ok, message):
     if not ok:
         raise ValueError(message)
@@ -196,7 +222,8 @@ class Catalog:
             'workload': common,
             'investigation': common,
         }[entity['kind']]
-        optional = {'content', 'limitations'} | ({'category'} if entity['kind'] == 'case' else set())
+        optional = ({'content', 'limitations'} | ({'category'} if entity['kind'] == 'case' else set())
+                    | ({'upstream'} if entity['kind'] == 'candidate' else set()))
         _require(isinstance(details, dict) and fields <= set(details) <= fields | optional,
                  'invalid lifecycle details fields')
         _require(isinstance(details['title'], str) and bool(details['title'].strip()),
@@ -241,6 +268,8 @@ class Catalog:
                      'target version must be text or null')
             _require(target['commit'] is None or isinstance(target['commit'], str) and
                      re.fullmatch('[a-f0-9]{40}', target['commit']), 'invalid target commit')
+            if 'upstream' in details:
+                _upstream(details['upstream'])
         elif entity['kind'] == 'verification':
             _require(details['method'] in ('native-runtime', 'retained-measurements'), 'invalid verification method')
             _require(details['outcome'] in ('scoped-checks-passed', 'partial', 'mixed-results', 'not-adopted'),

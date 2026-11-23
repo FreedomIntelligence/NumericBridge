@@ -22,6 +22,7 @@ EVIDENCE = re.compile(r'evidence/submissions/[a-z0-9]+(?:-[a-z0-9]+)*\.json')
 COLLECTIONS = {'evaluations': ('evaluations',), 'repairs': ('repairs', 'library_groups'),
                'relations': ('entities', 'links')}
 ATTRIBUTION_SCOPE = ('community_site', 'community_pr', 'upstream_pr')
+RECEIPT = re.compile(r'submission-[a-f0-9]{64}')
 
 
 def attribution(mode='anonymous', name=None):
@@ -39,10 +40,29 @@ def draft_attribution(draft):
     if draft.get('schema_version') == 2 and 'attribution' not in draft:
         return attribution()
     credit = draft.get('attribution')
-    if (draft.get('schema_version') != 3 or not isinstance(credit, dict)
+    if (draft.get('schema_version') not in (3, 4) or not isinstance(credit, dict)
             or credit != attribution(credit.get('mode'), credit.get('name'))):
         raise ValueError('Invalid draft attribution or scope')
     return credit
+
+
+def supersedes(value):
+    """Earlier receipts this draft replaces (a schema 4 draft); an empty list keeps schema 3."""
+    if (not isinstance(value, (list, tuple)) or len(value) > 10 or len(set(value)) != len(value)
+            or not all(isinstance(v, str) and RECEIPT.fullmatch(v) for v in value)):
+        raise ValueError('supersedes must list up to 10 distinct earlier submission-<sha256> receipts')
+    return list(value)
+
+
+def draft_supersedes(draft):
+    if draft.get('schema_version') == 4:
+        values = supersedes(draft.get('supersedes'))
+        if not values:
+            raise ValueError('A schema 4 draft must name the receipts it supersedes')
+        return values
+    if 'supersedes' in draft:
+        raise ValueError('Only schema 4 drafts may supersede earlier receipts')
+    return []
 
 
 def encode(value, *, compact=False):
@@ -118,8 +138,9 @@ class Submissions:
         changed.append(index)
         return {path: sha256((root / path).read_bytes()).hexdigest() for path in sorted(changed)}
 
-    def preview(self, title, additions, *, attribution_mode='anonymous', attribution_name=None):
+    def preview(self, title, additions, *, attribution_mode='anonymous', attribution_name=None, replaces=()):
         credit = attribution(attribution_mode, attribution_name)
+        replaced = supersedes(replaces)
         if not isinstance(title, str) or not re.fullmatch(r'[^\x00-\x1f\x7f]{1,120}', title.strip()):
             raise ValueError('Use a single-line contribution title of at most 120 characters')
         if not any(items for name in COLLECTIONS for items in additions[name].values()):
@@ -129,8 +150,11 @@ class Submissions:
         base = git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
         with self.checkout(base) as root:
             files = self.apply(root, additions)
-        return dict(schema_version=3, title=title.strip(), destination=self.destination, attribution=credit,
-                    base_commit=base, additions=additions, files=files)
+        draft = dict(schema_version=4 if replaced else 3, title=title.strip(), destination=self.destination,
+                     attribution=credit, base_commit=base, additions=additions, files=files)
+        if replaced:
+            draft['supersedes'] = replaced
+        return draft
 
     def prepare(self, title, additions, **attribution_options):
         preview = self.preview(title, additions, **attribution_options)
@@ -156,6 +180,7 @@ class Submissions:
             raise ValueError('Stored draft changed; prepare and review a new draft')
         reviewed = json.loads(raw)
         draft_attribution(reviewed)
+        draft_supersedes(reviewed)
         if reviewed.get('destination') != self.destination:
             raise ValueError('Draft destination changed; prepare and review a new draft')
         return reviewed
@@ -176,7 +201,8 @@ def main():
         request = json.loads(raw)
         credit = request.get('attribution', {'mode': 'anonymous'})
         preview = Submissions(root, args.output.parent).preview(request['title'], request['additions'],
-            attribution_mode=credit['mode'], attribution_name=credit.get('name'))
+            attribution_mode=credit['mode'], attribution_name=credit.get('name'),
+            replaces=request.get('supersedes', []))
         data = encode(dict(status='local_draft', preview=preview))
         with os.fdopen(os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
             stream.write(data)

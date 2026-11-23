@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def confirm_and_send(submissions, intake, digest, terminal_in, terminal_out):
     draft = submissions.reviewed(f'draft-{digest}', digest)
-    review = {key: draft[key] for key in ('title', 'destination', 'attribution', 'additions')
+    review = {key: draft[key] for key in ('title', 'destination', 'attribution', 'supersedes', 'additions')
               if key in draft}
     print(json.dumps(review, ensure_ascii=False, indent=2), file=terminal_out)
     print(f'\nDraft SHA-256: {digest}\n'

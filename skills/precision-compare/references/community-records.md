@@ -77,18 +77,28 @@ ownership and reason in the issue's classification. Before preparing, run
 evidence and draft bodies with `--term` for host aliases and account names, and
 fix every finding.
 
-On a candidate's `target`, record the affected range and fix when known in the
-record's limitations or summary: affected versions, first fixed version and
-merge commit, and the upgrade blocker for users who cannot upgrade.
+Record where the defect is and where it was fixed in the candidate's optional
+`details.upstream`: `affected` (versions or refs still containing it), `fixed_in`
+(first fixed release, or null), `fixed_commit` (the merged fix), `upgrade_blocker`
+and `refs` (`ref`, `commit`, `state` rows from `upstream_status.py`). A fixed
+release needs the merge commit or a fixed ref; search returns the block with the
+solution.
 
-When decisions change after a submission (a new or revised draft), prepare a
-new draft whose title names the earlier receipt it updates and submit it the
-same way.
+When decisions change after a submission (a new or revised draft), prepare a new
+draft with `supersedes` listing the earlier receipt IDs and submit it the same
+way; reviewers then accept only the latest receipt. `community_submission_status`
+(or `python -B -m community.submission_status RECEIPT --intake URL --token-file
+FILE`) returns a receipt's review state, linked PRs and any later receipt that
+supersedes it.
 
 Attach the draft as `upstream_pr_draft` in a new `evidence/submissions/*.json`
 document (`repository`, `base_branch`, `title`, `body_markdown`, `guidance_urls`,
 `pending_checks`) referenced from the `prepare_community_submission` evidence map;
-the regular preview and consent cover it.
+the regular preview and consent cover it. [pr_draft.py](../scripts/pr_draft.py)
+`scaffold` builds that document from the decision, the filled sections and the
+target repository's template headings, fills `pending_checks` from the decision's
+checks and, for a backport, states the fixed release and upgrade blocker; `check`
+rejects placeholders, empty sections and references to pull requests.
 
 ## Local preview
 

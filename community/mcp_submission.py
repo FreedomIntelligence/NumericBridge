@@ -21,6 +21,7 @@ Title = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min
                                         max_length=120, pattern=r'^[^\x00-\x1f\x7f]+$')]
 DraftID = Annotated[str, StringConstraints(strict=True, pattern=r'^draft-[a-f0-9]{64}$')]
 DraftHash = Annotated[str, StringConstraints(strict=True, pattern=r'^[a-f0-9]{64}$')]
+Receipt = Annotated[str, StringConstraints(strict=True, pattern=r'^submission-[a-f0-9]{64}$')]
 Record = dict[str, Any]
 Records = Annotated[list[Record], Field(max_length=50)]
 Evidence = Annotated[dict[str, Record], Field(max_length=20)]
@@ -65,6 +66,7 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         evidence: Evidence | None = None,
         attribution_mode: Literal['anonymous', 'nickname', 'github'] = 'anonymous',
         attribution_name: str | None = None,
+        supersedes: Annotated[list[Receipt], Field(max_length=10)] | None = None,
     ) -> dict[str, Any]:
         """Validate additions and save an exact local preview without sending it.
 
@@ -72,6 +74,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         maps a new site-relative evidence/submissions/*.json path to its JSON
         object. Reuse the community record schemas for all supplied records.
         Use a name only when the contributor chooses a nickname or GitHub @username.
+        When this draft revises an earlier submission (new or changed contribution
+        decisions or PR drafts), list that submission's receipt ID in supersedes.
         Show the actual additions, destination and attribution, then offer submission through
         the client confirmation.
         """
@@ -80,7 +84,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                          relations=dict(entities=entities or [], links=links or []), evidence=evidence or {})
         try:
             return await asyncio.to_thread(submissions.prepare, title, additions,
-                attribution_mode=attribution_mode, attribution_name=attribution_name)
+                attribution_mode=attribution_mode, attribution_name=attribution_name,
+                replaces=supersedes or [])
         except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
             return dict(status='invalid', findings=[str(error)])
 
@@ -119,7 +124,9 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                 message=f"Share this anonymized result with NumericBridge so others can reuse it?\n"
                 f"Title: {draft['title']}\nCommunity inbox: {draft['destination']}\n"
                 f"{credit_message}\n"
-                f"Draft SHA-256: {draft_sha256}",
+                + (f"Replaces earlier submissions: {', '.join(draft['supersedes'])}\n"
+                   if draft.get('supersedes') else '')
+                + f"Draft SHA-256: {draft_sha256}",
                 requested_schema=APPROVAL_SCHEMA, related_request_id=ctx.request_id)
         except MCPError as error:
             return unavailable('form_request_failed', 'The client could not open the confirmation form',
@@ -138,6 +145,26 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
             return await asyncio.to_thread(intake.send, draft, draft_sha256)
         except (OSError, ValueError, KeyError, TypeError) as error:
             return dict(status='submission_failed', message=str(error))
+
+    @server.tool(
+        title='Check a NumericBridge submission',
+        annotations=types.ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                          idempotentHint=True, openWorldHint=True),
+        structured_output=True,
+    )
+    async def community_submission_status(receipt_id: Receipt) -> dict[str, Any]:
+        """Read the review state of a receipt returned by submit_community.
+
+        States: pending_review, needs_information, accepted, declined, published.
+        superseded_by lists later submissions that replace this one. A receipt is
+        searchable only after it is published and the deployed index returns it.
+        """
+        if intake is None:
+            return dict(status='intake_unavailable', message='No community inbox is configured')
+        try:
+            return await asyncio.to_thread(intake.status, receipt_id)
+        except (OSError, ValueError) as error:
+            return dict(status='status_unavailable', message=str(error))
 
     return server
 

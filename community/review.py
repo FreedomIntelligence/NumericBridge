@@ -74,14 +74,56 @@ def sync(state, db):
             db.execute('INSERT OR IGNORE INTO receipts VALUES (?, ?)', (path.stem, received))
 
 
-def queue(db):
-    return [dict(row) for row in db.execute('''
-        SELECT r.id AS receipt_id, r.received_at, COALESCE(e.state, 'pending_review') AS state,
-               e.reviewer, e.at AS updated_at, e.case_id, e.community_pr, e.upstream_pr, e.index_sha256
-        FROM receipts r LEFT JOIN events e ON e.seq = (
-            SELECT MAX(seq) FROM events WHERE receipt_id = r.id
-        ) ORDER BY r.received_at, r.id
-    ''')]
+QUEUE = '''
+    SELECT r.id AS receipt_id, r.received_at, COALESCE(e.state, 'pending_review') AS state,
+           e.reviewer, e.at AS updated_at, e.case_id, e.community_pr, e.upstream_pr, e.index_sha256
+    FROM receipts r LEFT JOIN events e ON e.seq = (
+        SELECT MAX(seq) FROM events WHERE receipt_id = r.id
+    ) ORDER BY r.received_at, r.id
+'''
+
+
+def supersession(inbox):
+    """Map each receipt to the receipts it replaces and the later receipts that replace it."""
+    replaces, replaced_by = {}, {}
+    for path in sorted(inbox.glob('submission-*.json')):
+        try:
+            draft = json.loads(read_receipt(inbox, path.stem)[1])
+        except ValueError:
+            continue
+        earlier = draft.get('supersedes', []) if isinstance(draft, dict) else []
+        replaces[path.stem] = list(earlier)
+        for old in earlier:
+            replaced_by.setdefault(old, []).append(path.stem)
+    return replaces, replaced_by
+
+
+def queue(db, inbox=None):
+    rows = [dict(row) for row in db.execute(QUEUE)]
+    if inbox is not None:
+        replaces, replaced_by = supersession(inbox)
+        for row in rows:
+            row['supersedes'] = replaces.get(row['receipt_id'], [])
+            row['superseded_by'] = replaced_by.get(row['receipt_id'], [])
+    return rows
+
+
+def receipt_status(state, receipt_id):
+    """Current review state of one receipt for its submitter, read-only (no ledger yet: pending_review)."""
+    inbox = state / 'inbox'
+    read_receipt(inbox, receipt_id)
+    row = None
+    ledger = state / 'review.sqlite3'
+    if ledger.is_file() and not ledger.is_symlink():
+        with closing(sqlite3.connect(ledger.resolve().as_uri() + '?mode=ro', uri=True)) as db:
+            db.row_factory = sqlite3.Row
+            if db.execute("SELECT name FROM sqlite_master WHERE name='events'").fetchone():
+                row = db.execute('''SELECT state, at, community_pr, upstream_pr FROM events
+                                    WHERE receipt_id=? ORDER BY seq DESC LIMIT 1''', (receipt_id,)).fetchone()
+    _, replaced_by = supersession(inbox)
+    return dict(receipt_id=receipt_id, review_state=row['state'] if row else 'pending_review',
+                updated_at=row['at'] if row else None, community_pr=row['community_pr'] if row else None,
+                upstream_pr=row['upstream_pr'] if row else None, superseded_by=replaced_by.get(receipt_id, []))
 
 
 def pr_url(value):
@@ -113,6 +155,10 @@ def decide(state, db, args):
         raise ValueError('An upstream PR can be registered after acceptance')
     if not linking and status not in TRANSITIONS[current['state']]:
         raise ValueError(f"Invalid transition: {current['state']} -> {args.status}")
+    if not linking and status in ('accepted', 'published'):
+        later = supersession(state / 'inbox')[1].get(args.receipt, [])
+        if later:
+            raise ValueError(f'{args.receipt} is superseded by {", ".join(later)}; review the latest receipt')
     if not args.reviewer.strip() or not args.reason.strip():
         raise ValueError('A reviewer and reason are required')
     case_id = args.case or current['case_id']
@@ -208,7 +254,8 @@ def main():
                     db.execute('BEGIN IMMEDIATE')
                     sync(state, db)
                     if args.command == 'list':
-                        result = [row for row in queue(db) if not args.status or args.status == row['state']]
+                        result = [row for row in queue(db, state / 'inbox')
+                                  if not args.status or args.status == row['state']]
                     elif args.command == 'show':
                         _, raw = read_receipt(state / 'inbox', args.receipt)
                         history = db.execute('SELECT * FROM events WHERE receipt_id=? ORDER BY seq', (args.receipt,))

@@ -7,18 +7,22 @@ import json
 import os
 from pathlib import Path
 import re
+import sqlite3
 import tempfile
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .records.submission import COLLECTIONS, DIGEST, Submissions, draft_attribution, encode, git
+from .records.submission import COLLECTIONS, DIGEST, Submissions, draft_attribution, draft_supersedes, encode, git
 
 
 ROOT = Path(__file__).resolve().parent.parent
 PATH = '/v1/submissions'
 MAX_BODY = 320 * 1024
 MAX_RECEIPT = 4096
+RECEIPT = re.compile(r'submission-[a-f0-9]{64}')
+REVIEW_STATES = ('pending_review', 'needs_information', 'accepted', 'declined', 'published')
+STATUS_FIELDS = ('receipt_id', 'review_state', 'updated_at', 'community_pr', 'upstream_pr', 'superseded_by')
 
 
 def read_token(path):
@@ -72,6 +76,26 @@ class IntakeClient:
             raise ValueError('Community inbox returned an invalid receipt')
         return {k: result[k] for k in ('status', 'receipt_id', 'review_state', 'reused')}
 
+    def status(self, receipt_id):
+        if not RECEIPT.fullmatch(receipt_id or ''):
+            raise ValueError('Use a submission-<sha256> receipt ID')
+        request = Request(f'{self.url}/{receipt_id}', method='GET',
+                          headers={'Authorization': 'Bearer ' + read_token(self.token_file)})
+        try:
+            with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=30) as response:
+                result = json.loads(response.read(MAX_RECEIPT + 1))
+        except HTTPError as error:
+            error.close()
+            if error.code == 404:
+                return dict(status='unknown_receipt', receipt_id=receipt_id)
+            raise ValueError(f'Community inbox did not return a status (HTTP {error.code})') from error
+        except (OSError, UnicodeError, ValueError, RecursionError) as error:
+            raise ValueError('No valid status from the community inbox; retry later') from error
+        if (not isinstance(result, dict) or result.get('receipt_id') != receipt_id
+                or result.get('review_state') not in REVIEW_STATES):
+            raise ValueError('Community inbox returned an invalid status')
+        return dict(status='found', **{k: result.get(k) for k in STATUS_FIELDS})
+
 
 class Inbox:
     def __init__(self, repo, directory):
@@ -96,11 +120,13 @@ class Inbox:
 
         draft = json.loads(raw)
         keys = {'schema_version', 'title', 'destination', 'base_commit', 'additions', 'files'}
+        extra = {2: set(), 3: {'attribution'}, 4: {'attribution', 'supersedes'}}
         if (not isinstance(draft, dict) or type(draft.get('schema_version')) is not int
-                or set(draft) != (keys | {'attribution'} if draft['schema_version'] == 3 else keys)
+                or draft['schema_version'] not in extra or set(draft) != keys | extra[draft['schema_version']]
                 or raw != encode(draft, compact=True)):
             raise ValueError('Invalid submission format')
         credit = draft_attribution(draft)
+        replaced = draft_supersedes(draft)
         endpoint(draft['destination'])
         additions = draft['additions']
         if (not isinstance(additions, dict) or set(additions) != {*COLLECTIONS, 'evidence'}
@@ -113,7 +139,7 @@ class Inbox:
         # Validate against the community baseline, without changing the approved bytes.
         # The submitter's catalog commit and generated files are preview metadata.
         self.records.preview(draft['title'], additions, attribution_mode=credit['mode'],
-                             attribution_name=credit.get('name'))
+                             attribution_name=credit.get('name'), replaces=replaced)
         fd, temporary = tempfile.mkstemp(dir=self.directory, prefix='.incoming-')
         try:
             with os.fdopen(fd, 'wb') as stream:
@@ -129,6 +155,15 @@ class Inbox:
         finally:
             os.unlink(temporary)
         return self.receipt(receipt_id, False)
+
+    def status(self, receipt_id):
+        from .review import receipt_status
+        if not RECEIPT.fullmatch(receipt_id):
+            raise KeyError(receipt_id)
+        if not (self.directory / (receipt_id + '.json')).is_file():
+            raise KeyError(receipt_id)
+        result = receipt_status(self.directory.parent, receipt_id)
+        return {k: result[k] for k in STATUS_FIELDS}
 
     @staticmethod
     def receipt(receipt_id, reused):
@@ -164,11 +199,24 @@ def create_app(inbox, token):
             return JSONResponse({'status': 'unavailable'}, status_code=503)
         return JSONResponse(result, status_code=200 if result['reused'] else 201)
 
+    async def status(request):
+        authorization = request.headers.get('authorization', '').encode('latin-1')
+        if not hmac.compare_digest(authorization, expected):
+            return JSONResponse({'status': 'unauthorized'}, status_code=401)
+        try:
+            result = await run_in_threadpool(inbox.status, request.path_params['receipt'])
+        except KeyError:
+            return JSONResponse({'status': 'not_found'}, status_code=404)
+        except (ValueError, OSError, sqlite3.Error):
+            return JSONResponse({'status': 'unavailable'}, status_code=503)
+        return JSONResponse(result, headers={'Cache-Control': 'no-store'})
+
     async def health(_request):
         return JSONResponse({'status': 'ok'}, headers={'Cache-Control': 'no-store'})
 
     return Starlette(routes=[Route('/healthz', health, methods=['GET']),
-                             Route(PATH, receive, methods=['POST'])])
+                             Route(PATH, receive, methods=['POST']),
+                             Route(PATH + '/{receipt}', status, methods=['GET'])])
 
 
 def main():

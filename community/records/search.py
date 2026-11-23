@@ -140,7 +140,8 @@ def compile_index(catalog):
         return dict(id=identity, title=localized(content, 'title', default=details['title']),
                     summary=localized(content, 'summary'), content=content,
                     **{key: deepcopy(details[key]) for key in
-                       ('classification', 'solution_type', 'target', 'evidence_level', 'decision') if key in details},
+                       ('classification', 'solution_type', 'target', 'evidence_level', 'decision', 'upstream')
+                       if key in details},
                     source=deepcopy(row['source']), evidence=deepcopy(row['record']['evidence']))
     for entry in rows.values():
         if entry['kind'] != 'case':

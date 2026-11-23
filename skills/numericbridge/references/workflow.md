@@ -296,7 +296,9 @@ Use the [community record guide](../../precision-compare/references/community-re
   unavailable, keep the local draft and report its path. A receipt means pending
   review; call the result searchable only when the deployed index returns its IDs.
   When decisions change after a receipt, submit an updated draft that names the
-  earlier receipt. Contribution status does not change local delivery status.
+  earlier receipt (supersedes), and read review progress with
+  community_submission_status. Contribution status does not change local
+  delivery status.
 </contribute>
 ```
 
