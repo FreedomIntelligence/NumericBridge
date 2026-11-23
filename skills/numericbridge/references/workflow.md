@@ -28,7 +28,7 @@ independent sides in parallel and returns the next skill on failure.
 </continuous_run>
 
 <delegation when="a case is delegated">
-  One owner per case covers target and reference from comparison through
+  One owner per case covers both sides from comparison through
   diagnosis and original-workload verification; split independent cases for
   parallel work. Give the owner the request, grant, budget and checkpoint. The
   coordinator checks owner state on progress requests and worker returns,
@@ -93,7 +93,7 @@ Use [framework-adapt](../../framework-adapt/SKILL.md#execute) and its
 <entry>Community lookup finished or was unavailable.</entry>
 
 <action>
-  Prepare target and reference independently, reusing matching environments and
+  Prepare both sides independently, reusing matching environments and
   receipts. Confirm device binding and preflight each unverified native path with
   its collectors. In each preflight worker, collect the environment receipt
   (`tools.environment_receipt`) after the workload reaches its runtime path:
@@ -123,7 +123,7 @@ in order on both sides ([task views](../../precision-compare/examples/minimal-pr
 
 ```xml
 <entry>
-  Native capture is ready. Without a usable reference, run only standalone checks
+  Native capture is ready. With only one executable side, run only standalone checks
   and state their limits.
 </entry>
 
@@ -145,16 +145,23 @@ in order on both sides ([task views](../../precision-compare/examples/minimal-pr
 </next>
 ```
 
-### Choose a reference
+### Sides and ground truth
 
 ```xml
-<reference>
-  Prefer executable access to both sides. With only the target accelerator,
-  recompute suitable checkpoints on CPU (FP64 where appropriate) and report their
-  coverage. Accuracy claims need an analytic result, a validated independent
-  implementation or a higher-precision path; otherwise report observed
-  differences, repeatability and invariant checks only.
-</reference>
+<sides>
+  Label the two stacks A and B. Neither is assumed correct and either can be
+  repaired. The end-to-end comparison measures agreement only and does not
+  decide which side deviates. Attribute a deviation only against a ground truth:
+  an analytic result, an invariant, or an operator recomputed in FP64 on CPU
+  from the captured operands (cheap and needs no third device; see
+  acceptance.md#agreement-and-accuracy). A whole-model higher-precision or
+  third-stack reference is optional and must not share kernels with either side.
+  When a cross-side fail persists, run one same-hardware stack control (one side
+  with another engine or toolkit version) and report its difference beside the
+  cross-side verdict; it shows how much the software stack alone moves the
+  result. With only one executable side, recompute suitable checkpoints on CPU
+  and report their coverage.
+</sides>
 ```
 
 ## Diagnose a difference
@@ -208,8 +215,8 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
 
 ## Precision optimization (placeholder)
 
-Not active. [operator-optimize](../../operator-optimize/SKILL.md) is reserved for
-later work; do not enable it or run optimization. A `gap` verdict (acceptance's
+Not active. The `operator-optimize` skill is a reserved placeholder for later
+work and is not installed; do not enable it or run optimization. A `gap` verdict (acceptance's
 `optimize_optional` route) is delivered with the remaining distance to the
 optimize target reported.
 

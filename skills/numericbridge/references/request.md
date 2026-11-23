@@ -10,7 +10,7 @@
   Summarize hardware, model, tested framework, task (inference, SFT or RL) and
   scope in the user's language; for a general check, propose a small end-to-end
   case. Confirm once: the target and scope, the accelerator-hour ceiling with the
-  allowed devices, hosts or queues, and access (credentials, reference side).
+  allowed devices, hosts or queues, and access (credentials for both sides).
   Use the default acceptance profile unless the user gives criteria.
 </action>
 

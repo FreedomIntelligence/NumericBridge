@@ -51,3 +51,21 @@ any mismatch fails before numerical limits apply.
 Limits judge agreement between the two sides. A semantic defect can stay within
 them (for example a disabled attention window measured 0.007 logprob MAE), so
 keep reference and invariant checks where the task defines them.
+
+## Agreement and accuracy
+
+`nb-default-v1` judges agreement between A and B. It does not say which side is
+more accurate: a patch that moves one side closer to FP64 can widen the A/B gap
+when the two sides' errors previously cancelled. Report accuracy separately, per
+localized operator: the RMSE and maximum error of A and of B against an FP64
+recomputation from the same captured operands, before and after any patch.
+
+| A vs FP64 | B vs FP64 | Reading |
+|---|---|---|
+| near | far | B deviates at this operator |
+| far | near | A deviates at this operator |
+| far | far | Shared or dtype-inherent policy; neither side is defective here |
+| near | near | Not the source; trace the differing input upstream |
+
+"Near" is the error expected for the dtype and reduction length; state the
+bound used. Operator verdicts do not attribute the end-to-end difference.

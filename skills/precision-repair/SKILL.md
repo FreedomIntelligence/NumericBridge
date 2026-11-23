@@ -23,6 +23,10 @@ python scripts/triage.py --acceptance acceptance.json --report scores.json [--co
 python scripts/diagnosis_state.py init --state diagnosis.json --acceptance acceptance.json --triage triage.json
 python scripts/diagnosis_state.py next --state diagnosis.json
 python scripts/diagnosis_state.py record --state diagnosis.json --hypothesis H1 --label LABEL --finding TEXT --evidence PATH
+```
+
+Principles for each check:
+
 1. **Reproduce the observation.** Reuse the native small case, identities,
    collectors and captures. Check that inputs, initial state, effective settings
    and observed coordinates are comparable; resolve capture or configuration
@@ -70,6 +74,8 @@ the task's existing metrics and comparable observations.
 </diagnosis_handoff>
 ```
 
+Loop steps:
+
 1. **Check alignment.** Exact-check failures (inputs, masks, rewards, counts,
    events) are `config_mismatch`: correct setup or capture and rerun the
    comparison. For a preflight failure, confirm support on the tested revision and
@@ -87,8 +93,9 @@ the task's existing metrics and comparable observations.
 4. **Cross-replay the leaf.** Save the leaf's call on both sides and run each
    side's module on both calls with `replay_module`
    ([example](examples/causal-replay.md)); include the incoming gradient for a
-   backward boundary. Add an FP64 reference output when available to tell which
-   side deviates. `replay.py` assigns the label and next check.
+   backward boundary. Recompute the leaf in FP64 on CPU from the same operands
+   to tell which side deviates ([agreement and accuracy](../precision-compare/references/acceptance.md#agreement-and-accuracy));
+   either side may be the one to repair. `replay.py` assigns the label and next check.
 
 | Label | Meaning | Next check |
 |---|---|---|
@@ -101,7 +108,8 @@ the task's existing metrics and comparable observations.
 | `primary_cause_confirmed` / `secondary_factor_confirmed` | Intervention verdict | Repair or deliver |
 | `not_reproduced` / `unresolved` | Trigger absent / no actionable check left | Deliver with the blocker and next check |
 
-A local improvement counts only when the task endpoint also improves. Keep
+A local improvement repairs the task only when the task endpoint also improves;
+otherwise keep it as an operator finding. Keep
 injected state and diagnostic constraints out of original-workload verification.
 
 **Stop** when a hypothesis reaches a confirmed label, the budget is spent, or no
@@ -112,6 +120,9 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
 
 ## Patch and verify
 
+- Either side can be patched. Classify each candidate as a semantic or
+  execution defect (wrong function, out-of-bounds index or capacity, ignored
+  setting) or a numerical-policy difference (rounding point, accumulation order).
 - Test one patch, upgrade or configuration change at a time, ordered by cost:
   recorded community fix, configuration switch, upstream fix, new patch. Keep
   case-specific patches with the case.
@@ -126,8 +137,19 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
   only for missing coverage or an agreed requirement; measure runtime and memory
   when relevant.
 
-A fix is verified when the focused regression and the original-case
-[acceptance](../precision-compare/references/acceptance.md) both pass. Record each
+- Verify a numerical-policy patch at the operator: it moves the patched side
+  closer to FP64 on the captured operands. On the original case it must not
+  regress the task endpoint beyond repeat noise without an explanation. A wider
+  A/B gap alone does not reject it, since the sides' errors can cancel; report
+  the agreement change as a secondary result.
+- Before a PR draft, record the [upstream status](../numericbridge/references/workflow.md#stages-and-handoffs)
+  and verify any backport on the user's pinned version.
+
+A defect fix is verified when the focused regression and the original-case
+[acceptance](../precision-compare/references/acceptance.md) both pass (for an
+execution defect, the original failing path and its required evidence). A
+numerical-policy patch is verified by the operator rule above; record whether
+original-case acceptance changed. Record each
 candidate, configuration, before/after values and evidence with
 `diagnosis_state.py record`. Use [precision-compare](../precision-compare/SKILL.md#collect)
 for missing captures and [shared execution](../precision-compare/references/comparison.md#recover-an-interrupted-stage)

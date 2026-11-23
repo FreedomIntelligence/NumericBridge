@@ -23,7 +23,7 @@ wall_seconds. stdout.bin/stderr.bin receive child bytes directly.
 summarize_run(folder, record=None, tail_bytes=2048, include_tails=False) reads a run
 without launching. classify_failure(record, text) maps status and the last 16 KiB of
 logs to failure_class (out_of_memory, collective_timeout, device_unavailable,
-import_error, missing_file, unsupported_operation, collective_error,
+import_error, missing_file, unsupported_operation, index_out_of_bounds, collective_error,
 nonfinite_values, killed, python_exception, timed_out, launch_failed, interrupted,
 unknown) and category (setup_or_resource, unsupported, reproducible_failure,
 interrupted) with the matching line as evidence.
@@ -186,6 +186,8 @@ FAILURE_PATTERNS = (
     ('missing_file', 'setup_or_resource', r'FileNotFoundError|No such file or directory'),
     ('unsupported_operation', 'unsupported', r'NotImplementedError|not implemented for|is not supported|not supported on|'
                                              r'Could not run \S+ with arguments from the'),
+    ('index_out_of_bounds', 'reproducible_failure', r'IndexError|index out of (range|bounds)|out of bounds|'
+                                                    r'illegal memory access|integer overflow'),
     ('collective_error', 'reproducible_failure', r'NCCL error|HCCL error|nccl(Internal|System|Invalid)\w*Error'),
     ('nonfinite_values', 'reproducible_failure', r'(loss|grad\w*) (is|became) (nan|inf)|NaN or Inf found'),
 )

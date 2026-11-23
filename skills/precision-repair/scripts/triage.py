@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Rank likely causes of a failed comparison from its signature, before any new native run.
-Call: triage(acceptance, reports=(), community=None); CLI: python scripts/triage.py --acceptance A.json [--report R.json ...] [--community S.json] --output NEW.json
-Input: acceptance.py report, optional comparator reports (scores, distributions, tensors, nonfinite) and community_search output.
+Call: triage(acceptance, reports=(), community=None); CLI: python scripts/triage.py [--acceptance A.json] [--report R.json ...] [--community S.json] --output NEW.json
+Input: acceptance.py report (optional for a failed run), comparator reports (scores, distributions, tensors, nonfinite),
+record_run/workflow run summaries carrying failure_class, and community_search output.
 Output: ordered candidates {cause, evidence, check, cost, tool}; first candidate is the cheapest discriminating check.
 Requires: Standard library; reads JSON only.
 
 Details:
 Signatures (evaluated in this order; cost cpu < replay < native):
   incomplete acceptance          -> recover capture before diagnosis
-  noise_limited acceptance       -> nondeterminism: repeat each side, pin seeds/deterministic kernels
-  exact check failed             -> semantic mismatch named by the check (inputs, masks, rewards, counts, events)
+  noise_limited acceptance       -> nondeterminism: repeat each side, pin seeds/deterministic kernels;
+                                    repeats that still differ when deterministic suggest a race or uninitialized memory
+  run with failure_class index_out_of_bounds (record_run summary)
+                                 -> index or capacity overflow: buffer size vs real index domain, int32 near 2^31
+  exact check failed             -> semantic mismatch named by the check (inputs, masks, rewards, counts, events;
+                                    setting_effect=false: a changed setting left outputs bit-identical)
   community matches              -> known issue: compare the recorded trigger/setting, apply its tested fix
   nonfinite report               -> overflow or dtype narrowing: find the first nonfinite boundary
   norm ratio fails, cosine passes -> scaling or reduction denominator; ratio near a small rational is reported
@@ -46,6 +51,8 @@ EXACT = {
     'optimizer_events': 'optimizer step skipped or applied differently: check overflow, loss scaling and accumulation boundaries',
     'inventory': 'parameter or gradient inventory differs: check trainable flags, tied weights and name mapping',
     'coverage': 'required observations missing: recover capture before diagnosis',
+    'setting_effect': 'a changed setting left outputs bit-identical: check that the argument reaches the kernel '
+                      '(ignored, overwritten or defaulted parameter)',
 }
 
 
@@ -116,7 +123,9 @@ def triage(acceptance, reports=(), community=None):
     if verdict == 'noise_limited':
         noisy = [n for n in failing if checks.get(n, {}).get('result') == 'noise_limited']
         _add(out, 'run-to-run nondeterminism', dict(checks=noisy),
-             'repeat each side with pinned seeds and deterministic kernels; compare against repeat noise', 'native', priority=-2)
+             'repeat each side with pinned seeds and deterministic kernels; if repeats still differ, capture boundaries '
+             'on two same-side repeats: the first differing boundary points to a data race or uninitialized memory',
+             'native', priority=-2)
     for row in acceptance.get('exact', []):
         if row['result'] == 'fail':
             _add(out, 'semantic mismatch: ' + row['name'], row,
@@ -131,6 +140,12 @@ def triage(acceptance, reports=(), community=None):
         return [n for n in names if n in failing]
     def ok(*names):
         return all(n in checks and n not in failing for n in names)
+    for label, report in reports:
+        if report.get('failure_class') == 'index_out_of_bounds':
+            _add(out, 'index or capacity overflow', dict(report=label, evidence=report.get('evidence')),
+                 'compare the failing index with the size of the buffer it addresses; check the capacity formula '
+                 'against the real index domain (e.g. global vs per-group slots) and int32 offsets or counts near 2^31',
+                 'cpu', priority=-1)
     for label, report in reports:
         if report.get('kind') == 'nonfinite_tensors':
             _add(out, 'overflow or dtype narrowing (nonfinite values)', dict(report=label, samples=report.get('global', {}).get('samples')),
@@ -202,13 +217,13 @@ def triage(acceptance, reports=(), community=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:\n')[0],
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--acceptance', required=True)
+    parser.add_argument('--acceptance')
     parser.add_argument('--report', action='append', default=[])
     parser.add_argument('--community')
     parser.add_argument('--output', required=True)
     args = parser.parse_args(argv)
     try:
-        result = triage(_load(args.acceptance), [(p, _load(p)) for p in args.report],
+        result = triage(_load(args.acceptance) if args.acceptance else {}, [(p, _load(p)) for p in args.report],
                         _load(args.community) if args.community else None)
         with Path(args.output).open('x') as stream:
             json.dump(result, stream, indent=2, allow_nan=False)

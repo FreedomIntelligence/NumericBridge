@@ -35,6 +35,17 @@ affected tasks. Clarify historical wording by typed ID in `data/content.json`.
 Include only the evidence needed to trace the result; keep raw logs, prompts,
 private paths and host details local.
 
+## Submission identity
+
+`prepare_community_submission` returns `base_commit`: the community catalog
+revision the submission service used to validate and merge the record. It is
+not the NumericBridge revision the case ran, and a different value is not a
+blocker; record it in the case state. Fix the draft only when the result is
+`invalid`. If `submit_community` returns `approval_unavailable`, keep the draft
+and offer the terminal fallback (`python -B -m community.submit_reviewed
+--draft-sha256 SHA`), which shows the same draft and sends it only after the
+user types `SEND`.
+
 ## Prepare an upstream PR draft
 
 For a verified patch intended for upstream, read the target repository's base
