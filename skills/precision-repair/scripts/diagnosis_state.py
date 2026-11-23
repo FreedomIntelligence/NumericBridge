@@ -28,7 +28,7 @@ render --state S [--output issues.md]  (derived file; overwritten)
 Labels: config_mismatch, replay_invalid, local_source_candidate, propagation_candidate,
 amplification_supported, local_source_confirmed, primary_cause_confirmed,
 secondary_factor_confirmed, not_reproduced, ruled_out, unresolved.
-Exit: 0=ok (next: check/refine), 1=next returned stop, 2=input error.
+Exit: 0=ok (including next returning stop; read "action"), 2=input error.
 """
 
 __all__ = ['init', 'add', 'next_action', 'record', 'conclude', 'render']
@@ -197,7 +197,7 @@ def main(argv=None):
         elif args.command == 'next':
             result = next_action(state)
             print(json.dumps(result, ensure_ascii=False))
-            return 1 if result['action'] == 'stop' else 0
+            return 0
         elif args.command == 'render':
             text = render(state)
             if args.output:

@@ -208,7 +208,10 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
 <output>
   Mark each stage complete, partial, blocked or not applicable (outside scope, or
   its trigger did not fire). A CPU slice does not complete an agreed dual-native
-  comparison. Give the configuration, coverage, acceptance verdict and profile,
+  comparison. A required item whose inputs are unavailable (for example a
+  reproduction whose original token histories were never published) stays
+  partial with the missing input named, even when every run finished. Give the
+  configuration, coverage, acceptance verdict and profile,
   runnable setup and evidence links; link issues.md for open issues. Provide
   reports, bundles or offline replay when requested.
 </output>
