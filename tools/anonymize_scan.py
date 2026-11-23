@@ -7,10 +7,12 @@ Requires: Standard library.
 
 Details:
 Built-in kinds: ipv4, ipv6, email, home_path (/Users/NAME, /home/NAME, C:\\Users\\NAME),
-private_path (/mnt, /data, /SharePath, /host-model, /opt/... under a user), credential
+private_path (absolute /mnt, /data, /SharePath, /host-model, /nfs, /scratch paths; a
+repository-relative path such as site/data/x.json is not one), credential
 (token=, password=, api_key=, bearer tokens, private keys). --term adds literal case-insensitive
 terms (host aliases, user names, account IDs). Version strings such as 0.18.0 are not IPv4
-(exactly four dot-separated octets with no surrounding digits are required). Binary files are skipped.
+(exactly four dot-separated octets with no surrounding digits are required); loopback
+127.0.0.0/8, 0.0.0.0 and ::1 identify no host and are allowed. Binary files are skipped.
 CLI exit: 0=clean, 1=findings, 2=input error.
 """
 
@@ -26,11 +28,12 @@ PATTERNS = {
     'ipv6': re.compile(r'(?<![\w:])(?:[0-9a-fA-F]{1,4}:){4,7}[0-9a-fA-F]{1,4}(?![\w:])'),
     'email': re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+'),
     'home_path': re.compile(r'(?:/Users/|/home/|[A-Za-z]:\\Users\\)[A-Za-z0-9._-]+'),
-    'private_path': re.compile(r'/(?:mnt|data|SharePath|host-model|nfs|scratch)/[A-Za-z0-9._-]+'),
+    'private_path': re.compile(r'(?<![\w.~-])/(?:mnt|data|SharePath|host-model|nfs|scratch)/[A-Za-z0-9._-]+'),
     'credential': re.compile(r'(?i)(?:token|password|passwd|secret|api[_-]?key)\s*[=:]\s*\S{6,}|'
                              r'bearer\s+[A-Za-z0-9._~+/-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'),
 }
 ALLOWED_EMAIL = re.compile(r'(?i)noreply@|@users\.noreply\.github\.com$|@example\.(?:com|org)$')
+ALLOWED_IP = re.compile(r'127(?:\.\d{1,3}){3}|0\.0\.0\.0')
 
 
 def _files(paths):
@@ -56,6 +59,8 @@ def scan(paths, terms=()):
                 for match in pattern.finditer(line):
                     text = match.group(0)
                     if kind == 'email' and ALLOWED_EMAIL.search(text):
+                        continue
+                    if kind == 'ipv4' and ALLOWED_IP.fullmatch(text):
                         continue
                     findings.append(dict(file=str(path), line=number, kind=kind, match=text[:80]))
     return dict(status='clean' if not findings else 'findings', files=count, findings=findings)

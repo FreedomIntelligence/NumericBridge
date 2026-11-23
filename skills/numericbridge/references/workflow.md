@@ -246,7 +246,8 @@ optimize target reported.
   No required check remains actionable within authorization and budget; finish
   active in-scope runs first. `diagnosis_state.py audit` returns ok: every
   confirmed or blocked hypothesis has a contribution decision and every blocked
-  one a blocker.
+  one a blocker. Drafts with missing checks do not block delivery; they are
+  listed in incomplete_drafts and submitted marked incomplete.
 </entry>
 
 <action>

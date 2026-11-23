@@ -38,9 +38,11 @@ decide --state S --hypothesis H --ownership OWNER --decision DECISION --reason R
   PR-draft checks (NAME=pass|fail|na): applies_cleanly, repo_style_test,
   native_on_target, performance, template_body; a missing or failed check makes
   the draft incomplete.
-audit --state S -> {"status":"ok"|"incomplete", problems:[...], incomplete_drafts:[...]};
-  problems: a confirmed/blocked hypothesis without a decision, a blocked one without
-  a blocker, a draft decision without repository/branch/draft, or no conclusion.
+audit --state S -> {"status":"ok"|"incomplete", problems:[...], drafts:"complete"|"incomplete"|"none",
+  incomplete_drafts:[...]}; status is incomplete only for problems: a confirmed/blocked
+  hypothesis without a decision, a blocked one without a blocker, a draft decision without
+  repository/branch/draft, or no conclusion. A draft with missing checks does not fail
+  the audit: it is listed in incomplete_drafts and submitted marked incomplete.
 decisions --state S --output result/contribution-decisions.json  (derived; overwritten)
 render --state S [--output issues.md]  (derived file; overwritten)
 Labels: config_mismatch, replay_invalid, local_source_candidate, propagation_candidate,
@@ -227,8 +229,10 @@ def audit(state):
             problems.append(f'{hid}: fixed upstream needs fixed_in or fixed_commit')
     if not state.get('conclusion'):
         problems.append('no conclusion recorded')
-    status = 'ok' if not problems and not incomplete else 'incomplete'
-    return dict(status=status, problems=problems, incomplete_drafts=incomplete)
+    drafts = [d for d in decisions.values() if d['decision'] in DRAFT_DECISIONS]
+    return dict(status='ok' if not problems else 'incomplete', problems=problems,
+                drafts='none' if not drafts else 'incomplete' if incomplete else 'complete',
+                incomplete_drafts=incomplete)
 
 
 def export_decisions(state):
