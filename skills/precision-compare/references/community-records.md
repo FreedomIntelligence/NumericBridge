@@ -41,10 +41,18 @@ private paths and host details local.
 revision the submission service used to validate and merge the record. It is
 not the NumericBridge revision the case ran, and a different value is not a
 blocker; record it in the case state. Fix the draft only when the result is
-`invalid`. If `submit_community` returns `approval_unavailable`, keep the draft
-and offer the terminal fallback (`python -B -m community.submit_reviewed
---draft-sha256 SHA`), which shows the same draft and sends it only after the
-user types `SEND`.
+`invalid`.
+
+When request.json records `community_contribution.consent: share`, pass its path
+as `consent_record` to `submit_community`: the draft is sent without a form when
+its attribution matches the consent and the private-identifier scan is clean
+(`consent_missing` or `scan_findings` otherwise), and the receipt carries
+`confirmation: prior_consent`. The inbox validates every received draft again,
+including each `upstream_pr_draft` with `pr_draft.py check`, and rejects one
+that fails. Without recorded consent, `submit_community` asks through the client;
+if it returns `approval_unavailable`, keep the draft and offer the terminal
+fallback (`python -B -m community.submit_reviewed --draft-sha256 SHA`), which
+sends only after the user types `SEND`.
 
 ## Prepare an upstream PR draft
 

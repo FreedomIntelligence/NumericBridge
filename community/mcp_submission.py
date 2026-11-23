@@ -11,6 +11,7 @@ from mcp.server.mcpserver import Context, MCPServer
 from mcp.shared.exceptions import MCPError
 from pydantic import Field, StringConstraints
 
+from .consent import recorded_consent, scan_draft
 from .intake import IntakeClient
 from .mcp_search import register_search
 from .records.submission import Submissions, draft_attribution
@@ -95,11 +96,15 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                                           idempotentHint=True, openWorldHint=True),
         structured_output=True,
     )
-    async def submit_community(draft_id: DraftID, draft_sha256: DraftHash, ctx: Context) -> dict[str, Any]:
-        """Request confirmation and send this exact draft to the community inbox.
+    async def submit_community(draft_id: DraftID, draft_sha256: DraftHash, ctx: Context,
+                               consent_record: str | None = None) -> dict[str, Any]:
+        """Send this exact draft to the community inbox for maintainer review.
 
-        After showing the preview, use this tool as the sharing offer. The client
-        presents the only user confirmation. Rejecting or cancelling sends nothing.
+        With consent_record (the case's request.json path), send without a form when
+        the user agreed at intake (community_contribution.consent = "share"), the
+        draft's attribution matches that consent and the private-identifier scan is
+        clean; then tell the user the receipt. Without it, the client presents the
+        confirmation; rejecting or cancelling sends nothing.
         """
         try:
             draft = await asyncio.to_thread(submissions.reviewed, draft_id, draft_sha256)
@@ -107,6 +112,19 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
             return dict(status='invalid_draft', message=str(error))
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured; keep this local draft')
+        if consent_record is not None:
+            consent, reason = await asyncio.to_thread(recorded_consent, consent_record, draft)
+            if consent is None:
+                return dict(status='consent_missing', message=reason)
+            findings = await asyncio.to_thread(scan_draft, draft)
+            if findings:
+                return dict(status='scan_findings', findings=findings[:20],
+                            message='Remove private identifiers, prepare a new draft and submit it again')
+            try:
+                result = await asyncio.to_thread(intake.send, draft, draft_sha256)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                return dict(status='submission_failed', message=str(error))
+            return dict(result, confirmation='prior_consent', consented_at=consent['confirmed_at'])
         session = ctx.request_context.session
         def unavailable(reason, message, **extra):
             return dict(status='approval_unavailable', reason=reason, message=message,

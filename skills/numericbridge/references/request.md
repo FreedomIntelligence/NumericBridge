@@ -11,6 +11,10 @@
   scope in the user's language; for a general check, propose a small end-to-end
   case. Confirm once: the target and scope, the accelerator-hour ceiling with the
   allowed devices, hosts or queues, and access (credentials for both sides).
+  Ask in the same confirmation whether the user agrees to share the case's
+  anonymized community record and PR drafts with the NumericBridge community
+  inbox for maintainer review, and with which credit (anonymous, a nickname or a
+  GitHub @username).
   Use the default acceptance profile unless the user gives criteria. Check that
   each side's official image or release artifacts for the pinned versions exist
   on its host or can be pulled there; an unavailable artifact is an access item
@@ -19,7 +23,9 @@
 
 <output>
   Write request.json with the confirmed fields, pinned versions, acceptance
-  profile and pending items. Resolve discoverable versions, device IDs and launch
+  profile and pending items, and the answer as `community_contribution`:
+  `consent` (share or decline), `attribution_mode`, `attribution_name` and
+  `confirmed_at`. Resolve discoverable versions, device IDs and launch
   commands during environment preparation.
 </output>
 

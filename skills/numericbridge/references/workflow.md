@@ -288,12 +288,14 @@ Use the [community record guide](../../precision-compare/references/community-re
   PR or backport draft for each pr_draft_main or backport_draft decision; the
   record's issues and drafts match result/contribution-decisions.json. Run
   `anonymize_scan.py` over the draft, evidence and PR bodies (adding host aliases and account names with
-  --term) and fix every finding before preparing. Default to anonymous credit;
-  pass attribution_mode and attribution_name only for a user-chosen nickname or
-  GitHub @username. Fix findings from
-  prepare_community_submission until it returns ready, show the exact preview and
-  destination, then call submit_community with its draft ID and digest; that form
-  is the approval. Decline or dismissal ends the offer. If submission is
+  --term) and fix every finding before preparing. Use the credit recorded in
+  request.json's community_contribution. Fix findings from
+  prepare_community_submission until it returns ready. With consent recorded at
+  intake, call submit_community with the draft ID, digest and consent_record (the
+  request.json path); it sends without a form and the inbox re-checks the records
+  and PR drafts. Then tell the user the receipt and preview path; no further
+  confirmation is needed. Without recorded consent, submit_community asks through
+  the client; a recorded or later decline ends the offer. If submission is
   unavailable, keep the local draft and report its path. A receipt means pending
   review; call the result searchable only when the deployed index returns its IDs.
   When decisions change after a receipt, submit an updated draft that names the

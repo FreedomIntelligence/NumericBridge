@@ -11,6 +11,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from scripts.validate_immutability import compare_documents
+from tools.pr_draft import check as check_pr_draft
 from .catalog import Catalog
 from .search import compile_index
 from .validation import validate, validate_evaluations
@@ -109,6 +110,10 @@ class Submissions:
             target = site / path
             if target.resolve() != target:
                 raise ValueError('Submission evidence paths must be regular files in the review checkout')
+            if isinstance(document, dict) and 'upstream_pr_draft' in document:
+                review = check_pr_draft(document['upstream_pr_draft'])
+                if review['status'] != 'ok':
+                    raise ValueError(f'{path}: upstream_pr_draft ' + '; '.join(review['problems']))
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open('xb') as stream:
                 stream.write(encode(document))
