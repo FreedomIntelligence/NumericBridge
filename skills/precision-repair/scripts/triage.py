@@ -16,6 +16,8 @@ Signatures (evaluated in this order; cost cpu < replay < native):
   exact check failed             -> semantic mismatch named by the check (inputs, masks, rewards, counts, events;
                                     setting_effect=false: a changed setting left outputs bit-identical)
   community matches              -> known issue: compare the recorded trigger/setting, apply its tested fix
+  community related (one field differs, e.g. model)
+                                 -> one candidate per recorded issue: check whether it reproduces here
   nonfinite report               -> overflow or dtype narrowing: find the first nonfinite boundary
   norm ratio fails, cosine passes -> scaling or reduction denominator; ratio near a small rational is reported
   objective fails, scores pass   -> loss reduction, mask or coefficient: FP64 recompute of the objective
@@ -29,7 +31,8 @@ Signatures (evaluated in this order; cost cpu < replay < native):
 Concentration: share of total JS (distributions) or squared error (tensors) held by
 the top 1% of positions / top tensor. Position trend: Spearman rank correlation
 between position and per-position JS. Community input is the JSON printed by
-community_search; matches with issue or repair categories become candidates.
+community_search; matches with issue or repair categories become candidates, and each
+issue of a related case (same stack, one differing field) becomes a check to reproduce.
 CLI exit: 0=candidates written, 2=input error.
 """
 
@@ -136,6 +139,13 @@ def triage(acceptance, reports=(), community=None):
             title = (match.get('content', {}).get('title', {}) or {}).get('en') or match.get('title')
             _add(out, 'known community issue: ' + str(title), dict(id=match.get('id'), scope=match.get('scope')),
                  "compare this workload with the case's trigger and settings; apply its tested setting or fix", 'cpu')
+    for case in (community or {}).get('related', []):
+        differs = ', '.join(case.get('differences', [])) or 'one field'
+        for issue in case.get('issues', []):
+            title = (issue.get('content', {}).get('title', {}) or {}).get('en') or issue.get('title')
+            _add(out, f'related community issue (differs in {differs}): {title}',
+                 dict(case=case.get('id'), issue=issue.get('id'), classification=issue.get('classification')),
+                 'check whether this recorded issue reproduces on this workload before reusing its fix', 'cpu')
     def failed(*names):
         return [n for n in names if n in failing]
     def ok(*names):

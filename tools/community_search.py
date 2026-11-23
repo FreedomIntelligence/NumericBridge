@@ -132,13 +132,13 @@ def _configuration(config):
     return result
 
 
-def _case_result(case, configurations, differences=None):
+def _case_result(case, configurations, differences=None, *, all_issues=False):
     record_ids = {c['record']['id'] for c in configurations}
     return dict(id=case['id'], title=case['title'], category=case['category'], scope=case['scope'],
                 content=deepcopy(case.get('content', {})),
                 source=deepcopy(case['source']), evidence=deepcopy(case['evidence']),
                 configurations=[_configuration(c) for c in configurations],
-                issues=deepcopy([i for i in case['issues'] if record_ids.intersection(i['record_ids'])]),
+                issues=deepcopy([i for i in case['issues'] if all_issues or record_ids.intersection(i['record_ids'])]),
                 solutions=deepcopy(case['solutions']), differences=differences or [])
 
 
@@ -175,7 +175,8 @@ def search(index, request, *, limit=20, offset=0, related_limit=0,
             if (ranked and len(ranked[0][2]) < sum(bool(normalized[f]) for f in FIELDS) and
                     sum(f in ranked[0][2] for f in CORE) <= 1):
                 diff, config = ranked[0][2:]
-                related.append((len(diff), case['id'], _case_result(case, [config], diff)))
+                # A related case differs in one field, so list all of its issues as checks to reproduce.
+                related.append((len(diff), case['id'], _case_result(case, [config], diff, all_issues=True)))
         if missing or case['category'] == 'workflow-benchmark':
             continue
         for config in case['configurations']:
