@@ -151,7 +151,9 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
 - Verify a numerical-policy patch at the operator: it moves the patched side
   closer to FP64 on the captured operands (`operator_verdict.py` with `patched`
   reports `closer`). On the original case it must not
-  regress the task endpoint beyond repeat noise without an explanation. A wider
+  regress the task endpoint beyond repeat noise without an explanation; when
+  repeat noise is zero (deterministic runs), judge regression against the
+  acceptance profile's limit for that metric instead. A wider
   A/B gap alone does not reject it, since the sides' errors can cancel; report
   the agreement change as a secondary result.
 - Before a PR draft, record the [upstream status](../numericbridge/references/workflow.md#stages-and-handoffs)
@@ -189,15 +191,22 @@ python scripts/diagnosis_state.py decisions --state diagnosis.json --output resu
 - **Ownership** names who changes the code: `library_defect`, `numerical_policy`,
   `environment` (a launch, dependency or host hazard that does not reproduce in a
   clean documented environment), `adapter` (the case's own integration) or
-  `unlocalized`.
+  `unlocalized`. `environment` needs that clean-environment evidence or the
+  recorded image name and digest; without either, use `unlocalized`.
 - **Decision** follows the upstream state: present on main → `pr_draft_main`;
   fixed on main but present on the pinned ref → `backport_draft` for the
   distribution the user installs; environment, adapter or matching-reference
   results → `record_only`; nothing to share → `no_action`.
-- **Numerical policy** needs a reference: `reference_semantics` when the model's
-  reference implementation keeps higher precision than the library,
-  `benefit_measured` when the patch moves the operator closer to FP64 without
-  regressing the task, and `matches_reference` or `no_measured_benefit` otherwise
-  (record only).
+- **Numerical policy** is decided by the reference first: when the model's
+  reference implementation keeps higher precision than the library and the patch
+  moves the operator closer to FP64, the decision is a draft with
+  `reference_semantics`; the end-to-end change goes into the draft as a
+  secondary result and does not veto it. `benefit_measured` covers a patch closer
+  to FP64 without a reference preference. `matches_reference` or
+  `no_measured_benefit` (record only) apply only when the reference does not keep
+  higher precision.
+- Decide each issue from its current evidence and these rules; re-derive a
+  decision carried over from an earlier session instead of copying it. Treat
+  issues with the same evidence pattern the same way.
 - A draft with a failed or missing check is still submitted, marked incomplete
   with that check named.

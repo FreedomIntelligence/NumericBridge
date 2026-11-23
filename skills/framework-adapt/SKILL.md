@@ -66,7 +66,9 @@ the receipt to the next stage. In the actual worker, record device binding,
 imported framework and backend versions/revisions, driver, runtime/toolkit (CANN
 or CUDA) and the loaded collective library (HCCL or NCCL) with the
 [runtime probe](../precision-compare/scripts/runtime_probe.py); keep unconfirmed
-versions unknown. When a reported version does not identify a release (a local
+versions unknown. Record the launch image name and digest (or the install
+source when no image is used) in the receipt's `container`. When a reported
+version does not identify a release (a local
 build such as `0.18.0+empty`), record the source commit of each key repository
 in the image or install tree and map it to the nearest release tag; the commit,
 not the version string, is the pinned ref for upstream status.
