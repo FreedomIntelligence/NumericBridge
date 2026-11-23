@@ -1,0 +1,24 @@
+{
+  "upstream_pr_draft": {
+    "kind": "upstream_pr_draft",
+    "repository": "vllm-project/vllm-ascend",
+    "base_branch": "main",
+    "title": "[Precision] Compute Gemma residual RMS and scale in FP32",
+    "body_markdown": "## What this PR does / why we need it?\n\nThe residual Gemma RMSNorm path passes `1.0 + self.weight` to the fused NPU op; BF16 scale addition rounds early. Transformers v5.3.0 Qwen3_5MoeRMSNorm promotes RMS and `1.0 + weight` to FP32 before output storage. This is a local precision-policy change, not an end-to-end attribution.\n\nUpstream status (merged code only): main present, latest_release present, pinned present.\n- `origin/main` at `15ecf4a72880`: present\n- `v0.30.0` at `c09d3e20b9c4`: present\n- `v0.18.0` at `e18643f8a4d5`: present\n\nKeep the original fused call for the residual addition and return its residual unchanged; recompute RMS and Gemma scale in FP32 from that stored residual, then cast the normalized output back. No change to how the fused kernel adds or rounds the residual. The no-residual path is unchanged.\n\n## Does this PR introduce _any_ user-facing change?\n\nYes: normalized output may change numerically; residual output and API stay unchanged. A release-note fragment should accompany upstream filing.\n\n## How was this patch tested?\n\nReplay a fixed BF16 layer-0 residual Gemma RMSNorm input and weight pair on one NPU: collect the fused op output and stored residual; rerun the proposed body, verify the returned residual bitwise, and compare both normalized outputs with CPU FP64 on that same stored residual followed by one BF16 cast.\n\nOn one 910C, with installed vLLM 0.18.0+empty and real rank-0 layer-0 operands, the returned residual was bitwise identical. Absolute RMSE (operator units): prefill 0.0018684741 → 3.4322182e-06; first decode 0.0014912664 → 0. Both moved closer to CPU FP64 with a single BF16 output cast (relative RMSE heuristic bound 2^-8). The patch applies to Ascend main 15ecf4a7288099c26af504a955b2499357a3da5b; no native run on that main revision.\n\nSeparate secondary evidence from the earlier broader FP32 residual-add + RMS + scale candidate: off-final-prefill A/B forced-score MAE 0.19406 nat; off-first-decode 0.36679 nat; both fail nb-default-v1 (stable original 0.22453 / 0.33422 nat). Those are not end-to-end measurements of this narrower draft.\n\nNot measured. This conservative candidate discards the first fused normalization output and performs a separate FP32 normalization. Extra compute, temporary storage, and serving latency should be measured before merging.\n\n## Checklist\n\n- [x] Matched-operand precision check and unchanged residual verified on the installed runtime.\n- [ ] Target-main NPU test, repository regression suite, and matched performance.\n\n## Patch\n\n```diff\ndiff --git a/vllm_ascend/ops/layernorm.py b/vllm_ascend/ops/layernorm.py\n--- a/vllm_ascend/ops/layernorm.py\n+++ b/vllm_ascend/ops/layernorm.py\n@@ -121,8 +121,15 @@\n         import torch_npu\n \n         if residual is not None:\n-            x, _, residual = torch_npu.npu_add_rms_norm(x, residual, 1.0 + self.weight, self.variance_epsilon)\n-            return x, residual\n+            # Preserve the fused residual addition and its stored output dtype.\n+            _, _, residual = torch_npu.npu_add_rms_norm(x, residual, 1.0 + self.weight, self.variance_epsilon)\n+            # Normalize the stored residual without rounding the Gemma scale early.\n+            residual_fp32 = residual.float()\n+            variance = residual_fp32.square().mean(dim=-1, keepdim=True)\n+            normalized = residual_fp32 * torch.rsqrt(variance + self.variance_epsilon)\n+            normalized = normalized * (1.0 + self.weight.float())\n+            return normalized.to(x.dtype), residual\n+\n \n         x = DeviceOperator.npu_gemma_rms_norm(x, self.weight, self.variance_epsilon)\n```\n",
+    "guidance_urls": [
+      "https://github.com/vllm-project/vllm-ascend/blob/15ecf4a7288099c26af504a955b2499357a3da5b/CONTRIBUTING.md",
+      "https://github.com/vllm-project/vllm-ascend/blob/15ecf4a7288099c26af504a955b2499357a3da5b/.github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "pending_checks": [
+      "repo_style_test",
+      "native_on_target",
+      "performance"
+    ],
+    "decision": {
+      "hypothesis": "H11",
+      "decision": "pr_draft_main",
+      "reason": "reference_semantics",
+      "draft_status": "incomplete"
+    }
+  }
+}

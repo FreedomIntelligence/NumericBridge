@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-20",
+  "updated_at": "2026-11-23",
   "evaluations": [
     {
       "id": "trl-sfttrainer-checkpoint-20261021",
@@ -101595,6 +101595,658 @@
         }
       ],
       "archive": null
+    },
+    {
+      "id": "qwen36-gdn-bf16-tp2-ab-20261123-v3",
+      "title": "Qwen3.6 BF16 inference consistency: A (910C) and B (B-200)",
+      "date": "2026-11-23",
+      "task": "inference",
+      "status": "partial",
+      "acceptance": "nb-default-v1",
+      "model": {
+        "name": "Qwen/Qwen3.6-35B-A3B",
+        "revision": "a005c49d476ed5a283c9ec0d2a6b524723f4d925",
+        "architecture": "Qwen3.6-MoE",
+        "size": "35B"
+      },
+      "summary": "Off and prefix cold/warm fail at both scored positions under stable scheduling; no end-to-end attribution.",
+      "sides": [
+        {
+          "id": "a",
+          "label": "A = Ascend 910C / vLLM-Ascend",
+          "hardware": "Ascend 910C",
+          "libraries": [
+            {
+              "name": "vLLM-Ascend",
+              "version": "0.18 source build"
+            },
+            {
+              "name": "vLLM",
+              "version": "0.18.0+empty"
+            },
+            {
+              "name": "PyTorch",
+              "version": "2.9.0"
+            },
+            {
+              "name": "torch-npu",
+              "version": "2.9.0.post2"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tp": 2,
+            "eager": true,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cann",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.18.0+empty",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "name": "vllm-ascend",
+                "status": "observed",
+                "value": "0.0.0",
+                "source": "installed-distribution"
+              },
+              "runtime": {
+                "status": "unknown"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "25.5.2",
+                "source": "ascend-driver-version-file"
+              },
+              "container": {
+                "status": "unknown"
+              }
+            }
+          },
+          "frameworks": [
+            "vLLM-Ascend",
+            "vLLM"
+          ]
+        },
+        {
+          "id": "b",
+          "label": "B = B-200 / vLLM",
+          "hardware": "NVIDIA B200",
+          "libraries": [
+            {
+              "name": "vLLM",
+              "version": "0.24.0"
+            },
+            {
+              "name": "PyTorch",
+              "version": "2.11.0+cu130"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tp": 2,
+            "eager": true,
+            "moe_backend": "Triton",
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cuda",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.24.0",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "status": "not-applicable"
+              },
+              "runtime": {
+                "status": "unknown"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "595.91.07",
+                "source": "nvidia-smi-driver-query"
+              },
+              "container": {
+                "status": "unknown"
+              }
+            }
+          },
+          "frameworks": [
+            "vLLM"
+          ]
+        }
+      ],
+      "common": [
+        "Text only, fixed 100 cases twice per mode; 39 matching SHA-256 checkpoint files.",
+        "Same-side repeat forced-score MAE is zero in the stable comparison."
+      ],
+      "differences": [
+        "Engine version, dependencies and operator dispatch differ.",
+        "Warm reuse spans 2048 tokens on A and 2112 on B."
+      ],
+      "comparisons": [
+        {
+          "id": "off-final-prefill",
+          "title": "off: final-prefill",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.2245,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.6605,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        },
+        {
+          "id": "off-first-decode",
+          "title": "off: first-decode",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.3342,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.55975,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        },
+        {
+          "id": "cold-final-prefill",
+          "title": "cold: final-prefill",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.2183,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.6435,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        },
+        {
+          "id": "cold-first-decode",
+          "title": "cold: first-decode",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.264,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.60775,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        },
+        {
+          "id": "warm-final-prefill",
+          "title": "warm: final-prefill",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.2183,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.64975,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        },
+        {
+          "id": "warm-first-decode",
+          "title": "warm: first-decode",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "scope": "Stable scheduling; nb-default-v1: fail.",
+          "metrics": [
+            {
+              "id": "forced-logprob-mae",
+              "label": "Forced-token logprob MAE",
+              "value": 0.264,
+              "unit": "nat"
+            },
+            {
+              "id": "top8-set-agreement",
+              "label": "Baseline MoE top-8 exact-set agreement",
+              "value": 0.6155,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Per-side repeated requests",
+              "observed": 200,
+              "expected": 200,
+              "unit": "requests"
+            },
+            {
+              "label": "Baseline paired valid routes",
+              "observed": 4000,
+              "expected": 4000,
+              "unit": "layer-token pairs"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        "Residual RMSNorm and prefill gate beta are precision-policy findings. CPU FP64 results support local conclusions only."
+      ],
+      "evidence": [
+        {
+          "label": "Anonymized revision summaries",
+          "url": "evidence/submissions/qwen36-contribution-update-v3.json"
+        }
+      ],
+      "archive": null
+    },
+    {
+      "id": "qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123",
+      "date": "2026-11-23",
+      "title": "Qwen3-1.7B reconstructed prefix-cache comparison on Ascend 910C and NVIDIA B20Z",
+      "framework": "vLLM",
+      "task": "inference",
+      "status": "completed",
+      "acceptance": {
+        "profile": "nb-default-v1",
+        "verdict": "gap"
+      },
+      "model": {
+        "name": "Qwen/Qwen3-1.7B",
+        "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+        "architecture": "Qwen3",
+        "size": "1.7B"
+      },
+      "content": {
+        "title": {
+          "en": "Qwen3-1.7B reconstructed prefix-cache comparison on Ascend 910C and NVIDIA B20Z"
+        },
+        "workflows": [
+          "inference"
+        ]
+      },
+      "summary": "Each native stack replayed 100 reconstructed histories on three prefix paths with same-side repeats. The historical cold failure did not reproduce on these inputs.",
+      "sides": [
+        {
+          "id": "ascend",
+          "hardware": "4 × Ascend 910C",
+          "label": "4 × Ascend 910C",
+          "frameworks": [
+            "vLLM",
+            "vLLM-Ascend"
+          ],
+          "libraries": [
+            {
+              "name": "tokenizers",
+              "version": "0.22.2"
+            },
+            {
+              "name": "torch",
+              "version": "2.9.0"
+            },
+            {
+              "name": "torch-npu",
+              "version": "2.9.0.post2"
+            },
+            {
+              "name": "transformers",
+              "version": "5.3.0"
+            },
+            {
+              "name": "vllm",
+              "version": "0.18.0+empty"
+            },
+            {
+              "name": "vllm-ascend",
+              "version": "0.0.0"
+            },
+            {
+              "name": "CANN",
+              "version": "9.1.0"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tensor_parallel": 4,
+            "mode": "eager",
+            "prefill_budget_tokens": 768,
+            "cache_block_tokens": 128,
+            "path_variants": [
+              "cache-off",
+              "cold-miss",
+              "warm-hit"
+            ]
+          }
+        },
+        {
+          "id": "cuda",
+          "hardware": "2 × NVIDIA B20Z",
+          "label": "2 × NVIDIA B20Z (case-designated B200 reference)",
+          "frameworks": [
+            "vLLM"
+          ],
+          "libraries": [
+            {
+              "name": "tokenizers",
+              "version": "0.22.2"
+            },
+            {
+              "name": "torch",
+              "version": "2.11.0"
+            },
+            {
+              "name": "transformers",
+              "version": "5.9.0"
+            },
+            {
+              "name": "vllm",
+              "version": "0.24.0"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tensor_parallel": 2,
+            "mode": "eager",
+            "prefill_budget_tokens": 768,
+            "cache_block_tokens": 16,
+            "path_variants": [
+              "cache-off",
+              "cold-miss",
+              "warm-hit"
+            ]
+          }
+        }
+      ],
+      "common": [
+        "Identical verified BF16 checkpoint and frozen token histories reconstructed from fixed 100-event v1 batch.",
+        "Eager V1, first-output distribution over 151936 tokens, no sampled continuation in comparison."
+      ],
+      "differences": [
+        "vLLM version, native attention backend, TP degree and cache block size differ.",
+        "The CUDA device reports NVIDIA B20Z (PCI 10de:2bb9, subsystem 10de:2091). It is the case-designated B200 reference, not an independently verified product identity."
+      ],
+      "notes": [
+        "The previous public evaluation does not include the original rendered histories.",
+        "Prefix controls exercise immediate and five-example interleaving; no claim of identical original request ordering."
+      ],
+      "comparisons": [
+        {
+          "id": "cache-off",
+          "title": "cache-off",
+          "scope": "Prefix caching disabled on both sides.",
+          "side_ids": [
+            "ascend",
+            "cuda"
+          ],
+          "coverage": [
+            {
+              "label": "Fixed token histories",
+              "expected": 100,
+              "observed": 100,
+              "unit": "positions"
+            },
+            {
+              "label": "A/B target token scores",
+              "expected": 200,
+              "observed": 200,
+              "unit": "targets"
+            }
+          ],
+          "metrics": [
+            {
+              "id": "target-logprob-mae",
+              "label": "Target log probability mean absolute error",
+              "unit": "nats",
+              "value": 0.056969339415081775
+            },
+            {
+              "id": "target-logprob-p99",
+              "label": "Target log probability P99 absolute error",
+              "unit": "nats",
+              "value": 0.2896271777153011
+            },
+            {
+              "id": "mean-tail-js",
+              "label": "Mean tail-merged Jensen–Shannon divergence",
+              "unit": "nats",
+              "value": 0.0004962852238187318
+            },
+            {
+              "id": "top-1-agreement",
+              "label": "Top-1 agreement",
+              "unit": "fraction",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": "cold-miss",
+          "title": "cold-miss",
+          "scope": "Prefix caching enabled; every native request reports a zero-token hit.",
+          "side_ids": [
+            "ascend",
+            "cuda"
+          ],
+          "coverage": [
+            {
+              "label": "Fixed token histories",
+              "expected": 100,
+              "observed": 100,
+              "unit": "positions"
+            },
+            {
+              "label": "A/B target token scores",
+              "expected": 200,
+              "observed": 200,
+              "unit": "targets"
+            }
+          ],
+          "metrics": [
+            {
+              "id": "target-logprob-mae",
+              "label": "Target log probability mean absolute error",
+              "unit": "nats",
+              "value": 0.056969339415081775
+            },
+            {
+              "id": "target-logprob-p99",
+              "label": "Target log probability P99 absolute error",
+              "unit": "nats",
+              "value": 0.2896271777153011
+            },
+            {
+              "id": "mean-tail-js",
+              "label": "Mean tail-merged Jensen–Shannon divergence",
+              "unit": "nats",
+              "value": 0.0004962852238187318
+            },
+            {
+              "id": "top-1-agreement",
+              "label": "Top-1 agreement",
+              "unit": "fraction",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "id": "warm-hit",
+          "title": "warm-hit",
+          "scope": "Prefix caching enabled; every native request reports the expected complete-block hit.",
+          "side_ids": [
+            "ascend",
+            "cuda"
+          ],
+          "coverage": [
+            {
+              "label": "Fixed token histories",
+              "expected": 100,
+              "observed": 100,
+              "unit": "positions"
+            },
+            {
+              "label": "A/B target token scores",
+              "expected": 200,
+              "observed": 200,
+              "unit": "targets"
+            }
+          ],
+          "metrics": [
+            {
+              "id": "target-logprob-mae",
+              "label": "Target log probability mean absolute error",
+              "unit": "nats",
+              "value": 0.06041292316338513
+            },
+            {
+              "id": "target-logprob-p99",
+              "label": "Target log probability P99 absolute error",
+              "unit": "nats",
+              "value": 0.2648730885982513
+            },
+            {
+              "id": "mean-tail-js",
+              "label": "Mean tail-merged Jensen–Shannon divergence",
+              "unit": "nats",
+              "value": 0.0005937022644434145
+            },
+            {
+              "id": "top-1-agreement",
+              "label": "Top-1 agreement",
+              "unit": "fraction",
+              "value": 0.98
+            }
+          ]
+        }
+      ],
+      "archive": null,
+      "evidence": [
+        {
+          "label": "Anonymized metrics and coverage",
+          "url": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json"
+        }
+      ]
     }
   ]
 }

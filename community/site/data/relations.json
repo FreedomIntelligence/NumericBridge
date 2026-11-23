@@ -15782,6 +15782,826 @@
           ]
         }
       }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h1",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H1: Managed gateway needs PTY and SFTP; no clean library reproduction",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H1"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H1: Managed SSH transport"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. Managed gateway needs PTY and SFTP; no clean library reproduction."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h2",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H2: Missing pybase64 and sniffio imports were observed",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H2"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H2: Dependency overlay"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. Missing pybase64 and sniffio imports were observed. The A container image name and OCI digest are not exposed to the worker; exact image ownership remains unlocalized and cannot be assigned to the official distribution."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h3",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H3: Shortening the case-selected Unix domain socket path restored launch",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H3"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H3: Unix socket path length"
+          },
+          "summary": {
+            "en": "adapter; record_only; adapter_only. Shortening the case-selected Unix domain socket path restored launch."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h4",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H4: Clearing a list-valued inherited LOCAL_RANK restored expected launch environment",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H4"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H4: Inherited LOCAL_RANK"
+          },
+          "summary": {
+            "en": "environment; record_only; environment_only. Clearing a list-valued inherited LOCAL_RANK restored expected launch environment."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h5",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H5: Case-private interpreter supplied missing inference dependencies",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H5"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H5: Framework missing in system interpreter"
+          },
+          "summary": {
+            "en": "environment; record_only; environment_only. Case-private interpreter supplied missing inference dependencies."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h6",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H6: Moving compiler scratch off shared storage avoided cleanup errors",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H6"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H6: Shared compiler scratch"
+          },
+          "summary": {
+            "en": "environment; record_only; environment_only. Moving compiler scratch off shared storage avoided cleanup errors."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h7",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H7: Spawn and constrained OpenMP threads avoided a fork interaction; no clean standalone defect proven",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H7"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H7: OpenMP with fork"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. Spawn and constrained OpenMP threads avoided a fork interaction; no clean standalone defect proven."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h8",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H8: Switching from serializing a callable to a registered worker extension restored capture",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H8"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H8: RPC callable serialization"
+          },
+          "summary": {
+            "en": "adapter; record_only; adapter_only. Switching from serializing a callable to a registered worker extension restored capture."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h9",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H9: Valid global slot 370688 exceeded 364544 rows",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H9"
+          }
+        ],
+        "classification": "confirmed-defect",
+        "content": {
+          "title": {
+            "en": "H9: Routed-expert capacity"
+          },
+          "summary": {
+            "en": "library_defect; backport_draft; fixed_upstream_backport. Valid global slot 370688 exceeded 364544 rows. Dense reader/writer patch passed private original 600 requests; +1407713280 host bytes. Merged core replacement in v0.22.0. Official Ascend 0.18 A3 image verification pending."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h9-candidate",
+      "kind": "candidate",
+      "scope": "Release backport draft",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h9-pr-draft-v3.json",
+          "sha256": "8ef2dda1bbc822375148198af5ff93e0b1f882dbb38d8b7e96bf539ca8e720fa"
+        },
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "[Bugfix][0.18][A3] Backport legacy routed-expert shared-memory sizing",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-h9-pr-draft-v3.json",
+            "sha256": "8ef2dda1bbc822375148198af5ff93e0b1f882dbb38d8b7e96bf539ca8e720fa",
+            "pointer": "/upstream_pr_draft"
+          }
+        ],
+        "solution_type": "backport",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.18.0",
+          "commit": "35b0fdf7d57aee5bd93793e03506ae2d85959595"
+        },
+        "applicability": "A3 official image build with stock core v0.18.0",
+        "evidence_level": "source-inspected",
+        "decision": "selected-for-further-study",
+        "upstream": {
+          "affected": [
+            "vLLM core v0.18.0 / vLLM-Ascend releases/v0.18.0"
+          ],
+          "fixed_in": "vLLM v0.22.0",
+          "fixed_commit": "c7560af42487b1570c4e6f4cea5df1605a4d59fc",
+          "upgrade_blocker": "The measured NPU deployment is paired with the 0.18 Ascend plugin and core. Replacing only the core with 0.22 is not a validated pairing; a supported whole-stack upgrade has not been qualified for this deployment",
+          "refs": [
+            {
+              "ref": "origin/main",
+              "commit": "b06a5dff9bdeda62fe62dd624789404917ea0505",
+              "state": "fixed"
+            },
+            {
+              "ref": "v0.30.0",
+              "commit": "c09d3e20b9c45c80b34ae3781440d90904a44023",
+              "state": "fixed"
+            },
+            {
+              "ref": "35b0fdf7d57aee5bd93793e03506ae2d85959595",
+              "commit": "35b0fdf7d57aee5bd93793e03506ae2d85959595",
+              "state": "present"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h10",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H10: In-process synchronous repeats are bitwise stable; same-device multiprocess revert restores repeat variation while A/B systematic disagreement persists",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H10"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H10: Scheduling-dependent repeatability"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. In-process synchronous repeats are bitwise stable; same-device multiprocess revert restores repeat variation while A/B systematic disagreement persists."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h11",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H11: Model reference keeps RMS and scale in FP32",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H11"
+          }
+        ],
+        "classification": "numerical-discrepancy",
+        "content": {
+          "title": {
+            "en": "H11: Residual RMSNorm precision"
+          },
+          "summary": {
+            "en": "numerical_policy; pr_draft_main; reference_semantics. Model reference keeps RMS and scale in FP32. A short NPU replay preserves the returned fused residual bitwise and improves both phases against an FP64 oracle on that fixed residual. The older broader candidate still failed both endpoints; the narrow candidate was not evaluated end-to-end."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h11-candidate",
+      "kind": "candidate",
+      "scope": "Main-branch precision policy draft",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h11-pr-draft-v3.json",
+          "sha256": "f07f013ed2732b50c4214f9360e6be4bb73829c4b10ebc72f3adeb9f6f5b3078"
+        },
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "[Precision] Compute Gemma residual RMS and scale in FP32",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-h11-pr-draft-v3.json",
+            "sha256": "f07f013ed2732b50c4214f9360e6be4bb73829c4b10ebc72f3adeb9f6f5b3078",
+            "pointer": "/upstream_pr_draft"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": null,
+          "commit": "15ecf4a7288099c26af504a955b2499357a3da5b"
+        },
+        "applicability": "Residual Gemma RMSNorm on Ascend; preserve fused residual rounding",
+        "evidence_level": "source-inspected",
+        "decision": "selected-for-further-study",
+        "upstream": {
+          "affected": [
+            "vLLM-Ascend v0.18.0",
+            "vLLM-Ascend v0.30.0",
+            "vLLM-Ascend main"
+          ],
+          "fixed_in": null,
+          "fixed_commit": null,
+          "upgrade_blocker": null,
+          "refs": [
+            {
+              "ref": "origin/main",
+              "commit": "15ecf4a7288099c26af504a955b2499357a3da5b",
+              "state": "present"
+            },
+            {
+              "ref": "v0.30.0",
+              "commit": "c09d3e20b9c45c80b34ae3781440d90904a44023",
+              "state": "present"
+            },
+            {
+              "ref": "v0.18.0",
+              "commit": "e18643f8a4d5bd9990727654318ad069ea0b56e2",
+              "state": "present"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h12",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H12: Stack-sensitive; both hardware-fixed version and dispatch controls leave a residual",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H12"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H12: Residual stack-sensitive GDN and MoE mismatch"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. Stack-sensitive; both hardware-fixed version and dispatch controls leave a residual. Next check: frozen one-token recurrent-state replay on matched layout and operands before MoE. Blocker: no verified matched recurrence export beyond the fused boundary."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h14",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H14: Promoting both BF16 operands before multiply reduces the local FP64 error",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H14"
+          }
+        ],
+        "classification": "numerical-discrepancy",
+        "content": {
+          "title": {
+            "en": "H14: BF16 convolution product rounding"
+          },
+          "summary": {
+            "en": "numerical_policy; pr_draft_main; benefit_measured. Promoting both BF16 operands before multiply reduces the local FP64 error. Transformers delegates grouped convolution and does not explicitly round the product. No end-to-end acceptance or current-main native evidence."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h14-candidate",
+      "kind": "candidate",
+      "scope": "Main-branch precision policy draft",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h14-pr-draft-v3.json",
+          "sha256": "b19f6779b8ef99d582179e508b8f5557cdf33a84c2717b197ab9eb0f5dd19087"
+        },
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "[Kernel] Promote BF16 causal-convolution operands before accumulation",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-h14-pr-draft-v3.json",
+            "sha256": "b19f6779b8ef99d582179e508b8f5557cdf33a84c2717b197ab9eb0f5dd19087",
+            "pointer": "/upstream_pr_draft"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM",
+          "version": null,
+          "commit": "d9bfe86b9fe1156642ac45aadef965159dd1d7f1"
+        },
+        "applicability": "Generic Triton causal prefill and update",
+        "evidence_level": "source-inspected",
+        "decision": "selected-for-further-study",
+        "upstream": {
+          "affected": [
+            "vLLM v0.24.0",
+            "vLLM v0.34.0",
+            "vLLM main"
+          ],
+          "fixed_in": null,
+          "fixed_commit": null,
+          "upgrade_blocker": null,
+          "refs": [
+            {
+              "ref": "origin/main",
+              "commit": "d9bfe86b9fe1156642ac45aadef965159dd1d7f1",
+              "state": "present"
+            },
+            {
+              "ref": "v0.34.0",
+              "commit": "62d4bc3c7e33b1b6c906e233e6af2d3506c482ca",
+              "state": "present"
+            },
+            {
+              "ref": "v0.24.0",
+              "commit": "ee0da84ab9e04ac7610e28580af62c365e898389",
+              "state": "present"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h15",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H15: BF16 beta matches Transformers storage semantics",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H15"
+          }
+        ],
+        "classification": "numerical-discrepancy",
+        "content": {
+          "title": {
+            "en": "H15: Sigmoid beta storage policy"
+          },
+          "summary": {
+            "en": "numerical_policy; record_only; matches_reference. BF16 beta matches Transformers storage semantics. FP32 beta is locally closer but did not demonstrate workload benefit."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h16",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H16: GDN backend/decode dispatch affects measured results; original workload remains outside acceptance",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H16"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H16: GDN backend sensitivity"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. GDN backend/decode dispatch affects measured results; original workload remains outside acceptance."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h17",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H17: Same B-200 hardware version control 0.24→0.18 changes results without resolving disagreement; package dependencies and backends also differ",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H17"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis",
+        "content": {
+          "title": {
+            "en": "H17: Same-hardware version sensitivity"
+          },
+          "summary": {
+            "en": "unlocalized; record_only; unlocalized. Same B-200 hardware version control 0.24→0.18 changes results without resolving disagreement; package dependencies and backends also differ."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h18",
+      "kind": "issue",
+      "scope": "Qwen3.6 BF16 inference consistency and troubleshooting",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "H18: Default FlashInfer BF16 TRTLLM MoE produced all-zero routed expert IDs on all four single-card cold/warm captures; Triton control gave fully distinct top-k",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues/H18"
+          }
+        ],
+        "classification": "confirmed-defect",
+        "content": {
+          "title": {
+            "en": "H18: Monolithic MoE routing telemetry loss"
+          },
+          "summary": {
+            "en": "library_defect; record_only; fixed_upstream_no_target. Default FlashInfer BF16 TRTLLM MoE produced all-zero routed expert IDs on all four single-card cold/warm captures; Triton control gave fully distinct top-k. No minimal crash. vLLM v0.27.0 merged the replay wiring at 97a668152b9033caf602b37b88289f03e8faffd8; newer native and historical TP2 crash are not characterized."
+          },
+          "workflows": [
+            "inference"
+          ]
+        }
+      }
+    },
+    {
+      "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123",
+      "kind": "case",
+      "scope": "Fails nb-default-v1 at final prefill and first decode. FP64 operator checks found three precision policies (CUDA GDN conv rounds BF16 products before summing; Ascend Gemma RMSNorm below FP32; Ascend beta rounded to BF16) and a legacy routed-expert capacity defect. Three PR drafts attached, marked incomplete; end-to-end gap not attributed to one side.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ],
+      "details": {
+        "title": "Qwen3.6-35B-A3B BF16 inference on Ascend 910C and B200: GDN and RMSNorm precision policies",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+            "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e",
+            "pointer": "/issues"
+          }
+        ],
+        "request": {
+          "hardware": "Ascend 910C; NVIDIA B-200",
+          "model": "Qwen/Qwen3.6-35B-A3B",
+          "framework": "vLLM-Ascend vLLM 0.18.0+empty; vLLM 0.24.0",
+          "task": "inference",
+          "goal": "Judge BF16 inference agreement with nb-default-v1 and diagnose failures to operator-level causes with FP64 references."
+        },
+        "category": "repair-investigation",
+        "content": {
+          "title": {
+            "en": "Qwen3.6-35B-A3B BF16 inference on Ascend 910C and B200: GDN and RMSNorm precision policies",
+            "zh": "Qwen3.6-35B-A3B BF16 推理（Ascend 910C 与 B200）：GDN 与 RMSNorm 精度策略"
+          },
+          "summary": {
+            "en": "Fails nb-default-v1 at final prefill and first decode. FP64 operator checks found three precision policies (CUDA GDN conv rounds BF16 products before summing; Ascend Gemma RMSNorm below FP32; Ascend beta rounded to BF16) and a legacy routed-expert capacity defect. Three PR drafts attached, marked incomplete; end-to-end gap not attributed to one side.",
+            "zh": "final prefill 与首个 decode 位置未通过 nb-default-v1。FP64 算子检查发现三处精度策略差异（CUDA GDN 卷积求和前舍入 BF16 乘积；Ascend Gemma RMSNorm 未升到 FP32；Ascend beta 舍入到 BF16）及一个旧版 routed-expert 容量缺陷。附三份 PR 稿，均标 incomplete；端到端差异未归因到单侧。"
+          }
+        }
+      }
+    },
+    {
+      "id": "case-qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123",
+      "kind": "case",
+      "scope": "Cache-off, cold-miss and warm-hit paths on 100 reconstructed public histories all judge gap under nb-default-v1 on both repeats. The 2026-11-20 cold-miss failure did not reproduce; an Ascend prefill partition at token 256 is a confirmed same-stack factor, not a localized operator defect.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json",
+          "sha256": "f4a32b5259938cf9bfa3170757fe13db85b573f0929c2c64cb5b754540d892e3"
+        }
+      ],
+      "details": {
+        "title": "Qwen3-1.7B prefix-cache inference on Ascend 910C and B200: all paths within acceptance",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json",
+            "sha256": "f4a32b5259938cf9bfa3170757fe13db85b573f0929c2c64cb5b754540d892e3",
+            "pointer": "/acceptance"
+          }
+        ],
+        "request": {
+          "hardware": "4 × Ascend 910C; 2 × NVIDIA B20Z",
+          "model": "Qwen/Qwen3-1.7B",
+          "framework": "tokenizers 0.22.2; tokenizers 0.22.2",
+          "task": "inference",
+          "goal": "Re-check the 2026-11-20 prefix-cache failure with nb-default-v1 on fixed public inputs."
+        },
+        "category": "precision-evaluation",
+        "content": {
+          "title": {
+            "en": "Qwen3-1.7B prefix-cache inference on Ascend 910C and B200: all paths within acceptance",
+            "zh": "Qwen3-1.7B 前缀缓存推理（Ascend 910C 与 B200）：三条路径均在验收线内"
+          },
+          "summary": {
+            "en": "Cache-off, cold-miss and warm-hit paths on 100 reconstructed public histories all judge gap under nb-default-v1 on both repeats. The 2026-11-20 cold-miss failure did not reproduce; an Ascend prefill partition at token 256 is a confirmed same-stack factor, not a localized operator defect.",
+            "zh": "在 100 条重建的公开历史上，cache-off、cold miss 和 warm hit 三条路径两次重复均判为 nb-default-v1 的 gap。2026-11-20 的 cold miss 失败未复现；Ascend 在第 256 个 token 处的 prefill 分段是已确认的同栈因素，并非已定位的算子缺陷。"
+          }
+        }
+      }
     }
   ],
   "links": [
@@ -31675,6 +32495,557 @@
         {
           "file": "evidence/submissions/qwen3-17b-dapo-position-preserving-20261120.json",
           "sha256": "5126cf466c99c26c61692897803d6a1ff428865ccf30580bde2b2b4cd7a8d7cb"
+        }
+      ]
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h9-candidate-addresses",
+      "from": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h9-candidate"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h9"
+      },
+      "relation": "addresses",
+      "scope": "Draft; checks pending",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h9-pr-draft-v3.json",
+          "sha256": "8ef2dda1bbc822375148198af5ff93e0b1f882dbb38d8b7e96bf539ca8e720fa"
+        }
+      ]
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h11-candidate-addresses",
+      "from": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h11-candidate"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h11"
+      },
+      "relation": "addresses",
+      "scope": "Draft; checks pending",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h11-pr-draft-v3.json",
+          "sha256": "f07f013ed2732b50c4214f9360e6be4bb73829c4b10ebc72f3adeb9f6f5b3078"
+        }
+      ]
+    },
+    {
+      "id": "qwen36-nb-20261123-rms-h14-candidate-addresses",
+      "from": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h14-candidate"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h14"
+      },
+      "relation": "addresses",
+      "scope": "Draft; checks pending",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-h14-pr-draft-v3.json",
+          "sha256": "b19f6779b8ef99d582179e508b8f5557cdf33a84c2717b197ab9eb0f5dd19087"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-gdn-bf16-tp2-ab-20261123-v3",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "qwen36-gdn-bf16-tp2-ab-20261123-v3"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-legacy-routed-expert-capacity-v3",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "repair",
+        "id": "qwen36-legacy-routed-expert-capacity-v3"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-bf16-convolution-product-policy-v3",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "repair",
+        "id": "qwen36-bf16-convolution-product-policy-v3"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h1",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h1"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h2",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h2"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h3",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h3"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h4",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h4"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h5",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h5"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h6",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h6"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h7",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h7"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h8",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h8"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h9",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h9"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h9-candidate",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h9-candidate"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h10",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h10"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h11",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h11"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h11-candidate",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h11-candidate"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h12",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h12"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h14",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h14"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h14-candidate",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "qwen36-nb-20261123-rms-h14-candidate"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h15",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h15"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h16",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h16"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h17",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h17"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen36-35b-a3b-vllm-b200-910c-20261123-qwen36-nb-20261123-rms-h18",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen36-35b-a3b-vllm-b200-910c-20261123"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h18"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "documents-qwen36-nb-20261123-rms-h9-qwen36-legacy-routed-expert-capacity-v3",
+      "relation": "documents",
+      "from": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h9"
+      },
+      "to": {
+        "kind": "repair",
+        "id": "qwen36-legacy-routed-expert-capacity-v3"
+      },
+      "scope": "The repair record documents the issue the decision drafts.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "documents-qwen36-nb-20261123-rms-h14-qwen36-bf16-convolution-product-policy-v3",
+      "relation": "documents",
+      "from": {
+        "kind": "issue",
+        "id": "qwen36-nb-20261123-rms-h14"
+      },
+      "to": {
+        "kind": "repair",
+        "id": "qwen36-bf16-convolution-product-policy-v3"
+      },
+      "scope": "The repair record documents the issue the decision drafts.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen36-contribution-update-v3.json",
+          "sha256": "9a879ce57f07893e1940ae29d68792ba722d57143578559d4b7611bca7d2701e"
+        }
+      ]
+    },
+    {
+      "id": "includes-case-qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123-qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123"
+      },
+      "scope": "Maintainer grouping of the accepted submission.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json",
+          "sha256": "f4a32b5259938cf9bfa3170757fe13db85b573f0929c2c64cb5b754540d892e3"
         }
       ]
     }
