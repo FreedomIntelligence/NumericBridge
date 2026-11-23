@@ -40,9 +40,12 @@ private paths and host details local.
 For a verified patch intended for upstream, read the target repository's base
 branch contribution guide and PR template; otherwise use **Problem / Change /
 Validation / Patch** and note which guidance could not be checked. Include a
-title, existing issue link, affected setup, minimal reproducer, matched
-before/after results, commands run and the patch. Leave pending checks unchecked
-and record a PR URL only once it exists.
+title, affected setup, minimal reproducer, matched before/after results,
+commands run and the patch. Base the draft on current main and cite only merged
+upstream commits; do not reference open issues or unmerged PRs (see the
+workflow's upstream status). A PR draft travels with the community submission;
+maintainers review it and file it upstream, so the user never opens the PR.
+Leave pending checks unchecked and record a PR URL only once it exists.
 
 Attach the draft as `upstream_pr_draft` in a new `evidence/submissions/*.json`
 document (`repository`, `base_branch`, `title`, `body_markdown`, `guidance_urls`,

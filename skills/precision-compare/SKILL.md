@@ -24,7 +24,7 @@ dtype identity.
 ## Judge
 
 Judge every formal comparison with [acceptance](references/acceptance.md) and
-follow its route: deliver, offer optional optimization, diagnose, stabilize or
+follow its route: deliver, diagnose, stabilize or
 recover the capture.
 
 ## Tool use

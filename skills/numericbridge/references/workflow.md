@@ -41,6 +41,17 @@ independent sides in parallel and returns the next skill on failure.
   blockers, in the case's diagnosis.json (precision-repair diagnosis_state.py);
   render issues.md from it. Distinguish workarounds from fixes on the original path.
 </issue_record>
+
+<upstream_status when="a defect or policy difference is confirmed in a library">
+  Check the owning repository's current main and latest release, including its
+  pull requests, but count only merged code: treat open issues and unmerged PRs
+  as absent, and do not comment on them or skip a draft because of them. Record
+  one state. Fixed upstream: name the first fixed release and merge commit; offer
+  the upgrade and, where the user's stack pins the old version, a backport patch
+  verified on that version. Still present: verify a patch on the tested version
+  and prepare a PR draft against current main. Record why an upgrade is not
+  possible when a dependency pins the version.
+</upstream_status>
 ```
 
 ## Request
@@ -128,8 +139,8 @@ in order on both sides ([task views](../../precision-compare/examples/minimal-pr
 </output>
 
 <next>
-  Follow the verdict's route: pass or gap → deliver (gap offers optional
-  precision optimization); fail → diagnosis with the acceptance report;
+  Follow the verdict's route: pass or gap → deliver; fail → diagnosis with the
+  acceptance report;
   noise_limited → stabilize the runs; incomplete → recover the capture.
 </next>
 ```
@@ -194,6 +205,13 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
   failure, return to diagnosis or try the next candidate within budget.
 </next>
 ```
+
+## Precision optimization (placeholder)
+
+Not active. [operator-optimize](../../operator-optimize/SKILL.md) is reserved for
+later work; do not enable it or run optimization. A `gap` verdict (acceptance's
+`optimize_optional` route) is delivered with the remaining distance to the
+optimize target reported.
 
 ## Local delivery
 
