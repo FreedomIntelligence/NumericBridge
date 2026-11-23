@@ -137,6 +137,9 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
   only for missing coverage or an agreed requirement; measure runtime and memory
   when relevant.
 
+- For a numerical-policy difference, compare the library with the model's
+  reference implementation (for example its Transformers modeling code) before
+  deciding on a draft; record whether the reference keeps higher precision.
 - Verify a numerical-policy patch at the operator: it moves the patched side
   closer to FP64 on the captured operands. On the original case it must not
   regress the task endpoint beyond repeat noise without an explanation. A wider

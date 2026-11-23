@@ -58,6 +58,23 @@ workflow's upstream status). A PR draft travels with the community submission;
 maintainers review it and file it upstream, so the user never opens the PR.
 Leave pending checks unchecked and record a PR URL only once it exists.
 
+Prepare a draft so maintainers only review and file it: a patch that applies to
+the target branch, a test in the target repository's style that fails before
+and passes after, native verification on the target branch or released build,
+performance numbers and a body following the repository template. Mark each in
+the case's contribution decisions; a draft missing one is submitted as
+incomplete with the missing check named. A backport targets the distribution
+the user installs (for example a plugin's release branch) and uses that
+distribution's own patch or build mechanism.
+
+On a candidate's `target`, record the affected range and fix when known in the
+record's limitations or summary: affected versions, first fixed version and
+merge commit, and the upgrade blocker for users who cannot upgrade.
+
+When decisions change after a submission (a new or revised draft), prepare a
+new draft whose title names the earlier receipt it updates and submit it the
+same way.
+
 Attach the draft as `upstream_pr_draft` in a new `evidence/submissions/*.json`
 document (`repository`, `base_branch`, `title`, `body_markdown`, `guidance_urls`,
 `pending_checks`) referenced from the `prepare_community_submission` evidence map;

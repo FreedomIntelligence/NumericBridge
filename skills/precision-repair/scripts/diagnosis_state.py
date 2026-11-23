@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Track diagnosis hypotheses, checks and stop conditions in diagnosis.json; render issues.md.
-Call: python scripts/diagnosis_state.py init|add|next|record|conclude|render --state diagnosis.json ...
+Call: python scripts/diagnosis_state.py init|add|next|record|conclude|decide|audit|decisions|render --state diagnosis.json ...
 Input: acceptance/triage reports, hypotheses and check results (label, finding, evidence).
 Output: Durable state, the next open check or a stop decision, and an issues.md rendering.
 Requires: Standard library; atomic rewrites; ruled-out hypotheses are never proposed again.
@@ -18,20 +18,38 @@ next --state S -> {"action":"check",hypothesis} for the first open hypothesis;
   was found (rerun comparison after correcting setup), max checks are spent, or
   nothing actionable remains.
 record --state S --hypothesis H --label LABEL --finding TEXT [--evidence P ...]
-  [--control TEXT] [--run-command TEXT] [--status STATUS]
+  [--control TEXT] [--run-command TEXT] [--status STATUS] [--blocker access|budget|no_actionable_check]
   Label -> status: not_reproduced/ruled_out -> ruled_out; primary_cause_confirmed,
   secondary_factor_confirmed -> confirmed; unresolved -> blocked; replay_invalid ->
-  open; other labels -> supported. --status overrides.
+  open; other labels -> supported. --status overrides. A blocked hypothesis needs
+  --blocker; until one is recorded, next keeps returning it as a check.
 conclude --state S --classification setup_capture|unsupported|expected_policy|
   supported_defect|unresolved --summary TEXT [--next-check TEXT]
+decide --state S --hypothesis H --ownership OWNER --decision DECISION --reason REASON
+  [--repository R] [--component C] [--target-branch B] [--upstream-main ST]
+  [--upstream-release ST] [--upstream-pinned ST] [--pinned-ref REF] [--fixed-in VERSION]
+  [--fixed-commit SHA] [--upgrade-blocker TEXT] [--draft PATH] [--check-item NAME=STATE ...]
+  One contribution decision per confirmed or blocked hypothesis (replaces an earlier one).
+  OWNER: library_defect|numerical_policy|environment|adapter|unlocalized.
+  DECISION: pr_draft_main|backport_draft|record_only|no_action.
+  REASON: still_present|fixed_upstream_backport|fixed_upstream_no_target|reference_semantics|
+  benefit_measured|no_measured_benefit|matches_reference|environment_only|adapter_only|
+  not_reproduced|unlocalized. ST: present|fixed|absent|unknown.
+  PR-draft checks (NAME=pass|fail|na): applies_cleanly, repo_style_test,
+  native_on_target, performance, template_body; a missing or failed check makes
+  the draft incomplete.
+audit --state S -> {"status":"ok"|"incomplete", problems:[...], incomplete_drafts:[...]};
+  problems: a confirmed/blocked hypothesis without a decision, a blocked one without
+  a blocker, a draft decision without repository/branch/draft, or no conclusion.
+decisions --state S --output result/contribution-decisions.json  (derived; overwritten)
 render --state S [--output issues.md]  (derived file; overwritten)
 Labels: config_mismatch, replay_invalid, local_source_candidate, propagation_candidate,
 amplification_supported, local_source_confirmed, primary_cause_confirmed,
 secondary_factor_confirmed, not_reproduced, ruled_out, unresolved.
-Exit: 0=ok (including next returning stop; read "action"), 2=input error.
+Exit: 0=ok (including next returning stop; read "action"), 1=audit found problems, 2=input error.
 """
 
-__all__ = ['init', 'add', 'next_action', 'record', 'conclude', 'render']
+__all__ = ['init', 'add', 'next_action', 'record', 'conclude', 'decide', 'audit', 'render']
 import argparse
 from datetime import datetime, timezone
 import json
@@ -46,6 +64,15 @@ STATUS = {'not_reproduced': 'ruled_out', 'ruled_out': 'ruled_out', 'primary_caus
 STATUSES = ('open', 'supported', 'confirmed', 'ruled_out', 'blocked')
 CLASSES = ('setup_capture', 'unsupported', 'expected_policy', 'supported_defect', 'unresolved')
 COSTS = ('cpu', 'replay', 'native')
+BLOCKERS = ('access', 'budget', 'no_actionable_check')
+OWNERS = ('library_defect', 'numerical_policy', 'environment', 'adapter', 'unlocalized')
+DECISIONS = ('pr_draft_main', 'backport_draft', 'record_only', 'no_action')
+REASONS = ('still_present', 'fixed_upstream_backport', 'fixed_upstream_no_target', 'reference_semantics',
+           'benefit_measured', 'no_measured_benefit', 'matches_reference', 'environment_only', 'adapter_only',
+           'not_reproduced', 'unlocalized')
+UPSTREAM = ('present', 'fixed', 'absent', 'unknown')
+DRAFT_CHECKS = ('applies_cleanly', 'repo_style_test', 'native_on_target', 'performance', 'template_body')
+DRAFT_DECISIONS = ('pr_draft_main', 'backport_draft')
 
 
 def _now():
@@ -111,6 +138,11 @@ def next_action(state):
     open_ = [h for h in hyps if h['status'] == 'open']
     if open_:
         return dict(action='check', hypothesis=open_[0])
+    unblocked = [h for h in hyps if h['status'] == 'blocked' and not h.get('blocker')]
+    if unblocked:
+        return dict(action='check', hypothesis=unblocked[0],
+                    reason='blocked without a recorded blocker: run its next check, or record access, budget '
+                           'or no_actionable_check')
     children = {h['parent'] for h in hyps if h['parent']}
     supported = [h for h in hyps if h['status'] == 'supported' and h['id'] not in children]
     if supported:
@@ -121,13 +153,19 @@ def next_action(state):
                 hypotheses=secondary)
 
 
-def record(state, hid, label, finding, evidence=(), control=None, command=None, status=None):
+def record(state, hid, label, finding, evidence=(), control=None, command=None, status=None, blocker=None):
     if label not in LABELS:
         raise ValueError('unknown label: ' + label)
     h = _hypothesis(state, hid)
     status = status or STATUS.get(label, 'supported')
     if status not in STATUSES:
         raise ValueError('unknown status: ' + status)
+    if blocker is not None and blocker not in BLOCKERS:
+        raise ValueError('blocker must be one of ' + '|'.join(BLOCKERS))
+    if status == 'blocked':
+        h['blocker'] = blocker
+    else:
+        h.pop('blocker', None)
     cid = f"C{len(state['checks']) + 1}"
     state['checks'].append(dict(id=cid, hypothesis=hid, at=_now(), label=label, finding=finding,
                                 evidence=list(evidence), control=control, command=command))
@@ -139,6 +177,65 @@ def conclude(state, classification, summary, next_check=None):
     if classification not in CLASSES:
         raise ValueError('classification must be one of ' + '|'.join(CLASSES))
     state['conclusion'] = dict(classification=classification, summary=summary, next_check=next_check, at=_now())
+
+
+def decide(state, hid, ownership, decision, reason, repository=None, component=None, target_branch=None,
+           upstream=None, pinned_ref=None, fixed_in=None, fixed_commit=None, upgrade_blocker=None,
+           draft=None, checks=None):
+    h = _hypothesis(state, hid)
+    for value, allowed, name in ((ownership, OWNERS, 'ownership'), (decision, DECISIONS, 'decision'),
+                                 (reason, REASONS, 'reason')):
+        if value not in allowed:
+            raise ValueError(f'{name} must be one of ' + '|'.join(allowed))
+    upstream = dict(upstream or {})
+    if set(upstream) - {'main', 'latest_release', 'pinned'} or not set(upstream.values()) <= set(UPSTREAM):
+        raise ValueError('upstream states use main, latest_release, pinned with ' + '|'.join(UPSTREAM))
+    checks = dict(checks or {})
+    if set(checks) - set(DRAFT_CHECKS) or not set(checks.values()) <= {'pass', 'fail', 'na'}:
+        raise ValueError('draft checks use ' + ', '.join(DRAFT_CHECKS) + ' with pass|fail|na')
+    if fixed_commit is not None and not (len(fixed_commit) == 40 and all(c in '0123456789abcdef' for c in fixed_commit)):
+        raise ValueError('fixed commit must be a full lowercase SHA-1')
+    entry = dict(hypothesis=hid, statement=h['statement'], status=h['status'], ownership=ownership,
+                 decision=decision, reason=reason, repository=repository, component=component,
+                 target_branch=target_branch, upstream=upstream, pinned_ref=pinned_ref, fixed_in=fixed_in,
+                 fixed_commit=fixed_commit, upgrade_blocker=upgrade_blocker, draft=draft, checks=checks, at=_now())
+    if decision in DRAFT_DECISIONS:
+        entry['draft_status'] = 'complete' if all(checks.get(k) in ('pass', 'na') for k in DRAFT_CHECKS) else 'incomplete'
+    state.setdefault('decisions', {})[hid] = entry
+    return entry
+
+
+def audit(state):
+    problems, incomplete = [], []
+    decisions = state.get('decisions', {})
+    for h in state['hypotheses']:
+        if h['status'] == 'blocked' and not h.get('blocker'):
+            problems.append(f"{h['id']}: blocked without a blocker; run its next check or record why none is possible")
+        if h['status'] in ('confirmed', 'blocked') and h['id'] not in decisions:
+            problems.append(f"{h['id']}: no contribution decision")
+    for hid, d in decisions.items():
+        if d['decision'] in DRAFT_DECISIONS:
+            missing = [k for k in ('repository', 'target_branch', 'draft') if not d.get(k)]
+            if missing:
+                problems.append(f"{hid}: {d['decision']} needs " + ', '.join(missing))
+            if d.get('draft_status') != 'complete':
+                incomplete.append(dict(hypothesis=hid, missing=[k for k in DRAFT_CHECKS
+                                                                if d['checks'].get(k) not in ('pass', 'na')]))
+        if d['ownership'] in ('library_defect', 'numerical_policy') and not d.get('repository'):
+            problems.append(f'{hid}: library ownership needs a repository')
+        if d['reason'] in ('fixed_upstream_backport', 'fixed_upstream_no_target') and not (d.get('fixed_in') or d.get('fixed_commit')):
+            problems.append(f'{hid}: fixed upstream needs fixed_in or fixed_commit')
+    if not state.get('conclusion'):
+        problems.append('no conclusion recorded')
+    status = 'ok' if not problems and not incomplete else 'incomplete'
+    return dict(status=status, problems=problems, incomplete_drafts=incomplete)
+
+
+def export_decisions(state):
+    return dict(kind='contribution-decisions', schema_version=1, case=state.get('case'),
+                decisions=[state.get('decisions', {})[h['id']] for h in state['hypotheses']
+                           if h['id'] in state.get('decisions', {})],
+                audit=audit(state))
 
 
 def render(state):
@@ -155,12 +252,21 @@ def render(state):
               '## Hypotheses', '', '| ID | Status | Label | Statement | Check | Cost |', '|---|---|---|---|---|---|']
     for h in state['hypotheses']:
         statement = h['statement'] + (f" (child of {h['parent']})" if h['parent'] else '')
-        lines.append(f"| {h['id']} | {h['status']} | {h['label'] or ''} | {statement} | {h['check']} | {h['cost']} |")
+        status = h['status'] + (f" ({h['blocker']})" if h.get('blocker') else '')
+        lines.append(f"| {h['id']} | {status} | {h['label'] or ''} | {statement} | {h['check']} | {h['cost']} |")
     lines += ['', '## Checks', '']
     for k in state['checks']:
         ev = ', '.join(f'[{Path(p).name}]({p})' for p in k['evidence'])
         lines.append(f"- {k['id']} ({k['at']}) {k['hypothesis']} → `{k['label']}`: {k['finding']}"
                      + (f" Control: {k['control']}." if k.get('control') else '') + (f" Evidence: {ev}" if ev else ''))
+    decisions = state.get('decisions', {})
+    if decisions:
+        lines += ['', '## Contribution decisions', '', '| ID | Ownership | Decision | Reason | Target | Draft |',
+                  '|---|---|---|---|---|---|']
+        for hid, d in decisions.items():
+            target = ' '.join(x for x in (d.get('repository'), d.get('target_branch')) if x)
+            lines.append(f"| {hid} | {d['ownership']} | {d['decision']} | {d['reason']} | {target} | "
+                         f"{d.get('draft_status', '')} |")
     ruled = [h for h in state['hypotheses'] if h['status'] == 'ruled_out']
     if ruled:
         lines += ['', '## Ruled out', ''] + [f"- {h['id']}: {h['statement']}" for h in ruled]
@@ -170,15 +276,21 @@ def render(state):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:\n')[0],
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', choices=('init', 'add', 'next', 'record', 'conclude', 'render'))
+    parser.add_argument('command', choices=('init', 'add', 'next', 'record', 'conclude', 'decide', 'audit',
+                                             'decisions', 'render'))
     parser.add_argument('--state', required=True)
     for name in ('acceptance', 'triage', 'case', 'statement', 'check', 'source', 'parent', 'hypothesis',
-                 'label', 'finding', 'control', 'status', 'classification', 'summary', 'next-check', 'output'):
+                 'label', 'finding', 'control', 'status', 'classification', 'summary', 'next-check', 'output',
+                 'blocker', 'ownership', 'decision', 'reason', 'repository', 'component', 'target-branch',
+                 'upstream-main', 'upstream-release', 'upstream-pinned', 'pinned-ref', 'fixed-in', 'fixed-commit',
+                 'upgrade-blocker', 'draft'):
         parser.add_argument('--' + name)
     parser.add_argument('--run-command', dest='run_command')
     parser.add_argument('--cost', default='native')
     parser.add_argument('--max-checks', type=int)
     parser.add_argument('--evidence', action='append', default=[])
+    parser.add_argument('--check-item', '--check-state', dest='check_items', action='append', default=[],
+                        help='PR-draft check NAME=pass|fail|na (decide)')
     args = parser.parse_args(argv)
     try:
         if args.command == 'init':
@@ -191,7 +303,26 @@ def main(argv=None):
             print(add(state, args.statement, args.check, args.cost, args.source or 'manual', args.parent))
         elif args.command == 'record':
             print(record(state, args.hypothesis, args.label, args.finding, args.evidence, args.control,
-                         args.run_command, args.status))
+                         args.run_command, args.status, args.blocker))
+        elif args.command == 'decide':
+            upstream = {k: v for k, v in (('main', args.upstream_main), ('latest_release', args.upstream_release),
+                                          ('pinned', args.upstream_pinned)) if v}
+            checks = dict(item.split('=', 1) for item in args.check_items)
+            print(json.dumps(decide(state, args.hypothesis, args.ownership, args.decision, args.reason,
+                                    args.repository, args.component, args.target_branch, upstream, args.pinned_ref,
+                                    args.fixed_in, args.fixed_commit, args.upgrade_blocker, args.draft, checks),
+                             ensure_ascii=False))
+        elif args.command == 'audit':
+            result = audit(state)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0 if result['status'] == 'ok' else 1
+        elif args.command == 'decisions':
+            text = json.dumps(export_decisions(state), indent=2, ensure_ascii=False) + '\n'
+            if args.output:
+                Path(args.output).write_text(text)
+            else:
+                sys.stdout.write(text)
+            return 0
         elif args.command == 'conclude':
             conclude(state, args.classification, args.summary, args.next_check)
         elif args.command == 'next':

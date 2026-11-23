@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from pathlib import Path
+import sys
 from typing import Annotated, Any, Literal
 
 from mcp import types
@@ -33,6 +34,15 @@ APPROVAL_SCHEMA: types.ElicitRequestedSchema = {
                                'description': 'Send this exact draft to NumericBridge for review'}},
     'required': ['approve'],
 }
+
+
+def terminal_fallback(submissions: Submissions, intake: IntakeClient, digest: str) -> str:
+    """Command the user runs in their own terminal to review and send the same draft."""
+    def quote(value):
+        return "'" + str(value).replace("'", "'\\''") + "'"
+    return (f'cd {quote(ROOT)} && {quote(sys.executable)} -B -m community.submit_reviewed '
+            f'--draft-sha256 {digest} --intake {quote(intake.url)} --token-file {quote(intake.token_file)} '
+            f'--drafts {quote(submissions.drafts)}')
 
 
 def create_server(submissions: Submissions, intake: IntakeClient | None = None) -> MCPServer:
@@ -93,9 +103,13 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured; keep this local draft')
         session = ctx.request_context.session
+        def unavailable(reason, message, **extra):
+            return dict(status='approval_unavailable', reason=reason, message=message,
+                        fallback_command=terminal_fallback(submissions, intake, draft_sha256),
+                        fallback_note='Ask the user to run this in their own terminal; it shows the draft and '
+                                      'sends only after they type SEND.', **extra)
         if not session.check_client_capability(types.ClientCapabilities(elicitation=types.ElicitationCapability())):
-            return dict(status='approval_unavailable', reason='form_unsupported',
-                        message='Use a client that presents MCP form elicitation to the user')
+            return unavailable('form_unsupported', 'Use a client that presents MCP form elicitation to the user')
         credit = draft_attribution(draft)
         credit_message = ('Anonymous; no public credit name.' if credit['mode'] == 'anonymous' else
             f"Credit: {credit['name']} ({credit['mode']}) on the NumericBridge site and in the "
@@ -108,19 +122,18 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                 f"Draft SHA-256: {draft_sha256}",
                 requested_schema=APPROVAL_SCHEMA, related_request_id=ctx.request_id)
         except MCPError as error:
-            return dict(status='approval_unavailable', reason='form_request_failed', rpc_code=error.code,
-                        message='The client could not open the confirmation form')
-        except (TypeError, ValueError):
-            return dict(status='approval_unavailable', reason='form_response_invalid',
-                        message='The client did not return a valid confirmation response')
+            return unavailable('form_request_failed', 'The client could not open the confirmation form',
+                               rpc_code=error.code, error=str(error)[:300])
+        except (TypeError, ValueError) as error:
+            return unavailable('form_response_invalid', 'The client did not return a valid confirmation response',
+                               error=str(error)[:300])
         if approval.action != 'accept':
             return dict(status='declined' if approval.action == 'decline' else 'cancelled')
         approved = (approval.content or {}).get('approve')
         if approved is False:
             return dict(status='declined')
         if approved is not True:
-            return dict(status='approval_unavailable', reason='form_response_invalid',
-                        message='The client did not return a valid confirmation response')
+            return unavailable('form_response_invalid', 'The client did not return a valid confirmation response')
         try:
             return await asyncio.to_thread(intake.send, draft, draft_sha256)
         except (OSError, ValueError, KeyError, TypeError) as error:
