@@ -11,7 +11,10 @@
   scope in the user's language; for a general check, propose a small end-to-end
   case. Confirm once: the target and scope, the accelerator-hour ceiling with the
   allowed devices, hosts or queues, and access (credentials for both sides).
-  Use the default acceptance profile unless the user gives criteria.
+  Use the default acceptance profile unless the user gives criteria. Check that
+  each side's official image or release artifacts for the pinned versions exist
+  on its host or can be pulled there; an unavailable artifact is an access item
+  settled at intake, not discovered during preparation.
 </action>
 
 <output>

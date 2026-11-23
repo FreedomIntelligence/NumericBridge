@@ -21,10 +21,15 @@ independent sides in parallel and returns the next skill on failure.
   a native job, follow it to its terminal status with a bounded blocking wait or
   by checking every few minutes, and advance independent work meanwhile. On a
   failure, read failure_class and the log tail, correct it within the grant and
-  retry; route only unsupported or reproducible failures onward. Write the case
-  state and handoff at each stage change as a checkpoint, then continue. Set
-  needs_human only for an access blocker, after retrying with backoff (about
-  every 10 minutes for up to 2 hours) and finishing independent work.
+  retry; route only unsupported or reproducible failures onward. An execution
+  error in an optional or diagnostic branch (a crash, an out-of-range index, an
+  ignored setting) is a finding, not a skipped branch: open a hypothesis with its
+  minimal reproducer. A user follow-up within the case (a new question, check or
+  draft) is continuous-run work under the same grant. Write the case state and
+  handoff at each stage change as a checkpoint, validate the state with
+  `case_state.py check`, then continue. Set needs_human only for an access
+  blocker, after retrying with backoff (about every 10 minutes for up to 2 hours)
+  and finishing independent work.
 </continuous_run>
 
 <delegation when="a case is delegated">
@@ -45,14 +50,21 @@ independent sides in parallel and returns the next skill on failure.
 <upstream_status when="a defect or policy difference is confirmed in a library">
   Check the owning repository's current main and latest release, including its
   pull requests, but count only merged code: treat open issues and unmerged PRs
-  as absent, and do not comment on them or skip a draft because of them. Record
-  one state. Fixed upstream: name the first fixed release and merge commit; offer
-  the upgrade and, where the user's stack pins the old version, a backport patch
-  verified on that version. Still present: verify a patch on the tested version
-  and prepare a PR draft against current main. Record why an upgrade is not
-  possible when a dependency pins the version.
+  as absent, and do not comment on them or skip a draft because of them. Check
+  three refs from a local clone with `upstream_status.py`: current main, the
+  latest release and the user's pinned version or distribution branch. Where a
+  defect was found (the tested version) is not where it is
+  delivered: fixed on main but present on the pinned ref → upgrade plus a
+  backport draft against the distribution the user installs (for example a
+  plugin release branch), verified on that version; present on main → a PR draft
+  against main. Name the first fixed release and merge commit, and record why an
+  upgrade is not possible when a dependency pins the version.
 </upstream_status>
 ```
+
+Case tools in Compare: [case_state.py](../../precision-compare/scripts/case_state.py)
+(checkpoint fields and statuses) and [upstream_status.py](../../precision-compare/scripts/upstream_status.py)
+(per-ref present/fixed state from merged code).
 
 ## Request
 
@@ -159,8 +171,11 @@ in order on both sides ([task views](../../precision-compare/examples/minimal-pr
   When a cross-side fail persists, run one same-hardware stack control (one side
   with another engine or toolkit version) and report its difference beside the
   cross-side verdict; it shows how much the software stack alone moves the
-  result. With only one executable side, recompute suitable checkpoints on CPU
-  and report their coverage.
+  result. When the stack control also fails, mark the issue stack-sensitive: the
+  difference is not tied to the hardware, so the goal is an operator-level fix
+  (closer to FP64 on the captured operands) with no regression of the original
+  case, not closing the A/B gap. With only one executable side, recompute
+  suitable checkpoints on CPU and report their coverage.
 </sides>
 ```
 
@@ -185,6 +200,10 @@ Use the [diagnosis loop](../../precision-repair/SKILL.md#diagnose).
   On config_mismatch, correct setup and rerun the comparison. Route a supported
   defect to repair. Stop at the loop's stop decision and deliver open issues with
   their blocker and next check; keep independent issues moving meanwhile.
+  "Blocked" is a stop reason only with a recorded blocker (access, budget or
+  no_actionable_check); without one, run the hypothesis's next check. Diagnosis
+  stays open while any hypothesis has an actionable check, including issues
+  found after delivery.
 </next>
 ```
 
@@ -225,12 +244,19 @@ optimize target reported.
 ```xml
 <entry>
   No required check remains actionable within authorization and budget; finish
-  active in-scope runs first.
+  active in-scope runs first. `diagnosis_state.py audit` returns ok: every
+  confirmed or blocked hypothesis has a contribution decision and every blocked
+  one a blocker.
 </entry>
 
 <action>
   Reconcile execution, comparison, diagnosis and repair against the request and
-  evidence (workflow state.json, acceptance report, diagnosis.json).
+  evidence (workflow state.json, acceptance report, diagnosis.json). Declare one
+  contribution decision per issue with `diagnosis_state.py decide` (ownership,
+  upstream state at main, latest release and pinned ref, decision, reason, and
+  draft checks), then write `result/contribution-decisions.json` with
+  `diagnosis_state.py decisions`; the report, community record and PR drafts
+  follow it.
 </action>
 
 <output>
@@ -257,8 +283,11 @@ Use the [community record guide](../../precision-compare/references/community-re
 
 ```xml
 <contribute when="local delivery has a shareable result or a contribution is being resumed">
-  Honor a prior decline. Prepare an anonymized draft with minimum evidence and a PR
-  draft for any verified patch intended for upstream. Default to anonymous credit;
+  Honor a prior decline. Prepare an anonymized draft with minimum evidence and a
+  PR or backport draft for each pr_draft_main or backport_draft decision; the
+  record's issues and drafts match result/contribution-decisions.json. Run
+  `anonymize_scan.py` over the draft, evidence and PR bodies (adding host aliases and account names with
+  --term) and fix every finding before preparing. Default to anonymous credit;
   pass attribution_mode and attribution_name only for a user-chosen nickname or
   GitHub @username. Fix findings from
   prepare_community_submission until it returns ready, show the exact preview and
@@ -266,9 +295,11 @@ Use the [community record guide](../../precision-compare/references/community-re
   is the approval. Decline or dismissal ends the offer. If submission is
   unavailable, keep the local draft and report its path. A receipt means pending
   review; call the result searchable only when the deployed index returns its IDs.
-  Contribution status does not change local delivery status.
+  When decisions change after a receipt, submit an updated draft that names the
+  earlier receipt. Contribution status does not change local delivery status.
 </contribute>
 ```
 
+Scan before preparing with [anonymize_scan.py](../../precision-compare/scripts/anonymize_scan.py).
 Without MCP, keep the anonymized draft and use the
 [local preview](../../precision-compare/references/community-records.md#local-preview).

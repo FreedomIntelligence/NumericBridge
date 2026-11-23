@@ -43,11 +43,17 @@ shrink; there is no fixed batch, sequence length or step count.
   whether the path runs under graph capture (hooks then need eager or msProbe);
   determinism settings; and one same-side repeat of the smallest capture so
   comparison has repeat noise.
-- **Dependency audit.** Before the first preflight in an environment, and after
-  any `import_error`, check the whole environment at once: compare each
-  framework distribution's declared requirements (`importlib.metadata`) with the
-  installed versions and import the native entry modules. Install every missing
-  or conflicting item in a case-private environment or overlay, then preflight.
+- **Environment hazards and dependency audit.** Before the first preflight in an
+  environment, and after any `import_error`, run
+  [preflight_env.py](../precision-compare/scripts/preflight_env.py) in the worker
+  with the launch interpreter: `--distribution` for each framework and plugin,
+  `--run-dir` and `--temp-dir` for the launch directories. It reports inherited
+  non-integer rank variables, IPC socket paths over the Unix limit, compiler
+  caches on network filesystems, fork with thread pools (advisory) and every
+  missing or conflicting declared requirement at once. Fix all of them in the
+  launcher or a case-private environment or overlay, import the native entry
+  modules, then preflight. Record each hazard's ownership: `environment` unless
+  the failure reproduces in a clean, documented environment.
 - **Failures.** `record_run` and `workflow.py` report `failure_class` and
   `category`: correct `setup_or_resource` within scope and retry, report
   `unsupported`, and route `reproducible_failure` of a supported path to
@@ -60,4 +66,7 @@ the receipt to the next stage. In the actual worker, record device binding,
 imported framework and backend versions/revisions, driver, runtime/toolkit (CANN
 or CUDA) and the loaded collective library (HCCL or NCCL) with the
 [runtime probe](../precision-compare/scripts/runtime_probe.py); keep unconfirmed
-versions unknown.
+versions unknown. When a reported version does not identify a release (a local
+build such as `0.18.0+empty`), record the source commit of each key repository
+in the image or install tree and map it to the nearest release tag; the commit,
+not the version string, is the pinned ref for upstream status.

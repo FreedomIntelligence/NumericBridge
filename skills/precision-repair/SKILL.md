@@ -114,6 +114,12 @@ injected state and diagnostic constraints out of original-workload verification.
 
 **Stop** when a hypothesis reaches a confirmed label, the budget is spent, or no
 open hypothesis has an actionable check. Ruled-out hypotheses are not retried.
+Record a hypothesis as blocked only with `--blocker access|budget|no_actionable_check`;
+`next` keeps returning a blocked hypothesis without one. An execution error met
+in an optional or diagnostic branch (crash, out-of-range index, ignored setting)
+opens its own hypothesis with a minimal reproducer instead of skipping the branch.
+Mark an issue stack-sensitive when a same-hardware stack control also fails; its
+target is an operator fix closer to FP64 with no original-case regression.
 Classify the conclusion as setup/capture, unsupported capability, expected
 numerical policy, supported defect or unresolved; `diagnosis_state.py render`
 writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
@@ -146,7 +152,10 @@ writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
   A/B gap alone does not reject it, since the sides' errors can cancel; report
   the agreement change as a secondary result.
 - Before a PR draft, record the [upstream status](../numericbridge/references/workflow.md#stages-and-handoffs)
-  and verify any backport on the user's pinned version.
+  at main, the latest release and the pinned ref (Compare's
+  [upstream_status.py](../precision-compare/scripts/upstream_status.py) reads
+  merged code from a local clone) and verify any backport on the user's pinned
+  version.
 
 A defect fix is verified when the focused regression and the original-case
 [acceptance](../precision-compare/references/acceptance.md) both pass (for an
@@ -157,3 +166,35 @@ candidate, configuration, before/after values and evidence with
 `diagnosis_state.py record`. Use [precision-compare](../precision-compare/SKILL.md#collect)
 for missing captures and [shared execution](../precision-compare/references/comparison.md#recover-an-interrupted-stage)
 for resumed runs.
+
+## Declare contribution decisions
+
+Before local delivery, give every confirmed or blocked hypothesis one decision
+and pass the audit:
+
+```sh
+python scripts/diagnosis_state.py decide --state diagnosis.json --hypothesis H3 \
+  --ownership library_defect --decision pr_draft_main --reason still_present \
+  --repository OWNER/REPO --target-branch main --upstream-main present \
+  --upstream-release present --upstream-pinned present --draft result/upstream/H3/ \
+  --check-item applies_cleanly=pass --check-item repo_style_test=pass \
+  --check-item native_on_target=fail --check-item performance=na --check-item template_body=pass
+python scripts/diagnosis_state.py audit --state diagnosis.json
+python scripts/diagnosis_state.py decisions --state diagnosis.json --output result/contribution-decisions.json
+```
+
+- **Ownership** names who changes the code: `library_defect`, `numerical_policy`,
+  `environment` (a launch, dependency or host hazard that does not reproduce in a
+  clean documented environment), `adapter` (the case's own integration) or
+  `unlocalized`.
+- **Decision** follows the upstream state: present on main → `pr_draft_main`;
+  fixed on main but present on the pinned ref → `backport_draft` for the
+  distribution the user installs; environment, adapter or matching-reference
+  results → `record_only`; nothing to share → `no_action`.
+- **Numerical policy** needs a reference: `reference_semantics` when the model's
+  reference implementation keeps higher precision than the library,
+  `benefit_measured` when the patch moves the operator closer to FP64 without
+  regressing the task, and `matches_reference` or `no_measured_benefit` otherwise
+  (record only).
+- A draft with a failed or missing check is still submitted, marked incomplete
+  with that check named.

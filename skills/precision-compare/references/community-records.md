@@ -61,11 +61,21 @@ Leave pending checks unchecked and record a PR URL only once it exists.
 Prepare a draft so maintainers only review and file it: a patch that applies to
 the target branch, a test in the target repository's style that fails before
 and passes after, native verification on the target branch or released build,
-performance numbers and a body following the repository template. Mark each in
-the case's contribution decisions; a draft missing one is submitted as
-incomplete with the missing check named. A backport targets the distribution
-the user installs (for example a plugin's release branch) and uses that
-distribution's own patch or build mechanism.
+performance numbers and a body following the repository template. Mark each as
+a `diagnosis_state.py decide --check-item` (`applies_cleanly`,
+`repo_style_test`, `native_on_target`, `performance`, `template_body`); a draft
+missing one is submitted as incomplete with the missing check named. A backport
+targets the distribution the user installs (for example a plugin's release
+branch) and uses that distribution's own patch or build mechanism. Check
+`applies_cleanly` per target ref with
+[upstream_status.py](../scripts/upstream_status.py) `--patch`.
+
+The record follows `result/contribution-decisions.json`: one issue per decided
+hypothesis, a draft for each `pr_draft_main` or `backport_draft`, and the
+ownership and reason in the issue's classification. Before preparing, run
+[anonymize_scan.py](../scripts/anonymize_scan.py) over the submission input,
+evidence and draft bodies with `--term` for host aliases and account names, and
+fix every finding.
 
 On a candidate's `target`, record the affected range and fix when known in the
 record's limitations or summary: affected versions, first fixed version and
