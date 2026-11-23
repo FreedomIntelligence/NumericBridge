@@ -27,6 +27,14 @@
 		reverse_proxy 127.0.0.1:8770
 	}
 
+	@status {
+		method GET
+		path_regexp ^/v1/submissions/submission-[0-9a-f]{64}$
+	}
+	handle @status {
+		reverse_proxy 127.0.0.1:8770
+	}
+
 	@health {
 		method GET HEAD
 		path /healthz

@@ -166,7 +166,8 @@ community host with HTTPS and persistent private storage. For a Linux host:
    in its HTTPS virtual host. With Caddy 2.10 or later, use the
    [reverse proxy config](deploy/Caddyfile) and set the same hostname in its
    service environment. Search exposes `POST /mcp` via stateless Streamable
-   HTTP; intake exposes `POST /v1/submissions` and `GET /healthz`. Set request
+   HTTP; intake exposes `POST /v1/submissions`, the authenticated receipt
+   status `GET /v1/submissions/RECEIPT` and `GET /healthz`. Set request
    rate limits at the public ingress.
 4. Call `GET /healthz` over HTTPS, check that an unauthorized `POST` returns
    `401`, then test with a synthetic draft. Set the GitHub Actions repository
