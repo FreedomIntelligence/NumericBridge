@@ -47,40 +47,12 @@ The upload token is managed separately and is never included in these backups.
 
 ## Private review workbench
 
-On a trusted maintainer workstation, run `python -B -m community.inbox_view --ssh HOST_ALIAS`
-using an authorized maintainer SSH alias for the community server. Open
-`http://127.0.0.1:18890/`. This runs an on-demand read-only SSH command and
-does not use the former contribution tunnel. To inspect a verified private
-backup on the same workstation without SSH, run
-`python -B -m community.inbox_view --state PATH_TO_PRIVATE_BACKUP`.
+The optional read-only dashboard is maintained in the restricted
+[NumericBridge Admin repository](https://github.com/FreedomIntelligence/NumericBridge-admin)
+and deployed separately from the public website and Skills. Authorized
+maintainers can use the [authenticated administration site](https://admin.numericbridge.com/)
+or follow the private repository's SSH and backup instructions.
 
-Loopback prevents direct remote access but does not authenticate local users
-or processes. Use it only on a trusted workstation. On a deployment host,
-use `--state STATE_DIR --unix-socket SOCKET_PATH` in a restricted runtime
-directory instead. An authenticated HTTPS reverse proxy must be the only
-public entry point, force the upstream `Host` header to `localhost`, and deny
-unauthenticated access. The application does not authenticate HTTP users by
-itself. Do not serve it from the public community site or log private queries.
-
-Search by title or receipt ID. The status overview shows inbox-wide counts;
-the queue shows the number of matches. The active-pending filter shows only
-pending-review receipts without a newer replacement; the superseded filter
-shows older versions. The ledger status of an older receipt is not changed.
-Sorting and pagination apply to the current matches. The bundled evidence
-count includes only files supplied in the receipt, not external or prior
-references cited by its records.
-
-Open a receipt to inspect its normalized evaluation, submitted metrics and
-coverage, declared runtime configuration, explicit relationship claims,
-original evidence, and review history. The page follows the operating system's
-light or dark appearance and works without JavaScript.
-Relationship evidence links only jump to matching evidence included in the
-selected receipt. The workbench does not infer missing relationships. A
-reported zero is not the same as a missing value. A coverage warning only
-compares the submitted observed and expected values; it does not determine
-acceptance or verify the submission independently.
-Reload the page to see new deliveries. The workbench binds only to
-loopback, sends no private data to third parties, and does not update the
-inbox or ledger. Do not expose it through the public reverse proxy. Continue
-to record decisions with the review CLI above; the workbench does not approve
-or publish submissions.
+The dashboard is not required to run the public workflows. Record review
+and publication decisions with the CLI above. Keep receipts, reviewer events,
+backups, and deployment credentials out of all Git repositories.
