@@ -23,7 +23,7 @@ Agent 从 [NumericBridge Skill](../skills/numericbridge/SKILL.md) 进入。[流�
 | 本地私有 projects/、runs/ | 原生案例、资源配置、原始数组、完整日志与过程记录 |
 
 这些目录按用途分工，不是用户必须理解或依次启动的架构层。
-安装包包含 numericbridge、framework-adapt、precision-compare、precision-repair。仓库中的 operator-optimize 是预留项。
+安装包包含 numericbridge、framework-adapt、precision-compare、precision-repair、operator-optimize。operator-optimize 接在诊断之后，对照 FP64 测量配置、后端和 kernel 方案的精度与速度。
 
 ## 工具放置与安装
 

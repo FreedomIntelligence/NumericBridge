@@ -39,6 +39,20 @@ affected tasks. Clarify historical wording by typed ID in `data/content.json`.
 Include only the evidence needed to trace the result; keep raw logs, prompts,
 private paths and host details local.
 
+## Operator variants
+
+After [operator optimization](../../operator-optimize/SKILL.md), add one
+candidate per kept variant (the baseline, the slow fix and each kernel), linked
+to the issue, so users can choose between precision and speed. Use
+`numerical-policy` or `patch` as the solution type and put the tradeoff in
+`applicability` and `limitations`. Attach the `kernel_check.py` report and the
+end-to-end results as evidence: per variant the error against FP64 and the
+dtype floor, reproducibility, paired timing with its conditions, and the
+original workload's metrics, throughput, TTFT/TPOT and peak memory, each with
+the baseline measured on the same host. Mark unmeasured values `not_measured`
+with the reason. Report measurements only; precision tiers and
+recommendations are assigned on the community side.
+
 ## Submission identity
 
 `prepare_community_submission` returns `base_commit`: the community catalog

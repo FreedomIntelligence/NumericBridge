@@ -53,7 +53,7 @@ python skills/precision-compare/examples/compare_gradients.py
 
 ## 工作流与 Skill
 
-[工作流](skills/numericbridge/references/workflow.md)按需加载各阶段的 Skill：[Framework Adapt](skills/framework-adapt/SKILL.md) 准备原生环境，[Precision Compare](skills/precision-compare/SKILL.md) 采集和对比，支持的路径运行失败或发现值得调查的数值差异时，进入 [Precision Repair](skills/precision-repair/SKILL.md)。每一步沿用已确认的需求和证据。
+[工作流](skills/numericbridge/references/workflow.md)按需加载各阶段的 Skill：[Framework Adapt](skills/framework-adapt/SKILL.md) 准备原生环境，[Precision Compare](skills/precision-compare/SKILL.md) 采集和对比，支持的路径运行失败或发现值得调查的数值差异时，进入 [Precision Repair](skills/precision-repair/SKILL.md)；诊断发现算子超出 FP64 误差范围时，进入 [Operator Optimize](skills/operator-optimize/SKILL.md)，给出每个方案的精度和速度。每一步沿用已确认的需求和证据。
 
 任务配方：[推理](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md)。
 

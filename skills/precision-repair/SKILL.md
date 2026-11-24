@@ -114,17 +114,32 @@ A local improvement repairs the task only when the task endpoint also improves;
 otherwise keep it as an operator finding. Keep
 injected state and diagnostic constraints out of original-workload verification.
 
-**Stop** when a hypothesis reaches a confirmed label, the budget is spent, or no
-open hypothesis has an actionable check. Ruled-out hypotheses are not retried.
+**Stop** when acceptance is restored, the budget is spent, or no open hypothesis
+has an actionable check. A confirmed secondary factor does not stop diagnosis
+while the trigger remains unexplained: open a child for the remaining
+difference. Ruled-out hypotheses are not retried.
 Record a hypothesis as blocked only with `--blocker access|budget|no_actionable_check`;
-`next` keeps returning a blocked hypothesis without one. An execution error met
+`next` keeps returning a blocked hypothesis without one, and a finding that names
+a next check is not `no_actionable_check`. An execution error met
 in an optional or diagnostic branch (crash, out-of-range index, ignored setting)
-opens its own hypothesis with a minimal reproducer instead of skipping the branch.
+opens its own hypothesis with a minimal reproducer instead of skipping the branch;
+setup and adapter mistakes that do not affect results go in the case log.
 Mark an issue stack-sensitive when a same-hardware stack control also fails; its
 target is an operator fix closer to FP64 with no original-case regression.
 Classify the conclusion as setup/capture, unsupported capability, expected
-numerical policy, supported defect or unresolved; `diagnosis_state.py render`
+numerical policy, supported defect, inherent difference (every localized
+operator within its FP64 bound) or unresolved; `diagnosis_state.py render`
 writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
+
+## Hand off to optimization
+
+For each localized operator judged with `operator_verdict.py`, write
+`result/optimize/<operator>/handoff.json` in the
+[handoff format](../operator-optimize/references/handoff.md) and route it by the
+reading: outside the bound requires [operator optimization](../operator-optimize/SKILL.md);
+within the bound enters it only when `operator_optimize.enabled`. Include the
+slow fix when one exists and the operator's end-to-end contribution with only
+that operator changed. Keep diagnosing the remaining difference meanwhile.
 
 ## Patch and verify
 
@@ -201,7 +216,9 @@ python scripts/diagnosis_state.py decisions --state diagnosis.json --output resu
   reference implementation keeps higher precision than the library and the patch
   moves the operator closer to FP64, the decision is a draft with
   `reference_semantics`; the end-to-end change goes into the draft as a
-  secondary result and does not veto it. `benefit_measured` covers a patch closer
+  secondary result and does not veto it. An operator confirmed outside its FP64
+  bound gets a draft on that evidence alone; whether the original case passes
+  acceptance does not decide it. `benefit_measured` covers a patch closer
   to FP64 without a reference preference. `matches_reference` or
   `no_measured_benefit` (record only) apply only when the reference does not keep
   higher precision.

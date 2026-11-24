@@ -151,7 +151,9 @@ def next_action(state):
         return dict(action='refine', supported=supported,
                     reason='add a narrower child hypothesis or run interventions for a supported hypothesis')
     secondary = [h['id'] for h in hyps if h['status'] == 'confirmed']
-    return dict(action='stop', reason='secondary factors confirmed' if secondary else 'no actionable hypothesis remains',
+    return dict(action='stop', reason=('secondary factors confirmed; unless acceptance is restored, open a child '
+                                       'hypothesis for the remaining difference before delivering')
+                if secondary else 'no actionable hypothesis remains',
                 hypotheses=secondary)
 
 

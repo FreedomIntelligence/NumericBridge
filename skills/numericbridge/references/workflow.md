@@ -151,8 +151,9 @@ in order on both sides ([task views](../../precision-compare/examples/minimal-pr
 </output>
 
 <next>
-  Follow the verdict's route: pass or gap → deliver; fail → diagnosis with the
-  acceptance report;
+  Follow the verdict's route: pass → deliver; gap → deliver, or diagnose toward
+  precision optimization when operator_optimize.enabled; fail → diagnosis with
+  the acceptance report;
   noise_limited → stabilize the runs; incomplete → recover the capture.
 </next>
 ```
@@ -191,19 +192,27 @@ Use the [diagnosis loop](../../precision-repair/SKILL.md#diagnose).
 
 <action>
   Run triage with the acceptance report, comparator reports and the community
-  result; start diagnosis.json; execute next checks cheapest first.
+  result; start diagnosis.json. Run the reproduction checks triage lists for
+  matching and related community issues first, then the remaining checks
+  cheapest first. At each localized operator, judge both sides against FP64 on
+  the captured operands with operator_verdict.py.
 </action>
 
 <output>diagnosis.json with labels, checked boundaries, ruled-out causes and evidence.</output>
 
 <next>
   On config_mismatch, correct setup and rerun the comparison. Route a supported
-  defect to repair. Stop at the loop's stop decision and deliver open issues with
-  their blocker and next check; keep independent issues moving meanwhile.
+  defect to repair and a localized operator to precision optimization by its
+  FP64 reading. Diagnosis ends in one of three ways: acceptance restored; an
+  inherent difference (each localized operator within its FP64 bound and no
+  actionable check left); or optimization entered for a localized operator,
+  after which diagnosis continues for the remaining unexplained difference.
   "Blocked" is a stop reason only with a recorded blocker (access, budget or
-  no_actionable_check); without one, run the hypothesis's next check. Diagnosis
-  stays open while any hypothesis has an actionable check, including issues
-  found after delivery.
+  no_actionable_check). A hypothesis whose finding names a next check is not
+  no_actionable_check: run that check, or open it as a child hypothesis.
+  Diagnosis stays open while any hypothesis has an actionable check, including
+  issues found after delivery. Setup, dependency and adapter fixes go in the
+  case log, not in diagnosis hypotheses, unless they affect results.
 </next>
 ```
 
@@ -232,12 +241,40 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
 </next>
 ```
 
-## Precision optimization (placeholder)
+## Precision optimization
 
-Not active. The `operator-optimize` skill is a reserved placeholder for later
-work and is not installed; do not enable it or run optimization. A `gap` verdict (acceptance's
-`optimize_optional` route) is delivered with the remaining distance to the
-optimize target reported.
+Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
+
+```xml
+<entry>
+  Diagnosis localized an operator and judged it against FP64 on the captured
+  operands (operator_verdict.py), and wrote its handoff. A reading outside the
+  bound (a_deviates, b_deviates, shared_policy) requires optimization whatever
+  request.json's operator_optimize.enabled says. A reading within the bound
+  (not_the_source) enters only when operator_optimize.enabled is true; otherwise
+  diagnosis delivers an inherent difference. A gap verdict enters the same way
+  once an operator is localized, and is otherwise delivered with the remaining
+  distance to the optimize target.
+</entry>
+
+<action>
+  Try configuration, backend and upstream variants and the slow fix first, then
+  write a kernel. Measure every variant against FP64 and the dtype floor with
+  kernel_check.py, time it paired with the baseline, and rerun the original
+  workload with each kept variant.
+</action>
+
+<output>
+  result/optimize/OPERATOR/ with the handoff, each variant's source, check report,
+  timing conditions and end-to-end precision and speed; each variant recorded in
+  diagnosis.json.
+</output>
+
+<next>
+  Deliver with all kept variants and their tradeoffs. Return to diagnosis for
+  the next localized operator while the acceptance failure remains unexplained.
+</next>
+```
 
 ## Local delivery
 

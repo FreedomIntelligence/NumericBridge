@@ -25,8 +25,10 @@
   Write request.json with the confirmed fields, pinned versions, acceptance
   profile and pending items, and the answer as `community_contribution`:
   `consent` (share or decline), `attribution_mode`, `attribution_name` and
-  `confirmed_at`. Resolve discoverable versions, device IDs and launch
-  commands during environment preparation.
+  `confirmed_at`. Record `operator_optimize` as `{"enabled": false,
+  "max_attempts": 8}` unless the user asks for optional optimization; an
+  operator outside its FP64 bound is optimized either way. Resolve discoverable
+  versions, device IDs and launch commands during environment preparation.
 </output>
 
 <next>

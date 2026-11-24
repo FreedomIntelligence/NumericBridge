@@ -50,8 +50,9 @@ needed for missing work.
 | [Comparison rules](../skills/precision-compare/references/comparison.md) | Metrics, coordinates, interfaces, execution and evidence tools |
 | [Internal capture guide](../skills/precision-compare/references/layerwise.md) | Bounded observation plans, msProbe and collector transparency |
 
-`operator-optimize` is a placeholder. This plan evaluates existing native
-implementations; writing a faster kernel is a separate task.
+This plan evaluates existing native implementations. When diagnosis localizes
+an operator outside its FP64 bound, `operator-optimize` measures configuration,
+backend and kernel variants; that work is outside this plan.
 
 ## 2 Define what complete means
 

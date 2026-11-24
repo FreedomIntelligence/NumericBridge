@@ -11,7 +11,7 @@ import shutil
 from tools.community_search import load_index
 
 ROOT = Path(__file__).resolve().parents[1]
-INSTALLABLE_SKILLS = ('framework-adapt', 'numericbridge', 'precision-compare', 'precision-repair')
+INSTALLABLE_SKILLS = ('framework-adapt', 'numericbridge', 'operator-optimize', 'precision-compare', 'precision-repair')
 
 
 def installable_folders(source):

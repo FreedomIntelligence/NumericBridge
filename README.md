@@ -53,7 +53,7 @@ For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKI
 
 ## Workflow and skills
 
-The [workflow](skills/numericbridge/references/workflow.md) loads only the method it needs: [Framework Adapt](skills/framework-adapt/SKILL.md) for native setup, [Precision Compare](skills/precision-compare/SKILL.md) for measurement, and [Precision Repair](skills/precision-repair/SKILL.md) for supported-path failures or numerical findings that warrant diagnosis. Each stage reuses the confirmed request and evidence.
+The [workflow](skills/numericbridge/references/workflow.md) loads only the method it needs: [Framework Adapt](skills/framework-adapt/SKILL.md) for native setup, [Precision Compare](skills/precision-compare/SKILL.md) for measurement, [Precision Repair](skills/precision-repair/SKILL.md) for supported-path failures or numerical findings that warrant diagnosis, and [Operator Optimize](skills/operator-optimize/SKILL.md) for operators that diagnosis finds outside their FP64 bound, reporting each variant's precision and speed. Each stage reuses the confirmed request and evidence.
 
 Task recipes: [Inference](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md).
 
