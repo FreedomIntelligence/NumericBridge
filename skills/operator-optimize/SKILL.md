@@ -85,7 +85,11 @@ and give the issue its contribution decision as precision-repair describes; a
 kernel against an upstream library is a PR draft there, with the measured speed
 in the draft. Report all variants in the community record as described in the
 [community guide](../precision-compare/references/community-records.md#operator-variants).
-Record `result/optimize/<operator>/open.json` with the remaining distance, the
-variants not yet tried and the next step, so a later round resumes from it.
-Measure and report; precision tiers and recommendations are assigned on the
-community side, not here.
+Record `result/optimize/<operator>/open.json` with `issue`, `round_status`
+(`"handoff_open"` when later rounds remain), `entry`, `remaining_distance`
+(`relative_rmse`, `bound`, `excess`), `variants_not_yet_tried`, and `next_step`,
+so a later round resumes from it. Never fabricate `random`/`edge` cases by
+slicing `captured` arrays or repeat runs by duplicating one output array; keep
+unmeasured shape classes or timing explicitly `not_measured` or listed in
+`variants_not_yet_tried`. Measure and report; precision tiers and
+recommendations are assigned on the community side, not here.

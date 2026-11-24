@@ -50,8 +50,23 @@ end-to-end results as evidence: per variant the error against FP64 and the
 dtype floor, reproducibility, paired timing with its conditions, and the
 original workload's metrics, throughput, TTFT/TPOT and peak memory, each with
 the baseline measured on the same host. Mark unmeasured values `not_measured`
-with the reason. Report measurements only; precision tiers and
-recommendations are assigned on the community side.
+with the reason. Package the operator round as `operator_optimization`
+(`kind: "operator-optimization"`, `schema_version: 1`, built and checked by
+[operator_optimization.py](../scripts/operator_optimization.py)) inside an
+`evidence/submissions/*.json` document:
+
+- Set `round_status: "handoff_open"` when optimization is only handed off or
+  partially checked (for instance, captured operands and `slow_fix` checked
+  without target `random`/`edge` shapes or paired timing); carry `open_items`
+  (`remaining_distance`, `variants_not_yet_tried`, `next_step`) without claiming
+  complete variant benchmarks.
+- Set `round_status: "round_delivered"` once a round finishes; include
+  `kernel_check` (`kernel_check.py` output), `end_to_end` (or
+  `{"status": "not_measured", "reason": ...}`), and `variants` referencing the
+  kept `candidate` entities in `relations.entities`.
+- Report factual measurements only; never add `tier` or `recommendation` fields
+  in the client payload. Precision tiers, recommendations, and multi-round
+  aggregation are handled on the community server side.
 
 ## Submission identity
 
@@ -74,9 +89,20 @@ sends only after the user types `SEND`.
 
 ## Prepare an upstream PR draft
 
-For a verified patch intended for upstream, read the target repository's base
-branch contribution guide and PR template; otherwise use **Problem / Change /
-Validation / Patch** and note which guidance could not be checked. Include a
+For a verified patch intended for upstream, inspect the target repository's base
+branch contribution guide and PR template first (`pr_draft.py inspect --repo
+CLONE --ref TARGET_BRANCH` reads `.github/PULL_REQUEST_TEMPLATE*`,
+`CONTRIBUTING.md`, and DCO/checklist requirements); pass `--repo` to
+`pr_draft.py scaffold` (plus `--request request.json` or `--attribution-mode`)
+so `template_source` (`"repository_template"` vs `"numericbridge_default"`) and
+`contribution_requirements` are recorded and checked against the body. `scaffold`
+appends a concise NumericBridge provenance footer (repository and Case Library
+links, and the user's `nickname` or `@github` discoverer credit when chosen;
+omitted when anonymous).
+When the target repository has no PR template or contribution guide,
+`pr_draft.py` uses the pre-agreed NumericBridge fallback format (**Problem /
+Change / Validation / Patch**) with `fallback_used: true` and notes what could
+not be checked. Include a
 title, affected setup, minimal reproducer, matched before/after results,
 commands run and the patch. Base the draft on current main and cite only merged
 upstream commits for where the defect is present or fixed. Related issues and

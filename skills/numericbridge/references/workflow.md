@@ -109,7 +109,7 @@ Use [framework-adapt](../../framework-adapt/SKILL.md#execute) and its
   Prepare both sides independently, reusing matching environments and
   receipts. Confirm device binding and preflight each unverified native path with
   its collectors. In each preflight worker, collect the environment receipt
-  (`tools.environment_receipt`) after the workload reaches its runtime path:
+  (`precision-compare/scripts/environment_receipt.py` or `tools.environment_receipt`) after the workload reaches its runtime path:
   framework, backend plugin, runtime, driver and launch image, keeping unknown
   distinct from not applicable.
 </action>
@@ -262,34 +262,80 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 
 ```xml
 <entry>
-  Diagnosis localized an operator and judged it against FP64 on the captured
-  operands (operator_verdict.py), and wrote its handoff. A reading outside the
-  bound (a_deviates, b_deviates, shared_policy) requires optimization whatever
-  request.json's operator_optimize.enabled says. A reading within the bound
-  (not_the_source) enters only when operator_optimize.enabled is true; otherwise
-  diagnosis delivers an inherent difference. A gap verdict enters the same way
-  once an operator is localized, and is otherwise delivered with the remaining
-  distance to the optimize target.
+  Diagnosis localized an operator, judged both sides against FP64 on the captured
+  operands with `operator_verdict.py`, and wrote `result/optimize/<operator>/handoff.json`.
+  `entry` in `handoff.json` comes solely from that FP64 reading: a reading
+  outside the bound (`a_deviates`, `b_deviates`, `shared_policy`) sets
+  `entry="required"` whatever `request.json`'s `operator_optimize.enabled` says;
+  a reading within the bound (`not_the_source`) sets `entry="optional"` and enters
+  only when `operator_optimize.enabled` is true (if the user requests optional
+  optimization during follow-up, record `operator_optimize.enabled: true` in
+  `request.json`; otherwise diagnosis delivers an inherent difference).
+  A `gap` verdict enters the same way once an operator is localized, and is
+  otherwise delivered with the remaining distance to the optimize target.
 </entry>
 
 <action>
   Try configuration, backend and upstream variants and the slow fix first, then
   write a kernel. Measure every variant against FP64 and the dtype floor with
-  kernel_check.py, time it paired with the baseline, and rerun the original
-  workload with each kept variant.
+  `kernel_check.py`, collect paired timing on one host in one session, and rerun
+  the original workload with each kept variant.
+
+  Case generation and measurement rules:
+  - Test `captured`, `random`, and `edge` shape classes using genuinely constructed
+    inputs and real kernel/reference outputs on the target path; never slice
+    `captured` arrays to fabricate `random`/`edge` cases, and never duplicate a
+    single run's array to fabricate repeat runs (`repeats >= 2` must come from
+    actual repeated executions on identical inputs).
+  - Do not hardcode an approximate or custom `bound` in `kernel-spec.json` unless
+    explicitly justified; omit `bound` so `kernel_check.py` computes
+    `c*u(dtype)*sqrt(reduction)` consistently with `operator_verdict.py`.
+  - Distinguish a full optimization round from a partial/pre-benchmark handoff:
+    every variant run so far must be measured with `kernel_check.py` (producing
+    `kernel-report.json`), and any unmeasured cases (`random`/`edge` on target
+    hardware, paired `timing`, or un-run variants) must stay explicitly absent or
+    `not_measured` rather than filled with offline proxies.
 </action>
 
 <output>
-  result/optimize/OPERATOR/ with the handoff, each variant's source, check report,
-  timing conditions and end-to-end precision and speed; each variant recorded in
-  diagnosis.json.
+  `result/optimize/<operator>/` with the input `handoff.json`, each tried
+  variant's source, `kernel-spec.json`, `kernel-report.json`, timing conditions,
+  end-to-end precision and speed, and `open.json`; each kept or tested variant
+  recorded in `diagnosis.json`.
+
+  Round state (`open.json`) and handoff link:
+  - `open.json` tracks `round_status` (`"handoff_open"` when work remains for a
+    later round), `entry` (`"required"` or `"optional"`), `remaining_distance`
+    (`relative_rmse`, `bound`, `excess`), `variants_not_yet_tried`, and
+    `next_step` so another session can resume cleanly.
+  - When `slow_fix` has a `kernel_check.py` report, reference it via
+    `slow_fix.report` in `handoff.json` and add the `kernel_check` command under
+    `reproduce`.
 </output>
 
 <next>
-  Submit the round with all kept variants, their tradeoffs and the open
-  optimization items; a variant that meets the bound gets a PR draft. Return to
-  diagnosis for the next localized operator while the acceptance failure
-  remains unexplained.
+  Submit the round with all kept variants (all variants within the bound plus
+  baseline), their precision/speed tradeoffs, and the open items in `open.json`.
+  Only a kept variant that improves toward the reference semantics, applies to
+  the target upstream repository, and has verified source evidence gets a PR
+  draft (marking any unverified `repo_style_test` / `native_on_target` /
+  `performance` items in `pending_checks` so the draft is explicitly flagged
+  `incomplete`). A variant that still fails the bound or has unmeasured
+  shapes/timing does not block round delivery: record its `kernel-report.json`
+  distance and mark the operator `round_status: "handoff_open"` in `open.json`
+  with `variants_not_yet_tried` and `next_step` for the next session.
+
+  Community record boundary: an operator that has completed an optimization
+  round (paired timing and end-to-end checks on kept variants) adds one
+  `candidate` entity per kept variant as described in
+  [community-records.md](../../precision-compare/references/community-records.md#operator-variants);
+  an operator with only a pre-round `handoff_open` (or captured-only
+  `kernel_check` awaiting target random/edge/timing) records its handoff and
+  `open.json` state without fabricating full-round `candidate` benchmark
+  claims. Package either state using `operator_optimization.py` (`handoff_open`
+  or `round_delivered`) under `evidence/submissions/*.json`; keep server-side
+  tiers and recommendations out of client payloads. Return to diagnosis for the next localized operator while the
+  acceptance failure remains unexplained.
 </next>
 ```
 
@@ -327,8 +373,10 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 
 <next>
   Output “NumericBridge 链路已完成” only when every required stage has completion
-  evidence. Then, or after a shareable partial delivery, offer community
-  contribution.
+  evidence. Then, or after a shareable partial delivery, execute community
+  contribution if `request.json` records `community_contribution.consent: "share"`
+  (reporting the receipt and preview path without re-asking), or offer it once
+  when no intake choice was recorded.
 </next>
 ```
 
@@ -344,12 +392,15 @@ Use the [community record guide](../../precision-compare/references/community-re
   `anonymize_scan.py` over the draft, evidence and PR bodies (adding host aliases and account names with
   --term) and fix every finding before preparing. Use the credit recorded in
   request.json's community_contribution. Fix findings from
-  prepare_community_submission until it returns ready. With consent recorded at
-  intake, call submit_community with the draft ID, digest and consent_record (the
-  request.json path); it sends without a form and the inbox re-checks the records
-  and PR drafts. Then tell the user the receipt and preview path; no further
-  confirmation is needed. Without recorded consent, submit_community asks through
-  the client; a recorded or later decline ends the offer. If submission is
+  prepare_community_submission until it returns ready. Use the configured
+  NumericBridge contribution MCP tools directly (do not manually invoke local
+  repo submission scripts with another Python environment). With consent
+  recorded at intake, call submit_community with the draft ID, digest and
+  consent_record (the request.json path); it sends without a form and the inbox
+  re-checks the records and PR drafts. Then tell the user the receipt and preview
+  path; no further confirmation is needed. Without recorded consent,
+  submit_community asks through the client; a recorded or later decline ends the
+  offer. If submission is
   unavailable, keep the local draft and report its path. A receipt means pending
   review; call the result searchable only when the deployed index returns its IDs.
   When decisions change after a receipt, submit an updated draft that names the

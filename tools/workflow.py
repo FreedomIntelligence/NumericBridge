@@ -13,7 +13,7 @@ CLI: workflow.py run|status --plan P --workspace W [--refresh STAGE ...]
 
 Plan JSON: schema_version=1, id, root (relative to plan, default '.'), workload
 (optional object), budget_seconds (cumulative child wall time incl. retries),
-stages=[{id, skill:framework-adapt|precision-compare|precision-repair,
+stages=[{id, skill:framework-adapt|precision-compare|precision-repair|operator-optimize,
 argv:[literal,...], inputs:[path,...], outputs:{name:relative_path},
 depends_on:[stage,...], timeout, side (default 'compare'), cache (default true),
 execution (record_run profile path or {artifact:STAGE:NAME}), env_keys:[name,...],
@@ -80,7 +80,7 @@ import time
 from .conditions import canonical, load_json
 from .record_run import load_execution, record_run, summarize_run
 
-SKILLS = {'framework-adapt', 'precision-compare', 'precision-repair'}
+SKILLS = {'framework-adapt', 'precision-compare', 'precision-repair', 'operator-optimize'}
 ID = re.compile(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\Z')
 TOKEN = re.compile(r'\{artifact:([^:{}]+):([^:{}]+)\}')
 ENGINE_FILES = tuple(Path(__file__).with_name(name) for name in ('workflow.py', 'record_run.py', 'conditions.py'))

@@ -11,6 +11,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from scripts.validate_immutability import compare_documents
+from tools.operator_optimization import check as check_operator_optimization
 from tools.pr_draft import check as check_pr_draft
 from .catalog import Catalog
 from .search import compile_index
@@ -20,6 +21,7 @@ from .validation import validate, validate_evaluations
 SITE = 'community/site/'
 DIGEST = re.compile(r'[a-f0-9]{64}')
 EVIDENCE = re.compile(r'evidence/submissions/[a-z0-9]+(?:-[a-z0-9]+)*\.json')
+MAX_ADDITIONS_BYTES = 1024 * 1024
 COLLECTIONS = {'evaluations': ('evaluations',), 'repairs': ('repairs', 'library_groups'),
                'relations': ('entities', 'links')}
 ATTRIBUTION_SCOPE = ('community_site', 'community_pr', 'upstream_pr')
@@ -104,6 +106,7 @@ class Submissions:
     def apply(self, root, additions):
         site = root / SITE
         changed = []
+        entities = (additions.get('relations') or {}).get('entities') or []
         for path, document in additions['evidence'].items():
             if len(path) > 160 or not EVIDENCE.fullmatch(path):
                 raise ValueError('New evidence must be a JSON file under evidence/submissions/')
@@ -114,6 +117,10 @@ class Submissions:
                 review = check_pr_draft(document['upstream_pr_draft'])
                 if review['status'] != 'ok':
                     raise ValueError(f'{path}: upstream_pr_draft ' + '; '.join(review['problems']))
+            if isinstance(document, dict) and 'operator_optimization' in document:
+                opt_review = check_operator_optimization(document['operator_optimization'], entities=entities)
+                if opt_review['status'] != 'ok':
+                    raise ValueError(f'{path}: operator_optimization ' + '; '.join(opt_review['problems']))
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open('xb') as stream:
                 stream.write(encode(document))
@@ -150,8 +157,8 @@ class Submissions:
             raise ValueError('Use a single-line contribution title of at most 120 characters')
         if not any(items for name in COLLECTIONS for items in additions[name].values()):
             raise ValueError('Include at least one community record or relation')
-        if len(encode(additions, compact=True)) > 256 * 1024:
-            raise ValueError('Limit a submission to 256 KiB of reviewed public JSON')
+        if len(encode(additions, compact=True)) > MAX_ADDITIONS_BYTES:
+            raise ValueError('Limit a submission to 1 MiB of reviewed public JSON')
         base = git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
         with self.checkout(base) as root:
             files = self.apply(root, additions)

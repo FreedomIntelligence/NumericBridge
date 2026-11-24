@@ -12,7 +12,7 @@ python scripts/acceptance.py --report scores.json --report gradients.json \
 | Verdict | Meaning | Route |
 |---|---|---|
 | `pass` | All checks within the optimize target | Deliver |
-| `gap` | Within acceptance, outside an optimize target | Deliver; report the optimize-target gap (precision optimization is a placeholder, not run) |
+| `gap` | Within acceptance, outside an optimize target | Deliver; report the optimize-target gap, or enter [precision optimization](../../operator-optimize/SKILL.md) once an operator is localized and `operator_optimize.enabled` |
 | `fail` | An acceptance or exact check failed | [Diagnose](../../precision-repair/SKILL.md#diagnose) |
 | `noise_limited` | Each failing check also fails on a same-side repeat | Fix nondeterminism or compare against repeat noise |
 | `incomplete` | A required report is unavailable or not covered | Recover the capture |

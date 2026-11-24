@@ -80,7 +80,7 @@ The contributor needs no GitHub account or fork.
 
 Use the [record format](records/README.md) and
 [writing guide](../skills/precision-compare/references/community-records.md).
-A draft accepts up to 256 KiB of records and minimum evidence. Evidence hashes
+A draft accepts up to 1 MiB of records and minimum evidence. Evidence hashes
 use UTF-8 JSON, two-space indentation, unescaped Unicode and a final newline in
 the supplied key order. Preview validation uses local `origin/main`; the inbox
 also validates additions against the community catalog before storing them.

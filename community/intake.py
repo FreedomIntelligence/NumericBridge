@@ -18,7 +18,7 @@ from .records.submission import COLLECTIONS, DIGEST, Submissions, draft_attribut
 
 ROOT = Path(__file__).resolve().parent.parent
 PATH = '/v1/submissions'
-MAX_BODY = 320 * 1024
+MAX_BODY = 1280 * 1024
 MAX_RECEIPT = 4096
 RECEIPT = re.compile(r'submission-[a-f0-9]{64}')
 REVIEW_STATES = ('pending_review', 'needs_information', 'accepted', 'declined', 'published')

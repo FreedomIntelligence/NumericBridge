@@ -24,7 +24,7 @@ record --state S --hypothesis H --label LABEL --finding TEXT [--evidence P ...]
   open; other labels -> supported. --status overrides. A blocked hypothesis needs
   --blocker; until one is recorded, next keeps returning it as a check.
 conclude --state S --classification setup_capture|unsupported|expected_policy|
-  supported_defect|unresolved --summary TEXT [--next-check TEXT]
+  inherent_difference|supported_defect|unresolved --summary TEXT [--next-check TEXT]
 decide --state S --hypothesis H --ownership OWNER --decision DECISION --reason REASON
   [--repository R] [--component C] [--target-branch B] [--upstream-main ST]
   [--upstream-release ST] [--upstream-pinned ST] [--pinned-ref REF] [--fixed-in VERSION]
@@ -64,7 +64,7 @@ LABELS = ('config_mismatch', 'replay_invalid', 'local_source_candidate', 'propag
 STATUS = {'not_reproduced': 'ruled_out', 'ruled_out': 'ruled_out', 'primary_cause_confirmed': 'confirmed',
           'secondary_factor_confirmed': 'confirmed', 'unresolved': 'blocked', 'replay_invalid': 'open'}
 STATUSES = ('open', 'supported', 'confirmed', 'ruled_out', 'blocked')
-CLASSES = ('setup_capture', 'unsupported', 'expected_policy', 'supported_defect', 'unresolved')
+CLASSES = ('setup_capture', 'unsupported', 'expected_policy', 'inherent_difference', 'supported_defect', 'unresolved')
 COSTS = ('cpu', 'replay', 'native')
 BLOCKERS = ('access', 'budget', 'no_actionable_check')
 OWNERS = ('library_defect', 'numerical_policy', 'environment', 'adapter', 'unlocalized')

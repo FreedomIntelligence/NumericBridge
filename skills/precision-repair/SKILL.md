@@ -127,9 +127,11 @@ setup and adapter mistakes that do not affect results go in the case log.
 Mark an issue stack-sensitive when a same-hardware stack control also fails; its
 target is an operator fix closer to FP64 with no original-case regression.
 Classify the conclusion as setup/capture, unsupported capability, expected
-numerical policy, supported defect, inherent difference (every localized
-operator within its FP64 bound) or unresolved; `diagnosis_state.py render`
-writes `issues.md` with checked boundaries, ruled-out explanations and evidence.
+numerical policy / inherent difference (every localized operator within its
+FP64 bound; recorded via `diagnosis_state.py conclude --classification
+expected_policy` or `inherent_difference`), supported defect, or unresolved;
+`diagnosis_state.py render` writes `issues.md` with checked boundaries,
+ruled-out explanations and evidence.
 
 ## Hand off to optimization
 
@@ -175,7 +177,12 @@ that operator changed. Keep diagnosing the remaining difference meanwhile.
   at main, the latest release and the pinned ref (Compare's
   [upstream_status.py](../precision-compare/scripts/upstream_status.py) reads
   merged code from a local clone) and verify any backport on the user's pinned
-  version.
+  version. Inspect the target repository's PR template and contribution guide
+  with [pr_draft.py](../precision-compare/scripts/pr_draft.py) `inspect --repo`
+  (for example DCO/Signed-off-by, Megatron/vLLM checklists, or template
+  headings); when the repository defines none, `pr_draft.py` applies the
+  pre-agreed NumericBridge fallback format (`Problem / Change / Validation /
+  Patch`) and records `fallback_used: true`.
 
 A defect fix is verified when the focused regression and the original-case
 [acceptance](../precision-compare/references/acceptance.md) both pass (for an

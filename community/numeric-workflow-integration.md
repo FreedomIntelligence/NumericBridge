@@ -16,7 +16,7 @@ open an issue, create a PR, or contact upstream on the contributor's behalf.
 The client must support MCP form elicitation. Configure the upload credential
 outside the prompt, tool arguments, and logs. Append `--search-index
 community/site/data/search-index.json` to expose all three tools in one local
-MCP entry; use the remote search entry for the server-managed index. During
+MCP entry (or pass `consent_record` from `request.json` for pre-consented intake); use the remote search entry for the server-managed index. During
 private staging, an operator can tunnel to port 8788 on the server and replace
 the public origin with `http://127.0.0.1:<local-port>` in the client config.
 The configured destination is bound into the draft; changing it requires a new
@@ -31,7 +31,7 @@ Omit `version` unless the user pinned it. Use `matches`, `recommendation`,
 `no-records` is a normal result; continue with the evaluation. A null
 recommendation means there is no supported stack recommendation. Do not
 silently replace a pinned version. If the server-managed MCP is unavailable,
-try the public index at `https://numericbridge.com/data/search-index.json` via
+try the public index at `https://freedomintelligence.github.io/NumericBridge/data/search-index.json` via
 the bundled search CLI before falling back to a local snapshot. Record the
 source, index SHA and available snapshot date for either route.
 
@@ -46,13 +46,17 @@ source, index SHA and available snapshot date for either route.
    `evidence` object, keyed by new `evidence/submissions/*.json` paths. See the
    [record schemas](records/README.md). Optionally pass `attribution_mode`:
    `anonymous` (omit `attribution_name`), `nickname` (supply the chosen name),
-   or `github` (supply `@username`; no login). `ready` returns `preview`,
+   or `github` (supply `@username`; no login), and `supersedes` (prior receipt
+   IDs when updating an earlier submission). `ready` returns `preview`,
    `draft_id`, and `draft_sha256`; `invalid` returns findings and sends nothing.
-3. Show the actual preview, destination, and credit. Named credit covers the
-   NumericBridge site, the community PR, and any related upstream PR filed by
-   maintainers. Call `submit_community` with only the returned `draft_id` and
-   `draft_sha256`. Its form is the only consent to send. Changing content,
-   credit, or destination requires a fresh preview and confirmation.
+3. Named credit covers the NumericBridge site, the community PR, and any related
+   upstream PR filed by maintainers. When `request.json` records
+   `community_contribution.consent: "share"`, pass `consent_record` (the
+   `request.json` path) to `submit_community`: it verifies matching attribution
+   and a clean private-identifier scan, then submits without an interactive
+   form. Without prior intake consent, show the preview, destination, and credit
+   and call `submit_community` with only `draft_id` and `draft_sha256` so its
+   form asks once. Changing credit or destination requires a fresh preview.
 4. On `received`, retain `receipt_id` and report that the contribution is
    pending review. `reused: true` means the receipt already existed.
    `declined` or `cancelled` ends the offer. For `invalid_draft`,
@@ -60,7 +64,8 @@ source, index SHA and available snapshot date for either route.
    the draft and report the blocker; do not bypass the tool or auto-send.
    Finish local delivery regardless of the publication outcome.
 
-`review_state: pending_review` is an intake acknowledgment, not a live review
-status. NumericBridge has no public review polling tool. Use `search_community`
-on a subsequent request to verify an already-published case; do not claim
-publication from an intake receipt.
+`review_state: pending_review` is an intake acknowledgment, not publication.
+Call `community_submission_status` with `receipt_id` to inspect the inbox
+review state (`pending_review`, `needs_information`, `accepted`, `declined`,
+`published`, and `superseded_by` or linked PRs). Use `search_community` to
+verify a published case is live in the deployed search index.

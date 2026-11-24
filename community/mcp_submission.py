@@ -74,6 +74,14 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         Only include public, reviewed summaries and minimum evidence. Evidence
         maps a new site-relative evidence/submissions/*.json path to its JSON
         object. Reuse the community record schemas for all supplied records.
+        Reserved evidence object keys validated automatically:
+        - `upstream_pr_draft`: output of pr_draft.py scaffold/check (includes
+          repository, base_branch, title, body_markdown, guidance_urls,
+          pending_checks, template_source, attribution).
+        - `operator_optimization`: output of operator_optimization.py scaffold/check
+          (`kind: "operator-optimization"`, `schema_version: 1`, `round_status`:
+          `"handoff_open"` | `"round_delivered"`; never include server-assigned
+          `tier` or `recommendation` fields).
         Use a name only when the contributor chooses a nickname or GitHub @username.
         When this draft revises an earlier submission (new or changed contribution
         decisions or PR drafts), list that submission's receipt ID in supersedes.
@@ -112,14 +120,14 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
             return dict(status='invalid_draft', message=str(error))
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured; keep this local draft')
+        findings = await asyncio.to_thread(scan_draft, draft)
+        if findings:
+            return dict(status='scan_findings', findings=findings[:20],
+                        message='Remove private identifiers, prepare a new draft and submit it again')
         if consent_record is not None:
             consent, reason = await asyncio.to_thread(recorded_consent, consent_record, draft)
             if consent is None:
                 return dict(status='consent_missing', message=reason)
-            findings = await asyncio.to_thread(scan_draft, draft)
-            if findings:
-                return dict(status='scan_findings', findings=findings[:20],
-                            message='Remove private identifiers, prepare a new draft and submit it again')
             try:
                 result = await asyncio.to_thread(intake.send, draft, draft_sha256)
             except (OSError, ValueError, KeyError, TypeError) as error:

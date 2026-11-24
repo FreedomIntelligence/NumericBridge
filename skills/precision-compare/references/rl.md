@@ -25,36 +25,22 @@ policy. Keep evidence of policy consumption separate from evidence of numerical
 agreement. Pair per-action scores only at matching histories and distinguish
 common model state from independently updated state at the same step number.
 
-For each in-scope stage, verify the common initial model and optimizer state
-where applicable, then pair the required scoring, reward/advantage, loss,
-selected gradients and actual parameter deltas. When both native stacks are in
-scope and online divergence prevents those pairs, replay the smallest valid
-fixed trajectory batch on both stacks from the matched state. Reuse existing
-paired captures and replay only enough to cover the missing stage. Mark the
-aligned comparison incomplete if a required native capture is unavailable;
-CPU objective recomputation or a score-only probe covers only its own stages.
-
-For each claimed group-centered reward gradient check, retain mixed-group and
-valid-action counts after filtering and masking on both sides, plus a nonzero
-reward-driven reference gradient before cross-prompt aggregation. Put coverage
-in the comparison receipt. An optimizer step or nonzero total gradient cannot
-satisfy this check. If coverage is missing, reuse matching evidence or run the
-smallest [fixed mixed-reward replay](../examples/minimal-precision-batch.md#fixed-precision-batch)
-that covers it. Keep online and replay results separate; do not rerun the online
-batch just to fill this gap.
-
 For each in-scope stage, verify common initial model and optimizer state, then
 pair scoring, reward/advantage, loss, selected gradients and actual parameter
 deltas. When online divergence prevents those pairs, replay the smallest valid
 fixed trajectory batch on both stacks from matched state, reusing existing paired
-captures. Mark the aligned comparison incomplete when a required native capture
-is missing; CPU recomputation or score-only probes cover only their own stages.
+captures and replaying only enough to cover missing stages. Mark the aligned
+comparison incomplete when a required native capture is missing; CPU
+recomputation or score-only probes cover only their own stages.
 
 For a group-centered reward gradient check, record mixed-group and valid-action
 counts after filtering and masking on both sides and a nonzero reward-driven
-reference gradient before cross-prompt aggregation, in the comparison receipt.
-If missing, run the smallest [fixed mixed-reward replay](../examples/minimal-precision-batch.md#fixed-precision-batch);
-keep online and replay results separate.
+reference gradient before cross-prompt aggregation, in the comparison receipt;
+an optimizer step or nonzero total gradient cannot satisfy this check. If
+missing, reuse matching evidence or run the smallest
+[fixed mixed-reward replay](../examples/minimal-precision-batch.md#fixed-precision-batch);
+keep online and replay results separate and do not rerun the online batch just
+to fill this gap.
 
 For replay, fix prompt/response IDs, action positions, masks and EOS/truncation.
 For objectives, keep the effective old/reference scores, rewards, advantages,
