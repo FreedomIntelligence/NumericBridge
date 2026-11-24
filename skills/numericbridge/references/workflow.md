@@ -50,7 +50,8 @@ independent sides in parallel and returns the next skill on failure.
 <upstream_status when="a defect or policy difference is confirmed in a library">
   Check the owning repository's current main and latest release, including its
   pull requests, but count only merged code: treat open issues and unmerged PRs
-  as absent, and do not comment on them or skip a draft because of them. Check
+  as absent: do not skip, narrow or reshape a draft to avoid overlap with them.
+  They may be cited as related work. Check
   three refs from a local clone with `upstream_status.py`: current main, the
   latest release and the user's pinned version or distribution branch. Where a
   defect was found (the tested version) is not where it is
@@ -77,8 +78,8 @@ and the listed autonomous decisions within its grant.
 <entry>The target and task are confirmed.</entry>
 
 <action>
-  Call search_community with hardware, model, library and task (inference, sft or
-  rl); add version only when pinned and model_size when needed. If MCP is
+  Search the NumericBridge community: call search_community with hardware,
+  model, library and task (inference, sft or rl); add version only when pinned and model_size when needed. If MCP is
   unavailable, run the same query with the bundled CLI.
 </action>
 
@@ -193,9 +194,9 @@ Use the [diagnosis loop](../../precision-repair/SKILL.md#diagnose).
 <action>
   Run triage with the acceptance report, comparator reports and the community
   result; start diagnosis.json. Run the reproduction checks triage lists for
-  matching and related community issues first, then the remaining checks
-  cheapest first. At each localized operator, judge both sides against FP64 on
-  the captured operands with operator_verdict.py.
+  matching and related NumericBridge community issues first, then the remaining
+  checks cheapest first. At each localized operator, judge both sides against
+  FP64 on the captured operands with operator_verdict.py.
 </action>
 
 <output>diagnosis.json with labels, checked boundaries, ruled-out causes and evidence.</output>
@@ -246,6 +247,20 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
 Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 
 ```xml
+<tracks>
+  Two tracks with different ends. Diagnosis and repair is a deliverable task:
+  it ends at local delivery and community submission with a met standard
+  (acceptance restored, an inherent difference shown, or an operator confirmed
+  outside its FP64 bound with a verified fix that follows the reference), and
+  its PR drafts follow from that evidence. Precision optimization is a
+  continuing task: each round delivers the variants measured so far with their
+  precision and speed, records what remains open, and can be resumed in a later
+  session or by another contributor. An optimization round never holds back
+  the diagnosis delivery.
+</tracks>
+```
+
+```xml
 <entry>
   Diagnosis localized an operator and judged it against FP64 on the captured
   operands (operator_verdict.py), and wrote its handoff. A reading outside the
@@ -271,8 +286,10 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 </output>
 
 <next>
-  Deliver with all kept variants and their tradeoffs. Return to diagnosis for
-  the next localized operator while the acceptance failure remains unexplained.
+  Submit the round with all kept variants, their tradeoffs and the open
+  optimization items; a variant that meets the bound gets a PR draft. Return to
+  diagnosis for the next localized operator while the acceptance failure
+  remains unexplained.
 </next>
 ```
 

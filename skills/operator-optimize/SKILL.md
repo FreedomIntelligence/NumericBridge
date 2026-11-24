@@ -70,19 +70,22 @@ after diagnosis has localized an operator.
   Install kernels and toolchains only in case-private environments; load them as
   operator overrides. Do not change shared images, drivers or system packages.
   A missing toolchain that cannot be installed case-private is an access blocker.
-  When attempts or budget run out, deliver the best variant with its remaining
-  distance to the bound.
+  Optimization continues across rounds. A round ends when attempts or budget run
+  out or the variants stop improving; deliver the best variant with its
+  remaining distance to the bound and the next idea to try.
 </rules>
 ```
 
-## Deliver
+## Deliver a round
 
-Write `result/optimize/<operator>/` with each variant's source or patch, the
+Each round is a submission of its own and does not wait for later rounds. Write `result/optimize/<operator>/` with each variant's source or patch, the
 `kernel_check` spec and report, timing conditions, end-to-end results and the
 handoff. Record each variant in diagnosis.json with `diagnosis_state.py record`
 and give the issue its contribution decision as precision-repair describes; a
 kernel against an upstream library is a PR draft there, with the measured speed
 in the draft. Report all variants in the community record as described in the
 [community guide](../precision-compare/references/community-records.md#operator-variants).
+Record `result/optimize/<operator>/open.json` with the remaining distance, the
+variants not yet tried and the next step, so a later round resumes from it.
 Measure and report; precision tiers and recommendations are assigned on the
 community side, not here.

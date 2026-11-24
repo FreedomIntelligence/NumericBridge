@@ -79,7 +79,8 @@ branch contribution guide and PR template; otherwise use **Problem / Change /
 Validation / Patch** and note which guidance could not be checked. Include a
 title, affected setup, minimal reproducer, matched before/after results,
 commands run and the patch. Base the draft on current main and cite only merged
-upstream commits; do not reference open issues or unmerged PRs (see the
+upstream commits for where the defect is present or fixed. Related issues and
+PRs, open or merged, may be cited; an unmerged PR does not count as a fix (see the
 workflow's upstream status). A PR draft travels with the community submission;
 maintainers review it and file it upstream, so the user never opens the PR.
 Leave pending checks unchecked and record a PR URL only once it exists.
@@ -124,7 +125,7 @@ the regular preview and consent cover it. [pr_draft.py](../scripts/pr_draft.py)
 `scaffold` builds that document from the decision, the filled sections and the
 target repository's template headings, fills `pending_checks` from the decision's
 checks and, for a backport, states the fixed release and upgrade blocker; `check`
-rejects placeholders, empty sections and references to pull requests.
+rejects placeholders and empty sections.
 
 ## Local preview
 

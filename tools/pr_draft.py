@@ -21,9 +21,9 @@ under their own heading. Without it: Problem / Change / Validation / Patch. A ba
 (fixed_in, fixed_commit) and the upgrade blocker. base_branch is the decision's target_branch.
 pending_checks lists every draft check that is not pass or na (applies_cleanly, repo_style_test,
 native_on_target, performance, template_body); an incomplete draft is still a valid draft.
-Upstream rows cite only merged commits; references to unmerged pull requests are rejected.
-check: required fields present, no TODO/TBD placeholders, no pull-request URL in the body
-other than merged-commit links, and body sections non-empty.
+Upstream rows (where the defect is present or fixed) come from merged commits only; the body may
+cite related issues and pull requests, open or merged, as related work.
+check: required fields present, no TODO/TBD placeholders, and body sections non-empty.
 CLI exit: 0=written or check ok, 1=check found problems, 2=input error.
 """
 
@@ -38,7 +38,6 @@ DRAFT_CHECKS = ('applies_cleanly', 'repo_style_test', 'native_on_target', 'perfo
 DEFAULT_HEADINGS = ('Problem', 'Change', 'Validation', 'Patch')
 SECTION_KEYS = ('problem', 'change', 'reproducer', 'validation', 'performance', 'patch')
 PLACEHOLDER = re.compile(r'\b(?:TODO|TBD|FIXME|XXX)\b|<fill[^>]*>', re.IGNORECASE)
-PULL_URL = re.compile(r'https://github\.com/[\w.-]+/[\w.-]+/pull/\d+')
 FIELDS = ('repository', 'base_branch', 'title', 'body_markdown', 'guidance_urls', 'pending_checks')
 
 
@@ -114,8 +113,6 @@ def check(document):
     for text in (document.get('title', ''), body):
         for match in PLACEHOLDER.finditer(text):
             problems.append(f'placeholder left: {match.group(0)!r}')
-    for match in PULL_URL.finditer(body):
-        problems.append(f'pull request reference {match.group(0)}: cite merged commits only')
     sections = re.split(r'^## ', body, flags=re.MULTILINE)[1:]
     for section in sections:
         heading, _, content = section.partition('\n')
