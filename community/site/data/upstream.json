@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-24",
+  "updated_at": "2026-11-25",
   "contributions": [
     {
       "id": "transformers-pr-51042",
@@ -157,6 +157,16 @@
       "observed_at": "2026-11-24",
       "url": "https://gitcode.com/Ascend/MindSpeed-LLM/merge_requests/5240",
       "commit": null,
+      "release": null
+    },
+    {
+      "id": "transformers-pr-51042-merged",
+      "contribution_id": "transformers-pr-51042",
+      "status": "merged",
+      "date": "2026-11-24",
+      "observed_at": "2026-11-25",
+      "url": "https://github.com/huggingface/transformers/pull/51042",
+      "commit": "af80f69cb0cf321dffc1cdb8379f3a58a883295b",
       "release": null
     }
   ]
