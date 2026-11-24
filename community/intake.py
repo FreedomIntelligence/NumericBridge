@@ -13,7 +13,8 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .records.submission import COLLECTIONS, DIGEST, Submissions, draft_attribution, draft_supersedes, encode, git
+from .records.submission import (COLLECTIONS, DIGEST, Submissions, add_catalog_site_argument,
+                                 draft_attribution, draft_supersedes, encode)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -98,15 +99,15 @@ class IntakeClient:
 
 
 class Inbox:
-    def __init__(self, repo, directory):
+    def __init__(self, repo, directory, *, catalog_site=None):
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.directory.stat().st_mode & 0o077:
             raise ValueError('The community inbox directory must be private (mode 0700)')
         if not os.access(self.directory, os.W_OK | os.X_OK):
             raise ValueError('The service account must be able to write to the community inbox')
-        self.records = Submissions(repo, self.directory)
-        git(self.records.repo, 'rev-parse', '--verify', self.records.base_ref + '^{commit}')
+        self.records = Submissions(repo, self.directory, catalog_site=catalog_site)
+        self.records.baseline()
 
     def receive(self, raw, digest):
         if not DIGEST.fullmatch(digest) or len(raw) > MAX_BODY or sha256(raw).hexdigest() != digest:
@@ -137,7 +138,7 @@ class Inbox:
                 or not all(isinstance(v, dict) for v in additions['evidence'].values())):
             raise ValueError('Invalid community additions')
         # Validate against the community baseline, without changing the approved bytes.
-        # The submitter's catalog commit and generated files are preview metadata.
+        # The submitter's code baseline and generated path digests are preview metadata.
         self.records.preview(draft['title'], additions, attribution_mode=credit['mode'],
                              attribution_name=credit.get('name'), replaces=replaced)
         fd, temporary = tempfile.mkstemp(dir=self.directory, prefix='.incoming-')
@@ -226,11 +227,12 @@ def main():
     parser.add_argument('--inbox', required=True, type=Path, help='private persistent receipt directory')
     parser.add_argument('--token-file', required=True, type=Path, help='community upload credential file')
     parser.add_argument('--port', type=int, default=8770)
+    add_catalog_site_argument(parser)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error('--port must be between 1 and 65535')
     try:
-        app = create_app(Inbox(ROOT, args.inbox), read_token(args.token_file))
+        app = create_app(Inbox(ROOT, args.inbox, catalog_site=args.catalog_site), read_token(args.token_file))
     except (OSError, ValueError) as error:
         parser.error(str(error))
     uvicorn.run(app, host='127.0.0.1', port=args.port, access_log=False, proxy_headers=False,

@@ -6,12 +6,13 @@ import json
 import math
 from pathlib import Path
 import re
+import shutil
 
 from tools.operator_optimization import check as check_operator_optimization
 from tools.pr_draft import check as check_pr_draft
 from .records.catalog import Catalog
 from .records.search import compile_index
-from .records.submission import COLLECTIONS, DIGEST, encode
+from .records.submission import SITE, Submissions, encode
 
 
 def _finite(value):
@@ -411,7 +412,7 @@ def normalize_draft(draft, *, receipt_id=None):
     }
 
 
-def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD'):
+def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD', catalog_site=None):
     """Materialize an accepted/latest receipt onto a clean site directory and emit normalized metadata."""
     from .review import read_receipt
 
@@ -427,21 +428,16 @@ def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD'):
         raise ValueError(f'Output directory must be empty or new: {out}')
     out.mkdir(parents=True, exist_ok=True)
 
-    from .records.submission import Submissions
-    sub = Submissions(repo, out / '.tmp-drafts', base_ref=base_ref)
-    base = sub.preview(
+    sub = Submissions(repo, out / '.tmp-drafts', base_ref=base_ref, catalog_site=catalog_site)
+    site_out = out / 'site'
+    with sub.preview_checkout(
         draft['title'],
         additions,
         attribution_mode=(draft.get('attribution') or {}).get('mode', 'anonymous'),
         attribution_name=(draft.get('attribution') or {}).get('name'),
         replaces=draft.get('supersedes') or (),
-    )['base_commit']
-
-    site_out = out / 'site'
-    with sub.checkout(base) as root:
-        files = sub.apply(root, additions)
-        import shutil
-        shutil.copytree(root / 'community/site', site_out)
+    ) as (root, preview):
+        shutil.copytree(root / SITE, site_out)
         if not (site_out / 'index.html').is_file():
             from scripts.site_bundle import copy_frontend, frontend_revision, frontend_source
             revision = frontend_revision(root, 'HEAD')
@@ -452,7 +448,7 @@ def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD'):
         compile_index(Catalog(site_out))
 
     normalized = normalize_draft(draft, receipt_id=receipt_id)
-    normalized['materialized_base_commit'] = base
-    normalized['changed_files'] = sorted(files)
+    normalized['materialized_base_commit'] = preview['base_commit']
+    normalized['changed_files'] = sorted(preview['files'])
     (out / 'normalized.json').write_bytes(encode(normalized))
     return normalized

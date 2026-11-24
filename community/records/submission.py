@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+from stat import S_ISDIR, S_ISREG
 import subprocess
 from tempfile import TemporaryDirectory
 
@@ -15,10 +17,12 @@ from tools.operator_optimization import check as check_operator_optimization
 from tools.pr_draft import check as check_pr_draft
 from .catalog import Catalog
 from .search import compile_index
-from .validation import validate, validate_evaluations
+from .validation import validate, validate_evaluations, validate_upstream
 
 
 SITE = 'community/site/'
+CATALOG_SITE_ENV = 'NUMERICBRIDGE_CATALOG_SITE'
+CATALOG_INPUTS = ('evaluations.json', 'repairs.json', 'differences.json', 'relations.json')
 DIGEST = re.compile(r'[a-f0-9]{64}')
 EVIDENCE = re.compile(r'evidence/submissions/[a-z0-9]+(?:-[a-z0-9]+)*\.json')
 MAX_ADDITIONS_BYTES = 1024 * 1024
@@ -88,12 +92,71 @@ def git(cwd, *args, **kwargs):
     return run(cwd, 'git', '-c', 'core.hooksPath=/dev/null', *args, **kwargs)
 
 
+def add_catalog_site_argument(parser):
+    parser.add_argument('--catalog-site', type=Path, help=(
+        f'local frozen catalog site directory containing data/ and evidence/; overrides {CATALOG_SITE_ENV}'))
+
+
+def _copy_catalog_tree(source, destination):
+    if not S_ISDIR(source.lstat().st_mode):
+        raise ValueError(f'Expected a regular catalog directory: {source}')
+    destination.mkdir()
+    for path in source.iterdir():
+        mode = path.lstat().st_mode
+        target = destination / path.name
+        if S_ISDIR(mode):
+            _copy_catalog_tree(path, target)
+        elif S_ISREG(mode):
+            shutil.copyfile(path, target)
+        else:
+            raise ValueError(f'Expected a regular catalog file or directory: {path}')
+
+
 class Submissions:
-    def __init__(self, repo, drafts, *, destination=None, base_ref='refs/remotes/origin/main'):
+    def __init__(self, repo, drafts, *, destination=None, base_ref='refs/remotes/origin/main',
+                 catalog_site=None):
         self.repo = Path(repo).resolve()
         self.drafts = Path(drafts).resolve()
         self.destination = destination
         self.base_ref = base_ref
+        source = catalog_site if catalog_site is not None else os.environ.get(CATALOG_SITE_ENV)
+        self.catalog_site = Path(source).expanduser().absolute() if source else None
+
+    def baseline(self):
+        return git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
+
+    def _seed_catalog(self, root):
+        site = root / SITE
+        if site.resolve() != site:
+            raise ValueError('Expected a regular community/site directory in the baseline checkout')
+        if self.catalog_site is None:
+            if not all((site / 'data' / name).is_file() for name in CATALOG_INPUTS):
+                raise ValueError('No catalog data is tracked at the code baseline. Set --catalog-site or '
+                                 f'{CATALOG_SITE_ENV} to a validated local frozen catalog site directory '
+                                 '(download and extract a snapshot separately if needed).')
+            return
+
+        # Resolve a generation pointer once, so data and evidence come from the same generation.
+        try:
+            source = self.catalog_site.resolve(strict=True)
+            site.mkdir(parents=True, exist_ok=True)
+            for name in ('data', 'evidence'):
+                destination = site / name
+                if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
+                    destination.unlink()
+                elif destination.is_dir():
+                    shutil.rmtree(destination)
+                _copy_catalog_tree(source / name, destination)
+            for name in CATALOG_INPUTS:
+                if not (site / 'data' / name).is_file():
+                    raise ValueError(f'Missing catalog input: data/{name}')
+            validate(site)
+            validate_evaluations(site)
+            Catalog(site)
+            if (site / 'data/upstream.json').is_file():
+                validate_upstream(site)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
+            raise ValueError(f'Invalid local catalog site {self.catalog_site}: {error}') from error
 
     @contextmanager
     def checkout(self, base):
@@ -101,6 +164,7 @@ class Submissions:
             root = Path(temporary).resolve() / 'checkout'
             git(self.repo, 'clone', '--quiet', '--no-checkout', '--shared', '--', str(self.repo), str(root))
             git(root, 'checkout', '--quiet', '--detach', base)
+            self._seed_catalog(root)
             yield root
 
     def apply(self, root, additions):
@@ -150,7 +214,9 @@ class Submissions:
         changed.append(index)
         return {path: sha256((root / path).read_bytes()).hexdigest() for path in sorted(changed)}
 
-    def preview(self, title, additions, *, attribution_mode='anonymous', attribution_name=None, replaces=()):
+    @contextmanager
+    def preview_checkout(self, title, additions, *, attribution_mode='anonymous', attribution_name=None, replaces=()):
+        """Yield the generated checkout and preview, pinned to one local catalog generation."""
         credit = attribution(attribution_mode, attribution_name)
         replaced = supersedes(replaces)
         if not isinstance(title, str) or not re.fullmatch(r'[^\x00-\x1f\x7f]{1,120}', title.strip()):
@@ -159,14 +225,18 @@ class Submissions:
             raise ValueError('Include at least one community record or relation')
         if len(encode(additions, compact=True)) > MAX_ADDITIONS_BYTES:
             raise ValueError('Limit a submission to 1 MiB of reviewed public JSON')
-        base = git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
+        base = self.baseline()
         with self.checkout(base) as root:
             files = self.apply(root, additions)
-        draft = dict(schema_version=4 if replaced else 3, title=title.strip(), destination=self.destination,
-                     attribution=credit, base_commit=base, additions=additions, files=files)
-        if replaced:
-            draft['supersedes'] = replaced
-        return draft
+            draft = dict(schema_version=4 if replaced else 3, title=title.strip(), destination=self.destination,
+                         attribution=credit, base_commit=base, additions=additions, files=files)
+            if replaced:
+                draft['supersedes'] = replaced
+            yield root, draft
+
+    def preview(self, title, additions, **options):
+        with self.preview_checkout(title, additions, **options) as (_, draft):
+            return draft
 
     def prepare(self, title, additions, **attribution_options):
         preview = self.preview(title, additions, **attribution_options)
@@ -203,6 +273,7 @@ def main():
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True, help='new local JSON preview file')
+    add_catalog_site_argument(parser)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     try:
@@ -212,7 +283,8 @@ def main():
             raise ValueError('Local preview input must not exceed 1 MiB')
         request = json.loads(raw)
         credit = request.get('attribution', {'mode': 'anonymous'})
-        preview = Submissions(root, args.output.parent).preview(request['title'], request['additions'],
+        preview = Submissions(root, args.output.parent, catalog_site=args.catalog_site).preview(
+            request['title'], request['additions'],
             attribution_mode=credit['mode'], attribution_name=credit.get('name'),
             replaces=request.get('supersedes', []))
         data = encode(dict(status='local_draft', preview=preview))

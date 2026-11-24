@@ -14,7 +14,7 @@ from pydantic import Field, StringConstraints
 from .consent import recorded_consent, scan_draft
 from .intake import IntakeClient
 from .mcp_search import register_search
-from .records.submission import Submissions, draft_attribution
+from .records.submission import Submissions, add_catalog_site_argument, draft_attribution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -201,6 +201,7 @@ def main():
     parser.add_argument('--token-file', type=Path, help='file containing the community upload credential')
     parser.add_argument('--drafts', type=Path, default=Path.home() / '.numericbridge' / 'drafts',
                         help='private local draft directory')
+    add_catalog_site_argument(parser)
     parser.add_argument('--search-index', type=Path, help='also expose search using this public index snapshot')
     parser.add_argument('--search-sha256', help='expected SHA-256 of the search index snapshot')
     args = parser.parse_args()
@@ -210,7 +211,8 @@ def main():
         parser.error('--search-sha256 requires --search-index')
     try:
         intake = IntakeClient(args.intake, args.token_file) if args.intake else None
-        submissions = Submissions(ROOT, args.drafts, destination=intake.url if intake else None)
+        submissions = Submissions(ROOT, args.drafts, destination=intake.url if intake else None,
+                                  catalog_site=args.catalog_site)
         server = create_server(submissions, intake)
         if args.search_index is not None:
             register_search(server, args.search_index, index_sha256=args.search_sha256)

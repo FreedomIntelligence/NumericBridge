@@ -1,4 +1,4 @@
-"""Refresh a read-only status feed for explicitly published public GitHub PRs."""
+"""Refresh a read-only status feed for explicitly published GitHub and GitCode PRs."""
 
 import argparse
 from datetime import datetime, timedelta, timezone
@@ -8,10 +8,12 @@ from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
-PR = re.compile(r'https://github\.com/([A-Za-z0-9-]{1,39})/([A-Za-z0-9_.-]{1,100})/pull/([1-9][0-9]{0,11})/?', re.I)
+GITHUB_PR = re.compile(r'https://github\.com/([A-Za-z0-9-]{1,39})/([A-Za-z0-9_.-]{1,100})/pull/([1-9][0-9]{0,11})/?', re.I | re.ASCII)
+GITCODE_PR = re.compile(r'https://gitcode\.com/([A-Za-z0-9_-]{1,100})/([A-Za-z0-9_.-]{1,100})/merge_requests/([1-9][0-9]{0,11})', re.I | re.ASCII)
+FORGES = {'github': (GITHUB_PR, 'pull'), 'gitcode': (GITCODE_PR, 'merge_requests')}
 SHA = re.compile(r'[0-9a-f]{40}')
 PUBLIC_FIELDS = ('state', 'checks', 'updated_at', 'fetched_at', 'checks_fetched_at')
 DEFAULT_REGISTRY = Path(__file__).parent / 'site/data/upstream.json'
@@ -22,22 +24,25 @@ class NotPublic(Exception):
     pass
 
 
-def canonical_pr(url):
-    match = PR.fullmatch(url) if isinstance(url, str) else None
-    if match is None:
+def canonical_pr(url, forge=None):
+    if not isinstance(url, str):
         return None
-    owner, repo, number = match.groups()
-    if repo in ('.', '..'):
-        return None
-    return f'https://github.com/{owner.lower()}/{repo.lower()}/pull/{number}'
+    for host, (pattern, route) in FORGES.items():
+        if forge is not None and host != forge:
+            continue
+        if match := pattern.fullmatch(url):
+            owner, repo, number = match.groups()
+            if repo not in ('.', '..'):
+                return f'https://{host}.com/{owner.lower()}/{repo.lower()}/{route}/{number}'
+    return None
 
 
 def allowlist(registry):
     doc = json.loads(Path(registry).read_bytes())
     if doc.get('schema_version') != 1 or not isinstance(doc.get('contributions'), list):
         raise ValueError('Expected a version 1 published upstream registry')
-    return sorted({url for item in doc['contributions'] if item.get('forge') == 'github'
-                   if (url := canonical_pr(item.get('url')))})
+    return sorted({url for item in doc['contributions'] if item.get('forge') in FORGES
+                   if (url := canonical_pr(item.get('url'), item['forge']))})
 
 
 def clock(value):
@@ -65,6 +70,24 @@ def github(path):
         raise
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def gitcode(path):
+    # No credentials or redirects: only the anonymous GitCode API is authoritative.
+    req = Request('https://api.gitcode.com/api/v5' + path, headers={
+        'Accept': 'application/json', 'User-Agent': 'NumericBridge-public-pr-status'})
+    try:
+        with build_opener(_NoRedirect()).open(req, timeout=12) as response:
+            return json.loads(response.read(8_000_001))
+    except HTTPError as error:
+        if 300 <= error.code < 400 or error.code in (401, 403, 404, 410):
+            raise NotPublic from error
+        raise
+
+
 def checks_category(payload):
     rows = payload.get('check_runs')
     if not isinstance(rows, list) or not rows:
@@ -81,29 +104,28 @@ def checks_category(payload):
         row.get('conclusion') in positive for row in rows) else 'unknown'
 
 
-def _pr_path(url):
-    owner, repo, number = PR.fullmatch(url).groups()
-    return f'/repos/{owner}/{repo}', int(number)
-
-
-def collect(urls, previous, now, *, client=github, budget=2):
-    """Use an explicit per-run budget, rotating over least-recently verified URLs."""
-    urls = set(urls)
+def _rotation(urls, previous):
     entries = {key: value for key, value in previous.items() if key in urls and isinstance(value, dict)}
-    attempts = 0
     oldest = datetime.min.replace(tzinfo=timezone.utc)
     ordered = sorted(urls, key=lambda url: (clock(entries.get(url, {}).get('attempted_at')) or oldest, url))
+    return entries, ordered
+
+
+def _collect_github(urls, previous, now, client, budget):
+    entries, ordered = _rotation(urls, previous)
+    attempts = 0
     for url in ordered:
         if attempts >= budget:
             break
         old = entries.get(url, {})
-        path, number = _pr_path(url)
+        owner, repo, number_text = GITHUB_PR.fullmatch(url).groups()
+        path, number = f'/repos/{owner}/{repo}', int(number_text)
         attempted = stamp(now)
         attempts += 1
         try:
             info = client(f'{path}/pulls/{number}')
             # GitHub's public answer, not the ledger, is the authority for forge state.
-            if info.get('number') != number or canonical_pr(info.get('html_url')) != url:
+            if info.get('number') != number or canonical_pr(info.get('html_url'), 'github') != url:
                 entries.pop(url, None)
                 continue
             base_repo = (info.get('base') or {}).get('repo') or {}
@@ -141,6 +163,55 @@ def collect(urls, previous, now, *, client=github, budget=2):
     return entries
 
 
+def _collect_gitcode(urls, previous, now, client, budget):
+    entries, ordered = _rotation(urls, previous)
+    attempted = stamp(now)
+    for url in ordered[:max(0, budget)]:
+        owner, repo, number_text = GITCODE_PR.fullmatch(url).groups()
+        repository = f'{owner}/{repo}'
+        number = int(number_text)
+        old = entries.get(url, {})
+        try:
+            info = client(f'/repos/{repository}/pulls/{number}')
+            base_repo = (info.get('base') or {}).get('repo') or {}
+            full_name = base_repo.get('full_name')
+            # GitCode's PR detail omits base.repo.private; use its explicit public
+            # visibility marker as well as the anonymous response and exact identity.
+            if (info.get('number') != number or canonical_pr(info.get('html_url'), 'gitcode') != url
+                    or info.get('visibility_reason') != 'public'
+                    or not isinstance(full_name, str) or not full_name.isascii() or full_name.lower() != repository
+                    or base_repo.get('private') is True or base_repo.get('internal') is True
+                    or base_repo.get('visibility') not in (None, 'public')):
+                raise NotPublic
+            updated = clock(info.get('updated_at'))
+            state = info.get('state')
+            if state not in ('open', 'closed', 'merged') or not updated:
+                raise ValueError('Incomplete PR status')
+            if state == 'closed' and clock(info.get('merged_at')):
+                state = 'merged'
+            elif state == 'open' and info.get('draft') is True:
+                state = 'draft'
+        except NotPublic:
+            entries.pop(url, None)
+            continue
+        except (OSError, ValueError, TypeError, AttributeError):
+            entries[url] = dict(old, attempted_at=attempted)
+            continue
+        # GitCode's status response is not an authoritative CI verdict.
+        entries[url] = dict(state=state, updated_at=stamp(updated), fetched_at=attempted,
+                            attempted_at=attempted, checks='unknown', checks_fetched_at=None)
+    return entries
+
+
+def collect(urls, previous, now, *, client=github, budget=2, gitcode_client=gitcode, gitcode_budget=2):
+    """Rotate over least-recently attempted URLs with independent provider budgets."""
+    urls = {url for url in urls if isinstance(url, str)}
+    github_urls = {url for url in urls if canonical_pr(url, 'github') == url}
+    gitcode_urls = {url for url in urls if canonical_pr(url, 'gitcode') == url}
+    return {**_collect_github(github_urls, previous, now, client, budget),
+            **_collect_gitcode(gitcode_urls, previous, now, gitcode_client, gitcode_budget)}
+
+
 def read_cache(path):
     try:
         data = json.loads(path.read_bytes())
@@ -161,9 +232,10 @@ def write_json(path, data, mode):
             temporary.unlink(missing_ok=True)
 
 
-def refresh(registry, cache, output, *, now=None, client=github, budget=2):
+def refresh(registry, cache, output, *, now=None, client=github, budget=2, gitcode_client=gitcode, gitcode_budget=2):
     now = now or datetime.now(timezone.utc)
-    entries = collect(allowlist(registry), read_cache(cache), now, client=client, budget=budget)
+    entries = collect(allowlist(registry), read_cache(cache), now, client=client, budget=budget,
+                      gitcode_client=gitcode_client, gitcode_budget=gitcode_budget)
     public = {key: {field: row.get(field) for field in PUBLIC_FIELDS} for key, row in entries.items()
               if row.get('state') and clock(row.get('fetched_at'))}
     write_json(cache, entries, 0o600)
@@ -179,7 +251,7 @@ def main():
     args = parser.parse_args()
     if args.cache.resolve() == args.output.resolve():
         parser.error('The private cache and public output must be different files')
-    print(f'Published GitHub PRs with verified status: {refresh(args.registry, args.cache, args.output)}')
+    print(f'Published PRs with verified status: {refresh(args.registry, args.cache, args.output)}')
 
 
 if __name__ == '__main__':
