@@ -1,10 +1,11 @@
 # NumericBridge community
 
-This directory owns the community website and its public record tools together.
+This directory owns the public records and community services. The static
+frontend is developed separately in [NumericBridge Site](https://github.com/FreedomIntelligence/NumericBridge-site).
 
 | Directory | Purpose |
 |---|---|
-| [site/](site/README.md) | Static pages, public JSON records and selected evidence |
+| [site/](site/README.md) | Canonical public JSON records, selected evidence and frontend revision pin |
 | [records/](records/README.md) | Python validation, read-only search and explicit relations |
 | [mcp_search.py](mcp_search.py) | Optional MCP server for Agent access to community search |
 | [mcp_submission.py](mcp_submission.py) | Local previews and confirmed uploads |
@@ -13,11 +14,13 @@ This directory owns the community website and its public record tools together.
 ```sh
 python -B -m community.records validate
 python -B -m community.records index --output /tmp/numericbridge-records.json
-python -m http.server 8000 --directory community/site
+work=$(mktemp -d)
+python -B -m scripts.site_bundle --output "$work/site"
+python -m http.server 8000 --bind 127.0.0.1 --directory "$work/site"
 ```
 
 Run commands from the repository root. The production site at
-`https://numericbridge.com/` serves `community/site/` and its public JSON records.
+`https://numericbridge.com/` serves the pinned frontend and canonical public records.
 The same HTTPS host exposes community search and authenticated intake.
 
 ## MCP search

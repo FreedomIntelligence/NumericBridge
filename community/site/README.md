@@ -1,10 +1,21 @@
 # Community website
 
-Preview from the repository root:
+The canonical public records and evidence live here. The frontend lives in
+[NumericBridge Site](https://github.com/FreedomIntelligence/NumericBridge-site)
+and is pinned by [frontend-revision.txt](frontend-revision.txt). Build and
+preview an assembled snapshot from the repository root:
 
 ```sh
-python3 -m http.server 8000 --directory community/site
+work=$(mktemp -d)
+python -B -m scripts.site_bundle --output "$work/site"
+python -m http.server 8000 --bind 127.0.0.1 --directory "$work/site"
 ```
+
+The build uses committed files only. Supply a local frontend checkout with
+`--frontend-checkout` to reuse an already fetched pinned revision. When
+changing the website frontend, review and update the pin on the canonical
+branch and build before switching the production site. Keep same-origin
+`data/` and `evidence/` URLs unchanged.
 
 ## Pages
 

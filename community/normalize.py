@@ -442,6 +442,11 @@ def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD'):
         files = sub.apply(root, additions)
         import shutil
         shutil.copytree(root / 'community/site', site_out)
+        if not (site_out / 'index.html').is_file():
+            from scripts.site_bundle import copy_frontend, frontend_revision, frontend_source
+            revision = frontend_revision(root, 'HEAD')
+            with frontend_source(revision, None) as frontend:
+                copy_frontend(revision, frontend, site_out)
         # Re-verify compiled index and catalog on materialized site.
         Catalog(site_out)
         compile_index(Catalog(site_out))
