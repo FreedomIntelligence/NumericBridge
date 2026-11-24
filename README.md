@@ -6,9 +6,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-009688.svg" alt="License: MIT"></a>
-  <a href="https://github.com/satsuki2486441738/NumericBridge/actions/workflows/ci.yml"><img src="https://github.com/satsuki2486441738/NumericBridge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="https://github.com/FreedomIntelligence/NumericBridge/actions/workflows/ci.yml"><img src="https://github.com/FreedomIntelligence/NumericBridge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="https://freedomintelligence.github.io/NumericBridge/"><img src="https://img.shields.io/badge/Homepage-Community-2563EB.svg" alt="Project homepage: NumericBridge community"></a>
-  <a href="https://github.com/satsuki2486441738/NumericBridge/stargazers"><img src="https://img.shields.io/github/stars/satsuki2486441738/NumericBridge?logo=github" alt="GitHub stars"></a>
+  <a href="https://github.com/FreedomIntelligence/NumericBridge/stargazers"><img src="https://img.shields.io/github/stars/FreedomIntelligence/NumericBridge?logo=github" alt="GitHub stars"></a>
 </p>
 
 <p align="center"><strong>A framework and collaborative community for cross-stack precision alignment in inference, training, and reinforcement learning</strong></p>
@@ -30,7 +30,7 @@ NumericBridge helps compare, diagnose and repair numerical differences across in
 Clone the repository and export the skills to a fresh directory. Point your agent client at the exported skills, or use its skills directory as the output path. Precision Compare includes the shared tools and an offline snapshot of the community case library. [Installation and updates](tools/README.md#portable-skills)
 
 ```sh
-git clone https://github.com/satsuki2486441738/NumericBridge.git
+git clone https://github.com/FreedomIntelligence/NumericBridge.git
 cd NumericBridge
 python -B -m scripts install --output ../numericbridge-skills
 ```

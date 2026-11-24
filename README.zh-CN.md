@@ -6,9 +6,9 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-009688.svg" alt="License: MIT"></a>
-  <a href="https://github.com/satsuki2486441738/NumericBridge/actions/workflows/ci.yml"><img src="https://github.com/satsuki2486441738/NumericBridge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态"></a>
+  <a href="https://github.com/FreedomIntelligence/NumericBridge/actions/workflows/ci.yml"><img src="https://github.com/FreedomIntelligence/NumericBridge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 状态"></a>
   <a href="https://freedomintelligence.github.io/NumericBridge/"><img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E4%B8%BB%E9%A1%B5-%E7%A4%BE%E5%8C%BA-2563EB.svg" alt="项目主页：NumericBridge 社区"></a>
-  <a href="https://github.com/satsuki2486441738/NumericBridge/stargazers"><img src="https://img.shields.io/github/stars/satsuki2486441738/NumericBridge?logo=github" alt="GitHub 星标数"></a>
+  <a href="https://github.com/FreedomIntelligence/NumericBridge/stargazers"><img src="https://img.shields.io/github/stars/FreedomIntelligence/NumericBridge?logo=github" alt="GitHub 星标数"></a>
 </p>
 
 <p align="center"><strong>面向推理、训练与强化学习的跨栈精度对齐框架与协作社区</strong></p>
@@ -30,7 +30,7 @@ NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL�
 克隆仓库，将 Skill 导出到新目录。可以让 Agent 客户端从该目录加载 Skill，也可以把输出路径改为客户端的 Skill 目录。Precision Compare 自带共享工具和社区案例库的离线快照。[安装与更新说明](tools/README.md#portable-skills)
 
 ```sh
-git clone https://github.com/satsuki2486441738/NumericBridge.git
+git clone https://github.com/FreedomIntelligence/NumericBridge.git
 cd NumericBridge
 python -B -m scripts install --output ../numericbridge-skills
 ```

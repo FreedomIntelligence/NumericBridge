@@ -52,7 +52,7 @@ DEFAULT_HEADINGS = ('Problem', 'Change', 'Validation', 'Patch')
 SECTION_KEYS = ('problem', 'change', 'reproducer', 'validation', 'performance', 'patch')
 PLACEHOLDER = re.compile(r'\b(?:TODO|TBD|FIXME|XXX)\b|<fill[^>]*>', re.IGNORECASE)
 FIELDS = ('repository', 'base_branch', 'title', 'body_markdown', 'guidance_urls', 'pending_checks')
-NUMERICBRIDGE_REPO_URL = 'https://github.com/satsuki2486441738/NumericBridge'
+NUMERICBRIDGE_REPO_URL = 'https://github.com/FreedomIntelligence/NumericBridge'
 NUMERICBRIDGE_CASES_URL = 'https://freedomintelligence.github.io/NumericBridge/index.html#/cases'
 PR_TEMPLATE_CANDIDATES = (
     '.github/PULL_REQUEST_TEMPLATE.md',
