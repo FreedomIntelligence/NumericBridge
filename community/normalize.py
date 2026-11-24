@@ -258,11 +258,81 @@ def normalize_draft(draft, *, receipt_id=None):
                 'check_status': check['status'],
                 'check_problems': check['problems'],
             })
+        elif isinstance(doc, dict) and doc.get('kind') == 'upstream_pr_draft':
+            # Historical/flat PR draft evidence submitted directly as top-level document.
+            check = check_pr_draft(doc)
+            pr_drafts.append({
+                'evidence_path': path,
+                'repository': doc.get('repository'),
+                'base_branch': doc.get('base_branch'),
+                'title': doc.get('title'),
+                'pending_checks': list(doc.get('pending_checks') or []),
+                'template_source': doc.get('template_source'),
+                'fallback_used': doc.get('fallback_used'),
+                'decision': doc.get('decision'),
+                'check_status': check['status'],
+                'check_problems': check['problems'],
+                'legacy_flat_wrapper': True,
+            })
         elif isinstance(doc, dict) and 'operator_optimization' in doc:
             assessed = assess_operator_optimization(doc['operator_optimization'], receipt_id=receipt_id)
             assessed['evidence_path'] = path
             operator_optimizations.append(assessed)
+        elif isinstance(doc, dict) and doc.get('kind') == 'operator-optimization':
+            assessed = assess_operator_optimization(doc, receipt_id=receipt_id)
+            assessed['evidence_path'] = path
+            assessed['legacy_flat_wrapper'] = True
+            operator_optimizations.append(assessed)
         else:
+            if isinstance(doc, dict) and isinstance(doc.get('operator_optimization_handoff'), dict):
+                handoff_doc = doc['operator_optimization_handoff']
+                for op in handoff_doc.get('operators') or []:
+                    if not isinstance(op, dict) or not op.get('issue') or not op.get('verdict'):
+                        continue
+                    v = op['verdict']
+                    legacy_payload = {
+                        'kind': 'operator-optimization',
+                        'schema_version': 1,
+                        'issue': op['issue'],
+                        'operator': {'name': op.get('name')},
+                        'entry': op.get('entry') or 'optional',
+                        'reading': v.get('reading') or 'not_the_source',
+                        'round_status': 'handoff_open',
+                        'shapes': op.get('shapes'),
+                        'open_items': {
+                            'remaining_distance': op.get('remaining_distance'),
+                            'variants_not_yet_tried': op.get('variants_not_yet_tried') or [],
+                            'next_step': op.get('next_step'),
+                        },
+                    }
+                    assessed = assess_operator_optimization(legacy_payload, receipt_id=receipt_id)
+                    assessed['evidence_path'] = path
+                    assessed['legacy_handoff_wrapper'] = True
+                    operator_optimizations.append(assessed)
+            # Also inspect nested paired_operator_and_original_workload.kernel_check when present (pre-decoupling shape).
+            diag = doc.get('diagnostic_evidence') if isinstance(doc, dict) else None
+            if isinstance(diag, dict):
+                for section_key, section in diag.items():
+                    paired = section.get('paired_operator_and_original_workload') if isinstance(section, dict) else None
+                    if isinstance(paired, dict) and isinstance(paired.get('kernel_check'), dict):
+                        kc = paired['kernel_check']
+                        legacy_payload = {
+                            'kind': 'operator-optimization',
+                            'schema_version': 1,
+                            'issue': f'diagnostic:{section_key}',
+                            'operator': {'name': kc.get('operator') or section_key},
+                            'entry': 'optional',
+                            'reading': 'not_the_source',
+                            'round_status': 'round_delivered',
+                            'kernel_check': kc,
+                            'end_to_end': paired.get('paired_workload') or {'status': 'not_measured', 'reason': 'not recorded'},
+                            'variants': [{'name': name, 'within_bound': bool(row.get('within_bound')), 'candidate_id': None}
+                                         for name, row in (kc.get('variants') or {}).items()],
+                        }
+                        assessed = assess_operator_optimization(legacy_payload, receipt_id=receipt_id)
+                        assessed['evidence_path'] = path
+                        assessed['legacy_diagnostic_wrapper'] = True
+                        operator_optimizations.append(assessed)
             other_evidence.append({
                 'evidence_path': path,
                 'keys': sorted(doc.keys()) if isinstance(doc, dict) else [],
