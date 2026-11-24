@@ -121,7 +121,7 @@ def _acceptance_passed(value):
         passed = value.get('passed')
         if type(passed) is bool:
             return passed
-        return isinstance(verdict, str) and verdict.strip().lower() in ('pass', 'passed')
+        return isinstance(verdict, str) and verdict.strip().lower() in ('pass', 'passed', 'gap')
     return False
 
 
