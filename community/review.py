@@ -12,6 +12,7 @@ import sqlite3
 import tempfile
 from urllib.parse import urlsplit
 
+from .normalize import normalize_draft
 from .records.submission import draft_attribution
 
 
@@ -234,6 +235,10 @@ def main():
     update.add_argument('--upstream-pr')
     update.add_argument('--site', type=Path)
     update.add_argument('--index', help='published index URL or locally verified snapshot')
+    normalize = commands.add_parser('normalize')
+    normalize.add_argument('receipt', nargs='?')
+    normalize.add_argument('--latest-pending', action='store_true', help='summarize active non-superseded pending_review receipts')
+    normalize.add_argument('--output', type=Path, help='optional path to write JSON summary')
     link = commands.add_parser('link-upstream')
     link.add_argument('receipt')
     link.add_argument('--upstream-pr', required=True)
@@ -260,6 +265,22 @@ def main():
                         _, raw = read_receipt(state / 'inbox', args.receipt)
                         history = db.execute('SELECT * FROM events WHERE receipt_id=? ORDER BY seq', (args.receipt,))
                         result = {'receipt': json.loads(raw), 'history': [dict(row) for row in history]}
+                    elif args.command == 'normalize':
+                        rows = queue(db, state / 'inbox')
+                        if args.receipt:
+                            _, raw = read_receipt(state / 'inbox', args.receipt)
+                            result = normalize_draft(json.loads(raw), receipt_id=args.receipt)
+                        elif args.latest_pending:
+                            active = [r for r in rows if r['state'] == 'pending_review' and not r['superseded_by']]
+                            items = []
+                            for row in active:
+                                _, raw = read_receipt(state / 'inbox', row['receipt_id'])
+                                items.append(normalize_draft(json.loads(raw), receipt_id=row['receipt_id']))
+                            result = {'schema_version': 1, 'active_pending': len(items), 'submissions': items}
+                        else:
+                            raise ValueError('normalize requires a receipt ID or --latest-pending')
+                        if args.output:
+                            args.output.write_bytes((json.dumps(result, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
                     elif args.command in ('decide', 'link-upstream'):
                         result = decide(state, db, args)
                 if args.command == 'backup':

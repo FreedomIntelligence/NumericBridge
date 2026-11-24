@@ -160,7 +160,8 @@
           // Collection alone is not a recommendation. Only an explicit whole-
           // record "passed" decision is supported; unknown acceptance stays out.
           const rows=record.comparisons?.filter(row=>row.side_ids?.includes(config.sideId))||[];
-          if (record.status==='completed'&&record.acceptance==='passed'&&record.scope_status!=='partial'&&record.whole_task_completed!==false&&
+          const acceptancePassed=value=>value==='passed'||!!value&&typeof value==='object'&&(typeof value.passed==='boolean'?value.passed:/^(?:pass|passed)$/i.test(String(value.verdict||'').trim()));
+          if (record.status==='completed'&&acceptancePassed(record.acceptance)&&record.scope_status!=='partial'&&record.whole_task_completed!==false&&
               rows.length&&rows.every(row=>row.metrics?.length&&Array.isArray(row.coverage)&&row.coverage.length&&
                 row.coverage.some(count=>Number.isFinite(count.expected)&&count.expected>0)&&
                 row.coverage.every(count=>Number.isFinite(count.observed)&&Number.isFinite(count.expected)&&count.expected>=0&&count.observed===count.expected))) add(null,null);

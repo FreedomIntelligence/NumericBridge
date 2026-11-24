@@ -113,6 +113,18 @@ def _frameworks(side, record, legacy, library_names):
     return sorted(names)
 
 
+def _acceptance_passed(value):
+    if value == 'passed':
+        return True
+    if isinstance(value, dict):
+        verdict = value.get('verdict')
+        passed = value.get('passed')
+        if type(passed) is bool:
+            return passed
+        return isinstance(verdict, str) and verdict.strip().lower() in ('pass', 'passed')
+    return False
+
+
 def _complete(coverage):
     rows = coverage if isinstance(coverage, list) else [coverage]
     return (bool(rows) and any(type(r.get('expected')) in (int, float) and r['expected'] > 0 for r in rows) and
@@ -243,7 +255,7 @@ def compile_index(catalog):
                 if case['category'] == 'workflow-benchmark':
                     gaps.append('workflow-only-evidence')
                 if kind == 'comparison':
-                    if record.get('acceptance') != 'passed':
+                    if not _acceptance_passed(record.get('acceptance')):
                         gaps.append('no-recorded-numerical-acceptance')
                     if record.get('status') != 'completed' or record.get('scope_status') == 'partial' or record.get('whole_task_completed') is False:
                         gaps.append('incomplete-workload')

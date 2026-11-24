@@ -5,6 +5,7 @@ another authorized operator. Use your own name in `--reviewer`.
 
 ```sh
 sudo -u numericbridge .venv/bin/python -B -m community.review list --status pending_review
+sudo -u numericbridge .venv/bin/python -B -m community.review normalize --latest-pending
 sudo -u numericbridge .venv/bin/python -B -m community.review show "$RECEIPT"
 sudo -u numericbridge .venv/bin/python -B -m community.review decide "$RECEIPT" accepted \
   --reviewer "$REVIEWER" --reason 'Verified reproduction and evidence' --case "$CASE_ID"
