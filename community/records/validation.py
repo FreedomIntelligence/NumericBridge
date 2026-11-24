@@ -189,10 +189,139 @@ def validate_evaluations(site):
     return len(ids)
 
 
+def _check_localized(value, context):
+    if not isinstance(value, dict) or set(value) - {'zh', 'en'}:
+        raise ValueError(f'{context}: localized text must map zh/en strings')
+    if not all(isinstance(value.get(lang), str) and value[lang].strip() for lang in ('zh', 'en')):
+        raise ValueError(f'{context}: localized text requires non-empty zh and en')
+
+
+def _check_https_url(raw, context):
+    url = urlsplit(raw or '')
+    if url.scheme != 'https' or not url.netloc or url.username or url.password:
+        raise ValueError(f'{context}: invalid HTTPS URL')
+
+
+def validate_upstream(site):
+    """Check upstream PR contributions, append-only status events and evidence links."""
+    path = site / 'data/upstream.json'
+    data = json.loads(path.read_text(encoding='utf-8'))
+    if data.get('schema_version') != 1:
+        raise ValueError('Unsupported upstream contribution schema')
+    datetime.date.fromisoformat(data['updated_at'])
+    contributions = data.get('contributions')
+    events = data.get('events')
+    if not isinstance(contributions, list) or not isinstance(events, list):
+        raise ValueError('upstream.json requires contributions and events lists')
+    case_ids, eval_ids, repair_ids = set(), set(), set()
+    relations_path = site / 'data/relations.json'
+    if relations_path.is_file():
+        case_ids = {e['id'] for e in json.loads(relations_path.read_text(encoding='utf-8')).get('entities', [])
+                    if e.get('kind') == 'case'}
+    evals_path = site / 'data/evaluations.json'
+    if evals_path.is_file():
+        eval_ids = {e['id'] for e in json.loads(evals_path.read_text(encoding='utf-8')).get('evaluations', [])}
+    repairs_path = site / 'data/repairs.json'
+    if repairs_path.is_file():
+        repair_ids = {r['id'] for r in json.loads(repairs_path.read_text(encoding='utf-8')).get('repairs', [])}
+    ids = set()
+    for item in contributions:
+        identity = item.get('id')
+        if not isinstance(identity, str) or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', identity) or identity in ids:
+            raise ValueError('Upstream contribution IDs must be unique stable slugs')
+        ids.add(identity)
+        for field in ('project', 'repository', 'number'):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise ValueError(f'{identity}: missing {field}')
+        if item.get('forge') not in ('github', 'gitcode', 'gitlab'):
+            raise ValueError(f'{identity}: invalid forge')
+        _check_https_url(item.get('url'), f'{identity}.url')
+        if item.get('task') not in (None, 'inference', 'sft', 'rl'):
+            raise ValueError(f'{identity}: invalid task')
+        hardware = item.get('hardware')
+        if not isinstance(hardware, list) or any(not isinstance(h, str) or not h.strip() for h in hardware):
+            raise ValueError(f'{identity}: hardware must be a list of strings')
+        if item.get('discovered_at') is not None:
+            datetime.date.fromisoformat(item['discovered_at'])
+        _check_localized(item.get('title'), f'{identity}.title')
+        _check_localized(item.get('summary'), f'{identity}.summary')
+        if item.get('case_id') is not None and case_ids and item['case_id'] not in case_ids:
+            raise ValueError(f'{identity}: unknown case_id {item["case_id"]}')
+        if item.get('comparison_id') is not None and eval_ids and item['comparison_id'] not in eval_ids:
+            raise ValueError(f'{identity}: unknown comparison_id {item["comparison_id"]}')
+        if item.get('repair_id') is not None and repair_ids and item['repair_id'] not in repair_ids:
+            raise ValueError(f'{identity}: unknown repair_id {item["repair_id"]}')
+        verification = item.get('verification')
+        if verification is not None:
+            if not isinstance(verification, dict):
+                raise ValueError(f'{identity}: verification must be an object')
+            _check_localized(verification.get('scope'), f'{identity}.verification.scope')
+            if verification.get('note') is not None:
+                _check_localized(verification['note'], f'{identity}.verification.note')
+            metric_ids = set()
+            for metric in verification.get('metrics', []):
+                mid = metric.get('id')
+                if not isinstance(mid, str) or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', mid) or mid in metric_ids:
+                    raise ValueError(f'{identity}: invalid verification metric id')
+                metric_ids.add(mid)
+                _check_localized(metric.get('label'), f'{identity}.verification.metrics.{mid}.label')
+                if not isinstance(metric.get('after'), str) or not metric['after'].strip():
+                    raise ValueError(f'{identity}: verification metric {mid} needs after value')
+                if not isinstance(metric.get('unit'), str) or not metric['unit'].strip():
+                    raise ValueError(f'{identity}: verification metric {mid} needs unit')
+        evidence = item.get('evidence')
+        if not isinstance(evidence, list) or not evidence:
+            raise ValueError(f'{identity}: upstream contribution needs evidence')
+        for entry in evidence:
+            label = entry.get('label')
+            if isinstance(label, dict):
+                _check_localized(label, f'{identity}.evidence.label')
+            elif not isinstance(label, str) or not label.strip():
+                raise ValueError(f'{identity}: evidence needs a label')
+            url = urlsplit(entry.get('url') or '')
+            if url.scheme:
+                _check_https_url(entry.get('url'), f'{identity}.evidence')
+            else:
+                target = (site / url.path).resolve()
+                if url.netloc or not target.is_relative_to(site.resolve()) or not target.is_file():
+                    raise ValueError(f'{identity}: missing or escaped evidence {entry.get("url")}')
+    event_ids = set()
+    by_contribution = {identity: [] for identity in ids}
+    for event in events:
+        eid = event.get('id')
+        if not isinstance(eid, str) or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', eid) or eid in event_ids:
+            raise ValueError('Upstream event IDs must be unique stable slugs')
+        event_ids.add(eid)
+        cid = event.get('contribution_id')
+        if cid not in ids:
+            raise ValueError(f'{eid}: unknown contribution_id {cid}')
+        if event.get('status') not in ('submitted', 'merged', 'released', 'closed'):
+            raise ValueError(f'{eid}: invalid status')
+        event_date = datetime.date.fromisoformat(event['date'])
+        datetime.date.fromisoformat(event['observed_at'])
+        _check_https_url(event.get('url'), f'{eid}.url')
+        commit = event.get('commit')
+        if commit is not None and (not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{7,40}', commit)):
+            raise ValueError(f'{eid}: commit must be a 7-40 hex SHA')
+        release = event.get('release')
+        if release is not None and (not isinstance(release, str) or not release.strip()):
+            raise ValueError(f'{eid}: release must be a non-empty string')
+        by_contribution[cid].append((event_date, event['status']))
+    for cid, entries in by_contribution.items():
+        if not any(status == 'submitted' for _, status in entries):
+            raise ValueError(f'{cid}: missing submitted event')
+        dates = [d for d, _ in entries]
+        if dates != sorted(dates):
+            raise ValueError(f'{cid}: events must be in chronological order')
+    return len(ids)
+
+
 def main():
-    count = validate(Path(__file__).resolve().parents[1] / 'site')
-    evaluations = validate_evaluations(Path(__file__).resolve().parents[1] / 'site')
-    print(f'Validated {count} repair verification records and {evaluations} evaluations with evidence links.')
+    site = Path(__file__).resolve().parents[1] / 'site'
+    count = validate(site)
+    evaluations = validate_evaluations(site)
+    upstream = validate_upstream(site) if (site / 'data/upstream.json').is_file() else 0
+    print(f'Validated {count} repair verification records, {evaluations} evaluations and {upstream} upstream contributions with evidence links.')
 
 
 if __name__ == '__main__':

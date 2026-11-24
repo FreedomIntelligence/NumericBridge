@@ -47,18 +47,19 @@ def main():
     if args.command == 'validate':
         if args.output is not None:
             parser.error('--output is unavailable for validate')
-        from .validation import validate, validate_evaluations
+        from .validation import validate, validate_evaluations, validate_upstream
         from .differences import validate as differences
         from .acknowledgments import validate as validate_acknowledgments
         repairs = validate(args.site)
         evaluations = validate_evaluations(args.site)
         views, metrics = differences(args.site)
         validate_acknowledgments(args.site, catalog)
+        upstream = validate_upstream(args.site) if (args.site / 'data/upstream.json').is_file() else 0
         snapshot = args.site / 'data/search-index.json'
         if snapshot.exists():
             from .search import validate_snapshot
             validate_snapshot(catalog, snapshot)
-        print(f'Validated {evaluations} evaluations, {repairs} repairs, {views} views and explicit relations.')
+        print(f'Validated {evaluations} evaluations, {repairs} repairs, {views} views, {upstream} upstream contributions and explicit relations.')
     else:
         if args.command == 'case':
             try:

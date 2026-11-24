@@ -207,20 +207,8 @@ br.d{display:inline}
 .home-stat dt a:hover{text-decoration-color:currentColor}
 .home-stat .home-stat-value{order:-1;margin-bottom:6px;color:var(--red);font-size:38px;line-height:1.12;font-weight:500;font-variant-numeric:tabular-nums}
 .home-stat .home-stat-value.pending{display:flex;align-items:center;min-height:42.56px;color:var(--muted);font-size:17px}
+.home-stat .home-stat-value.muted{color:var(--ink)}
 .home-stat-note{margin-top:5px;font-size:12px;line-height:1.5;color:var(--muted)}
-.home-stat[data-stat="prs"]{position:relative}
-.home-stat-trigger{border:0;background:none;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
-.home-stat-trigger:hover{text-decoration-color:currentColor}
-.home-stat-trigger::after{content:"";position:absolute;inset:0}
-.home-stat-trigger:focus-visible::after{outline:2px solid currentColor;outline-offset:3px}
-.home-pr-dialog{box-sizing:border-box;width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink)}
-.home-pr-dialog::backdrop{background:rgb(0 0 0 / .48)}
-.home-pr-dialog h3{margin:0;font-size:20px}
-.home-pr-dialog ul{list-style:none;margin:14px 0 0;padding:0}
-.home-pr-dialog li{border-top:1px solid var(--line);padding:12px 0}
-.home-pr-dialog li div{display:flex;justify-content:space-between;gap:12px}
-.home-pr-dialog li a{display:inline-block;margin-top:3px;text-decoration:underline;text-underline-offset:2px}
-.home-pr-dialog form{display:flex;justify-content:flex-end;margin-top:10px}
 @media(max-width:780px){.home-stats,.home-platforms{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.home-intro .h1{font-size:52px}.home-tagline{font-size:24px}}
 @media(max-width:600px){
@@ -1205,6 +1193,61 @@ a.dp-side:hover{border-color:var(--ink)}
   .cmp-table :is(th,td):not(:first-child){min-width:108px}
 }
 
+/* ---------- upstream contributions ---------- */
+.up-stats{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:22px}
+.up-cards{display:grid;gap:12px}
+.up-card{display:grid;grid-template-columns:minmax(0,1fr) 232px 24px;gap:14px 20px;padding:16px 20px;border-radius:8px;align-items:center;cursor:pointer;transition:border-color .15s,background .15s}
+.up-card:hover{border-color:var(--ink)}
+.up-card.active{border-color:var(--red);background:var(--red-soft)}
+.up-card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.up-main{min-width:0;display:flex;flex-direction:column}
+.up-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font:11.5px/1.5 var(--mono);color:var(--muted)}
+.up-proj{font-weight:600;color:var(--ink)}
+.up-pr{color:var(--red);border-bottom:1px solid var(--red-line)}
+.up-pr:hover{border-color:var(--red)}
+.up-card .badge i,.dw-repair-top .badge i{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+.up-title{margin:7px 0 0;font-size:17px;font-weight:600;line-height:1.38;letter-spacing:-.015em;overflow-wrap:anywhere}
+.up-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.up-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--hair);border-radius:4px;background:var(--wash);font:11px/1.45 var(--mono);color:var(--muted)}
+.up-tag.acc{color:var(--p-acc)}
+.up-tag.gpu{color:var(--p-gpu)}
+.up-aside{min-width:0}
+.up-mcard{border:1px solid var(--hair);border-radius:6px;background:var(--wash);padding:10px 13px}
+.up-ml{font-size:11.5px;color:var(--muted)}
+.up-mv{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 7px;margin-top:3px;font:500 14.5px/1.35 var(--mono);font-variant-numeric:tabular-nums}
+.up-mv .b{color:var(--ink)}
+.up-mv .ar{color:var(--faint)}
+.up-mv .a{color:var(--red);font-weight:600}
+.up-drop{margin-top:4px;font:600 22px/1.1 var(--display);letter-spacing:-.02em;color:var(--red);font-variant-numeric:tabular-nums}
+.up-peek{display:grid;place-items:center;color:var(--muted);transition:color .15s,transform .15s}
+.up-peek svg{width:16px;height:16px}
+.up-card:hover .up-peek{color:var(--red);transform:translateX(2px)}
+.up-tl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px;padding:10px 0 4px;position:relative}
+.up-tl::before{content:"";position:absolute;left:12.5%;right:12.5%;top:16px;height:1px;background:var(--line)}
+.up-st{position:relative;text-align:center;font-size:11.5px;line-height:1.35;color:var(--faint)}
+.up-st-dot{display:block;width:12px;height:12px;border-radius:50%;margin:0 auto 5px;background:var(--paper);border:2px solid var(--line);position:relative;z-index:1}
+.up-st.done{color:var(--ink)}
+.up-st.done .up-st-dot{background:var(--t0);border-color:var(--t0)}
+.up-st.now{color:var(--t2)}
+.up-st.now .up-st-dot{border-color:var(--t2);background:color-mix(in srgb,var(--t2) 22%,var(--paper))}
+.up-st.closed{color:var(--muted)}
+.up-st.closed .up-st-dot{background:var(--muted);border-color:var(--muted)}
+.up-st-d{display:block;margin-top:2px;font:10.5px/1.3 var(--mono);color:var(--faint)}
+.up-dw-metrics{display:grid;gap:8px;margin-top:10px}
+.up-dw-note{margin-top:10px;font-size:12.5px;line-height:1.7;color:var(--muted)}
+.up-vempty{border:1px dashed var(--line);border-radius:6px;padding:14px 12px;font-size:12px;color:var(--faint);text-align:center}
+.up-foot-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin-top:20px}
+.up-foot-note .link{font-size:inherit;gap:4px}
+@media(max-width:860px){
+  .up-card{grid-template-columns:1fr;padding:15px 16px}
+  .up-peek{display:none}
+}
+@media(max-width:600px){
+  .up-stats{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:12px}
+  .up-tl{gap:4px}
+  .up-st{font-size:10.5px}
+}
+
 /* ---------- platform page (AccelMark chip detail) ---------- */
 .p-hero{text-align:center;padding:56px 0 10px}
 .p-hero .eyebrow{justify-content:center;color:var(--muted)}
@@ -1413,6 +1456,7 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
     <a href="#/how" data-route="how">框架实现</a>
     <a href="#/cases" data-route="cases">案例库</a>
     <a href="#/compare" data-route="compare">硬件平台比较</a>
+    <a href="#/upstream" data-route="upstream">上游贡献</a>
   </nav>
   <div class="acts">
     <a class="btn sm ghost github-link" href="https://github.com/FreedomIntelligence/NumericBridge" target="_blank" rel="noopener" aria-label="GitHub" title="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.49c-2.23.49-2.7-.94-2.7-.94-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 3.87c.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.66 3.95.29.25.55.73.55 1.48v2.19c0 .21.14.46.55.38A8 8 0 0 0 8 0Z"/></svg><span class="github-label">GitHub</span></a>
@@ -1430,6 +1474,7 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
   <section class="view" id="v-records" hidden></section>
   <section class="view" id="v-acknowledgments" hidden></section>
   <section class="view" id="v-compare" hidden></section>
+  <section class="view" id="v-upstream" hidden></section>
   <section class="view" id="v-platform" hidden></section>
   <section class="view" id="v-repairs" hidden></section>
   <section class="view" id="v-cases" hidden></section>
@@ -1458,7 +1503,7 @@ button.pcard:hover{border-color:var(--ink);transform:translateY(-1px)}
 </aside>
 <div class="tip" id="tip" role="tooltip"></div>
 
-<script src="./board-data.js?v=ascend-910c"></script>
+<script src="./board-data.js?v=upstream-contributions"></script>
 <script src="./search.js?v=framework-scope-20261118"></script>
 <script src="./cases.js?v=community-acknowledgments"></script>
 <script>
@@ -1470,6 +1515,7 @@ function start(DATA) {
 const S = DATA.summary, ROWS = DATA.rows;
 const REPAIRS = (DATA.repairs && DATA.repairs.repairs) || [];
 const LIBGROUPS = (DATA.repairs && DATA.repairs.library_groups) || [];
+const UPSTREAM = DATA.upstream || { updated_at: "", contributions: [], counts: { total: 0, merged: 0, review: 0, closed: 0 }, projects: [] };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -1856,7 +1902,9 @@ function openDrawer(kind, id, order, onMove) {
 }
 function paintDrawer() {
   const id = DW.order[DW.idx];
-  if (DW.kind === "row") paintRow(BYID.get(id)); else paintRepair(REPBY.get(id));
+  if (DW.kind === "row") paintRow(BYID.get(id));
+  else if (DW.kind === "upstream") paintUpstreamDrawer(UPBY.get(id));
+  else paintRepair(REPBY.get(id));
   byId("dwPrev").disabled = DW.idx <= 0; byId("dwNext").disabled = DW.idx >= DW.order.length - 1;
   byId("dwPrev").style.opacity = DW.idx <= 0 ? .35 : 1; byId("dwNext").style.opacity = DW.idx >= DW.order.length - 1 ? .35 : 1;
   byId("dwBody").scrollTop = 0;
@@ -2022,7 +2070,7 @@ function writeQuery(name, params) {
   const s = qs.toString().replace(/%2C/g, ",").replace(/%7C/g, "|");
   history.replaceState(null, "", `#/${name}${s ? "?" + s : ""}`);
 }
-const VIEWS = { "": "v-home", overview: "v-overview", list: "v-list", records: "v-records", compare: "v-compare", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how", acknowledgments: "v-acknowledgments" };
+const VIEWS = { "": "v-home", overview: "v-overview", list: "v-list", records: "v-records", compare: "v-compare", upstream: "v-upstream", platform: "v-platform", repairs: "v-repairs", cases: "v-cases", report: "v-report", how: "v-how", acknowledgments: "v-acknowledgments" };
 const RENDER = {};
 RENDER.cases = h => NumericBridgeCases.mount(byId("v-cases"), h, { lang: LANG });
 RENDER.report = h => NumericBridgeCases.mountReport(byId("v-report"), h, { lang: LANG, copyLink: copyText });
@@ -2031,6 +2079,7 @@ RENDER.records = () => {
   const rows = [
     [tx("评测记录", "Evaluation records"), tx(`${fmtInt(EVALS.size)} 个评测 · ${fmtInt(ROWS.length)} 条实测比较`, `${fmtInt(EVALS.size)} evaluations · ${fmtInt(ROWS.length)} measured comparisons`), "#/list?group=eval&sort=date", "evaluations"],
     [tx("修复记录", "Repair records"), tx(`${fmtInt(REPAIRS.length)} 条记录`, `${fmtInt(REPAIRS.length)} records`), "#/repairs", "repairs"],
+    [tx("上游贡献", "Upstream contributions"), tx(`${fmtInt(UPSTREAM.counts.total)} 个已提交 PR · ${fmtInt(UPSTREAM.counts.merged)} 个已合并`, `${fmtInt(UPSTREAM.counts.total)} submitted PRs · ${fmtInt(UPSTREAM.counts.merged)} merged`), "#/upstream", "upstream"],
   ];
   byId("v-records").innerHTML = `<div class="wrap">
     <header class="records-head"><a class="link" href="#/cases">← ${tx("案例库", "Cases")}</a><h1 class="h2">${tx("全部记录", "All records")}</h1></header>
@@ -2066,7 +2115,7 @@ function route() {
   observeReveal(byId(VIEWS[name]));
   document.title = (TITLES[name] ? TITLES[name](h) + " · " : "") + "NumericBridge";
 }
-const TITLES = { overview: () => tx("评测概览", "Evaluation Overview"), cases: () => tx("精度案例库", "Precision Case Library"), report: () => tx("实测报告", "Measured Report"), list: () => tx("评测记录", "Evaluation Records"), records: () => tx("全部记录", "All Records"), compare: () => tx("硬件平台比较", "Hardware Comparison"), platform: h => platDisp(h.arg || tx("平台", "Platform")), repairs: () => tx("修复记录", "Repair Records"), how: () => tx("框架实现", "Framework Implementation") };
+const TITLES = { overview: () => tx("评测概览", "Evaluation Overview"), cases: () => tx("精度案例库", "Precision Case Library"), report: () => tx("实测报告", "Measured Report"), list: () => tx("评测记录", "Evaluation Records"), records: () => tx("全部记录", "All Records"), compare: () => tx("硬件平台比较", "Hardware Comparison"), upstream: () => tx("上游贡献", "Upstream Contributions"), platform: h => platDisp(h.arg || tx("平台", "Platform")), repairs: () => tx("修复记录", "Repair Records"), how: () => tx("框架实现", "Framework Implementation") };
 
 /* ---------- outline (right-edge reading outline) ---------- */
 let OL_SECS = [], OL_LINKS = [], OL_JUMP = null;
@@ -2292,29 +2341,19 @@ function renderHomeCoverage(target) {
     target.innerHTML = `<p class="home-coverage-status">${tx("暂时无法读取覆盖记录。", "Coverage records are temporarily unavailable.")}</p>`;
   });
 }
-const HOME_UPSTREAM_SUBMISSIONS = [
-  { project: "MindSpeed-LLM", count: 1, links: [
-    { label: "!5240", url: "https://gitcode.com/Ascend/MindSpeed-LLM/merge_requests/5240" },
-  ] },
-  { project: "Transformers", count: 1, links: [
-    { label: "#51042", url: "https://github.com/huggingface/transformers/pull/51042" },
-  ] },
-];
-function homePrDialogHtml() {
-  return `<dialog class="home-pr-dialog" id="homePrDialog" aria-labelledby="homePrTitle">
-    <h3 id="homePrTitle">${tx("已提交 PR", "Upstream PRs submitted")}</h3>
-    <ul>${HOME_UPSTREAM_SUBMISSIONS.map(({project, count, links}) => `<li>
-      <div><strong>${esc(project)}</strong><span>${tx(`${fmtInt(count)} 个 PR`, `${fmtInt(count)} ${count === 1 ? "PR" : "PRs"}`)}</span></div>
-      ${links.map(({label, url}) => `<a href="${esc(url)}" target="_blank" rel="noopener" aria-label="${esc(`${project} ${label}`)}">${esc(label)} ↗</a>`).join("")}</li>`).join("")}</ul>
-    <form method="dialog"><button class="btn sm ghost" autofocus>${tx("关闭", "Close")}</button></form>
-  </dialog>`;
-}
 function homeResultsHtml() {
   const totals = S.community;
   const repair = REPBY.get(FLOW_IDS.fix);
   const metric = repair?.status === "validated" && repair.validation?.metrics?.find(m => m.id === "max_abs_nat");
   const improvement = metric && Number.isFinite(metric.before) && Number.isFinite(metric.after) && metric.before > 0 && metric.after >= 0 && metric.after < metric.before
     ? `${((1 - metric.after / metric.before) * 100).toFixed(1)}%` : null;
+  const uc = UPSTREAM.counts || { total: 0, merged: 0, review: 0, closed: 0 };
+  const projText = UPSTREAM.projects.join(tx("、", ", "));
+  const prStat = uc.merged > 0
+    ? { key: "prs", label: tx("上游 PR 已合并", "Upstream PRs merged"), value: fmtInt(uc.merged), href: "#/upstream",
+        note: tx(`共提交 ${fmtInt(uc.total)} 个${projText ? ` · ${projText}` : ""}`, `${fmtInt(uc.total)} submitted${projText ? ` · ${projText}` : ""}`) }
+    : { key: "prs", label: tx("上游 PR 贡献", "Upstream PRs"), value: uc.total ? fmtInt(uc.total) : null, href: "#/upstream",
+        note: uc.total ? tx(`已合并 0 · 审核中 ${fmtInt(uc.review)}${projText ? ` · ${projText}` : ""}`, `0 merged · ${fmtInt(uc.review)} open${projText ? ` · ${projText}` : ""}`) : null };
   const stats = [
     { key: "cases", label: tx("已收录精度案例", "Precision cases"), value: totals && fmtInt(totals.cases), href: "#/cases" },
     { key: "issues", label: tx("已记录问题", "Recorded issues"), value: totals && fmtInt(totals.issues),
@@ -2323,14 +2362,13 @@ function homeResultsHtml() {
       href: improvement && "#/report/case-mindspeed-zero-centered-rmsnorm?verification=verification-mindspeed-forward-and-operator-checks&solution=solution-mindspeed-zero-centered-gamma-patch",
       note: improvement && tx(`MindSpeed · logprob 最大绝对误差 ${metric.before.toPrecision(4)} → ${fmtNum(metric.after)}`,
         `MindSpeed · max absolute logprob error ${metric.before.toPrecision(4)} → ${fmtNum(metric.after)}`) },
-    { key: "prs", label: tx("已提交 PR", "Upstream PRs submitted"),
-      value: fmtInt(HOME_UPSTREAM_SUBMISSIONS.reduce((sum, group) => sum + group.count, 0)) },
+    prStat,
   ];
   return `<section class="home-results" aria-labelledby="homeResultsTitle" data-ol="${tx("项目成果", "Project results")}"><h2 class="home-section-title" id="homeResultsTitle">${tx("项目成果", "Project results")}</h2>
     <dl class="home-stats">${stats.map(({key, label, value, href, note}) => `<div class="home-stat" data-stat="${key}">
-      <dt>${key === "prs" ? `<button type="button" class="home-stat-trigger" id="homePrTrigger" aria-haspopup="dialog" aria-controls="homePrDialog" aria-describedby="homePrCount">${esc(label)}</button>` : href ? `<a href="${esc(href)}">${esc(label)}</a>` : esc(label)}</dt>
-      <dd${key === "prs" ? ' id="homePrCount"' : ""} class="home-stat-value${value == null ? " pending" : ""}">${esc(value ?? tx("暂无已核实记录", "No verified records"))}</dd>
-      ${note ? `<dd class="home-stat-note">${esc(note)}</dd>` : ""}</div>`).join("")}</dl>${homePrDialogHtml()}</section>`;
+      <dt>${href ? `<a href="${esc(href)}">${esc(label)}</a>` : esc(label)}</dt>
+      <dd class="home-stat-value${value == null ? " pending" : ""}">${esc(value ?? tx("暂无已核实记录", "No verified records"))}</dd>
+      ${note ? `<dd class="home-stat-note">${esc(note)}</dd>` : ""}</div>`).join("")}</dl></section>`;
 }
 RENDER[""] = function renderHome() {
   const view = byId("v-home");
@@ -2365,9 +2403,7 @@ RENDER[""] = function renderHome() {
   </div>`;
   sceneFlow();
   renderHomeCoverage(byId("homeCoverageList"));
-  byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
   renderCite();
-  byId("homePrTrigger").addEventListener("click", () => byId("homePrDialog").showModal());
 };
 const SW = { kind: "", task: "" };
 const HERO_BAR_LABELS = {
@@ -3625,6 +3661,7 @@ const NF_ICONS = `<svg width="0" height="0" style="position:absolute" aria-hidde
 <symbol id="nf-i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
 <symbol id="nf-i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
 <symbol id="nf-i-external" viewBox="0 0 24 24"><path d="M13 5h6v6m-8 2 8-8M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></symbol>
+<symbol id="nf-i-pr" viewBox="0 0 24 24"><circle cx="6.5" cy="6" r="2.5"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="M6.5 8.5v7M17.5 15.5v-5a4.5 4.5 0 0 0-4.5-4.5h-2M13.5 3.5 11 6l2.5 2.5"/></symbol>
 </defs></svg>`;
 document.body.insertAdjacentHTML("afterbegin", NF_ICONS);
 const ico = (n, cls = "ico") => `<svg class="${cls}" aria-hidden="true"><use href="#nf-i-${n}"/></svg>`;
@@ -4039,6 +4076,189 @@ function paintCmpTable() {
 }
 
 /* ======================================================================
+   upstream — submitted & merged PRs with Side Peek drawer
+   ====================================================================== */
+const UPBY = new Map(UPSTREAM.contributions.map(c => [c.id, c]));
+const US = { status: "", project: "", sel: null };
+let upBuilt = false, upView = [];
+const UP_FORGE = { github: "GitHub", gitcode: "GitCode", gitlab: "GitLab" };
+const upLoc = v => (v && typeof v === "object") ? (v[LANG] || v.zh || v.en || "") : String(v ?? "");
+function upBadge(c) {
+  if (c.status === "released") return `<span class="badge ok"><i></i>${tx("已发布", "Released")}</span>`;
+  if (c.status === "merged") return `<span class="badge ok"><i></i>${tx("已合并", "Merged")}</span>`;
+  if (c.status === "closed") return `<span class="badge"><i></i>${tx("已关闭", "Closed")}</span>`;
+  return `<span class="badge warn"><i></i>${tx("审核中", "Open")}</span>`;
+}
+function upTimeline(c) {
+  const closed = c.state === "closed";
+  const merged = c.state === "merged";
+  const released = c.status === "released";
+  const md = d => d ? d.slice(5) : "—";
+  const steps = [
+    { label: tx("发现", "Found"), date: md(c.discovered_at), cls: c.discovered_at ? "done" : "" },
+    { label: tx("提交", "Submitted"), date: md(c.submitted_at), cls: c.submitted_at ? "done" : "" },
+    closed
+      ? { label: tx("已关闭", "Closed"), date: md(c.closed_at), cls: "closed" }
+      : { label: merged ? tx("合并", "Merged") : tx("审核中", "Review"), date: merged ? md(c.merged_at) : (c.observed_at ? tx(`核对 ${md(c.observed_at)}`, `seen ${md(c.observed_at)}`) : "—"), cls: merged ? "done" : "now" },
+    { label: tx("发布", "Released"), date: released ? (c.release_tag || md(c.released_at)) : tx("待版本", "Pending"), cls: released ? "done" : "" },
+  ];
+  return `<ol class="up-tl" aria-label="${tx("状态进度", "Status timeline")}">${steps.map(s => `<li class="up-st ${s.cls}"><span class="up-st-dot" aria-hidden="true"></span>${esc(s.label)}<span class="up-st-d">${esc(s.date)}</span></li>`).join("")}</ol>`;
+}
+function upMetricCardHtml(m, headline) {
+  return `<div class="up-mcard">
+    <div class="up-ml">${esc(upLoc(m.label))}</div>
+    <div class="up-mv">${m.before != null ? `<span class="b">${esc(m.before)}</span><span class="ar" aria-hidden="true">→</span>` : ""}<span class="a">${esc(m.after)}</span>${!headline && m.delta ? `<span class="ar" aria-hidden="true">·</span><span class="a">${esc(m.delta)}</span>` : ""}</div>
+    ${headline && m.delta ? `<div class="up-drop">${esc(m.delta)}</div>` : ""}
+  </div>`;
+}
+function upCardHtml(c) {
+  const lead = c.verification?.metrics?.[0] || null;
+  const dateLabel = c.merged_at ? tx(`合并 ${c.merged_at}`, `merged ${c.merged_at}`) : (c.submitted_at || "");
+  const tags = [
+    ...(c.hardware || []).map(hw => `<span class="up-tag ${famOf(hw)}">${esc(platDisp(hw))}</span>`),
+    c.task ? `<span class="up-tag">${esc(TASK[c.task] || c.task)}</span>` : "",
+    c.model ? `<span class="up-tag">${esc(c.model)}</span>` : "",
+    c.release_tag ? `<span class="badge ok">${esc(c.release_tag)}</span>` : "",
+  ].filter(Boolean).join("");
+  return `<article class="panel up-card${US.sel === c.id ? " active" : ""}" role="button" tabindex="0" data-up-id="${esc(c.id)}">
+    <div class="up-main">
+      <div class="up-meta">
+        <span class="up-proj">${esc(c.project)}</span>
+        <a class="up-pr" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.number)} ↗</a>
+        ${upBadge(c)}
+        <span>${esc(UP_FORGE[c.forge] || c.forge)}</span>
+        ${dateLabel ? `<span>${esc(dateLabel)}</span>` : ""}
+      </div>
+      <h3 class="up-title">${esc(upLoc(c.title))}</h3>
+      ${tags ? `<div class="up-tags">${tags}</div>` : ""}
+    </div>
+    <div class="up-aside">${lead ? upMetricCardHtml(lead, true) : `<div class="up-vempty">${tx("待关联结果", "No result yet")}</div>`}</div>
+    <span class="up-peek" aria-hidden="true">${ico("arrow")}</span>
+  </article>`;
+}
+function paintUpstreamDrawer(c) {
+  if (!c) return;
+  const ver = c.verification;
+  const dl = pairs => `<dl class="rows-dl">${pairs.filter(([, x]) => x).map(([k, x, m]) => `<dt>${esc(k)}</dt><dd class="${m ? "m" : ""}">${x}</dd>`).join("")}</dl>`;
+  byId("dwCrumb").textContent = `${c.project} · ${c.number} · ${UP_FORGE[c.forge] || c.forge}`;
+  const evLinks = [
+    `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(`${c.project} ${c.number}`)}<span>↗</span></a>`,
+    c.case_id && c.comparison_id ? `<a href="#/report/${encodeURIComponent(c.case_id)}?comparison=${encodeURIComponent(c.comparison_id)}">${tx("关联实测报告", "Linked measured report")}<span>→</span></a>` : "",
+    c.case_id ? `<a href="#/cases/${encodeURIComponent(c.case_id)}">${tx("关联案例", "Linked case")}<span>→</span></a>` : "",
+    c.repair_id ? `<a href="#/repairs?id=${encodeURIComponent(c.repair_id)}">${tx("关联修复记录", "Linked repair record")}<span>→</span></a>` : "",
+    ...(c.evidence || []).filter(e => e.url && !/^https?:/i.test(e.url)).map(e => `<a href="./${esc(e.url)}" target="_blank" rel="noopener">${esc(upLoc(e.label))}<span>↗</span></a>`),
+  ].filter(Boolean).join("");
+  byId("dwBody").innerHTML = `
+    <div class="dw-repair-top">${upBadge(c)}${c.release_tag ? `<span class="badge ok">${esc(c.release_tag)}</span>` : ""}<span>${esc(c.repository)}</span></div>
+    <h2 class="dw-title" id="dwTitle">${esc(upLoc(c.title))}</h2>
+    <p class="dw-sub">${esc(upLoc(c.summary))}</p>
+    <div class="dw-sec"><h4>${tx("状态进度", "Status timeline")}${c.observed_at ? `<span>${tx(`核对至 ${c.observed_at}`, `Observed ${c.observed_at}`)}</span>` : ""}</h4>
+      ${upTimeline(c)}
+      ${c.merge_commit ? `<p class="up-dw-note mono">commit ${esc(c.merge_commit)}</p>` : ""}
+    </div>
+    ${ver && (ver.metrics || []).length ? `<div class="dw-sec"><h4>${tx("复验结果", "Verification")}</h4>
+      <div class="up-dw-metrics">${ver.metrics.map((m, i) => upMetricCardHtml(m, i === 0)).join("")}</div>
+      ${ver.scope ? `<p class="up-dw-note"><b>${tx("范围：", "Scope: ")}</b>${esc(upLoc(ver.scope))}</p>` : ""}
+      ${ver.note ? `<p class="up-dw-note">${esc(upLoc(ver.note))}</p>` : ""}
+    </div>` : ""}
+    <div class="dw-sec"><h4>${tx("代码与环境", "Scope & environment")}</h4>${dl([
+      [tx("仓库", "Repo"), esc(c.repository), 1],
+      [tx("位置", "Location"), esc(c.location), 1],
+      [tx("模型", "Model"), esc(c.model)],
+      [tx("硬件", "Hardware"), (c.hardware || []).map(hw => esc(platDisp(hw))).join(" · ")],
+      [tx("任务", "Task"), c.task ? esc(TASK[c.task] || c.task) : ""],
+    ])}</div>
+    <div class="dw-sec"><h4>${tx("关联记录与证据", "Links & evidence")}</h4><div class="evlist">${evLinks}</div></div>`;
+  const link = `#/upstream?id=${encodeURIComponent(c.id)}`;
+  byId("dwFoot").innerHTML = `<span class="mono-note">${DW.idx + 1} / ${DW.order.length} · j / k</span>
+    <span style="display:flex;gap:8px"><button class="btn sm" type="button" id="dwCopy">${tx("复制链接", "Copy link")}</button><a class="btn sm" href="${esc(c.url)}" target="_blank" rel="noopener">${tx("打开上游 PR", "Open PR")} <span>↗</span></a></span>`;
+  byId("dwCopy").onclick = e => copyText(pageUrl(link), e.currentTarget);
+}
+function writeUpQuery() {
+  writeQuery("upstream", { status: US.status, project: US.project, id: US.sel });
+}
+function upDrawerMove(id) {
+  US.sel = id;
+  $$("#uCards [data-up-id]").forEach(el => el.classList.toggle("active", el.dataset.upId === id));
+  writeUpQuery();
+  if (id) $(`#uCards [data-up-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+}
+function paintUpstream() {
+  $$("#uStatus [data-us]").forEach(b => b.setAttribute("aria-pressed", String(US.status === b.dataset.us)));
+  $$("#uProj [data-up]").forEach(b => b.setAttribute("aria-pressed", String(US.project === b.dataset.up)));
+  byId("uClr").disabled = !US.status && !US.project;
+  upView = UPSTREAM.contributions.filter(c => (!US.status || c.state === US.status) && (!US.project || c.project === US.project));
+  const box = byId("uCards");
+  if (upView.length) {
+    box.innerHTML = upView.map(upCardHtml).join("");
+  } else {
+    const emptyNote = US.status === "merged" && !UPSTREAM.counts.merged
+      ? tx("当前提交均在评审中，合并后将展示合并提交与版本。", "Submitted PRs are under review; merged commits and versions will appear here.")
+      : tx("可切换筛选查看全部提交。", "Adjust filters to view all submissions.");
+    box.innerHTML = `<div class="panel empty">${mascot("empty")}<p class="h3">${tx("暂无匹配记录", "No matching PRs")}</p><p class="note">${emptyNote}</p></div>`;
+  }
+  writeUpQuery();
+}
+RENDER.upstream = function renderUpstream(h) {
+  const st = h.q.get("status") || "", pr = h.q.get("project") || "";
+  US.status = ["merged", "review", "closed"].includes(st) ? st : "";
+  US.project = UPSTREAM.projects.includes(pr) ? pr : "";
+  US.sel = UPBY.has(h.q.get("id")) ? h.q.get("id") : null;
+  if (!upBuilt) {
+    upBuilt = true;
+    const c = UPSTREAM.counts;
+    const statuses = [
+      ["", tx("全部", "All"), c.total],
+      ["merged", tx("已合并", "Merged"), c.merged],
+      ["review", tx("审核中", "Open"), c.review],
+      ["closed", tx("已关闭", "Closed"), c.closed],
+    ];
+    const projCounts = Object.fromEntries(UPSTREAM.projects.map(p => [p, UPSTREAM.contributions.filter(x => x.project === p).length]));
+    byId("v-upstream").innerHTML = `<div class="wrap cmp-page up-page">
+      <header class="cmp-head">
+        <h1 class="work-title"><span class="work-title-mark">${ico("pr")}</span><span>${tx("上游贡献", "Upstream Contributions")}</span></h1>
+        <div class="cmp-actions">
+          <button class="btn sm ghost" type="button" id="uClr">${ico("cycle")}${tx("清空", "Clear")}</button>
+          <button class="btn sm" type="button" id="uShare">${ico("copy")}${tx("复制链接", "Copy link")}</button>
+        </div>
+      </header>
+      <dl class="home-stats up-stats">
+        <div class="home-stat"><dt>${tx("已合并 PR", "Merged PRs")}</dt><dd class="home-stat-value${c.merged ? "" : " muted"}">${fmtInt(c.merged)}</dd></div>
+        <div class="home-stat"><dt>${tx("审核中", "Under review")}</dt><dd class="home-stat-value${c.merged ? " muted" : ""}">${fmtInt(c.review)}</dd></div>
+        <div class="home-stat"><dt>${tx("上游项目", "Projects")}</dt><dd class="home-stat-value muted">${fmtInt(UPSTREAM.projects.length)}</dd><dd class="home-stat-note">${esc(UPSTREAM.projects.join(" · ") || "—")}</dd></div>
+      </dl>
+      <div class="cmp-filters">
+        <div class="cmp-filter"><h2 id="uStatusLabel">${ico("sliders")}${tx("状态", "Status")}</h2><div class="pills" id="uStatus" role="group" aria-labelledby="uStatusLabel">${statuses.map(([val, label, n]) => `<button class="pill" type="button" data-us="${val}" aria-pressed="false">${esc(label)}<span class="n">${fmtInt(n)}</span></button>`).join("")}</div></div>
+        <div class="cmp-filter"><h2 id="uProjLabel">${ico("layers")}${tx("上游项目", "Project")}</h2><div class="pills" id="uProj" role="group" aria-labelledby="uProjLabel"><button class="pill" type="button" data-up="" aria-pressed="false">${tx("全部", "All")}<span class="n">${fmtInt(c.total)}</span></button>${UPSTREAM.projects.map(p => `<button class="pill" type="button" data-up="${esc(p)}" aria-pressed="false">${esc(p)}<span class="n">${fmtInt(projCounts[p])}</span></button>`).join("")}</div></div>
+      </div>
+      <section aria-labelledby="uSubmittedTitle">
+        <header class="cmp-results-head"><h2 id="uSubmittedTitle">${tx("已提交 PR", "Submitted PRs")}</h2>${UPSTREAM.updated_at ? `<span class="mono-note">${tx(`核对至 ${UPSTREAM.updated_at} · 点击卡片查看详情`, `Observed ${UPSTREAM.updated_at} · Click a card to inspect`)}</span>` : ""}</header>
+        <div class="up-cards" id="uCards"></div>
+      </section>
+      <div class="up-foot-note">
+        <p class="cmp-note" style="margin:0">${tx("状态按事件追加记录；历史缺陷回移植与复验见", "Status changes are append-only; historical defect backports live in")} <a class="link" href="#/repairs">${tx("修复记录", "Repair Records")} <span aria-hidden="true">→</span></a></p>
+        <a class="btn sm" href="./data/upstream.json" download>upstream.json <span aria-hidden="true">↓</span></a>
+      </div>
+    </div>`;
+    $$("#uStatus [data-us]").forEach(b => b.onclick = () => { US.status = b.dataset.us; paintUpstream(); });
+    $$("#uProj [data-up]").forEach(b => b.onclick = () => { US.project = b.dataset.up; paintUpstream(); });
+    byId("uClr").onclick = () => { US.status = ""; US.project = ""; paintUpstream(); };
+    byId("uShare").onclick = e => copyText(location.href, e.currentTarget);
+    const openUp = card => card && openDrawer("upstream", card.dataset.upId, upView.map(x => x.id), upDrawerMove);
+    byId("uCards").addEventListener("click", e => {
+      if (e.target.closest("a")) return;
+      openUp(e.target.closest("[data-up-id]"));
+    });
+    byId("uCards").addEventListener("keydown", e => {
+      if (e.target.closest("a")) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openUp(e.target.closest("[data-up-id]")); }
+    });
+  }
+  paintUpstream();
+  if (US.sel) openDrawer("upstream", US.sel, upView.some(x => x.id === US.sel) ? upView.map(x => x.id) : [US.sel], upDrawerMove);
+};
+
+/* ======================================================================
    platform — AccelMark's chip page: hero, best/worst per subject,
    fingerprint, partners, records, peers
    ====================================================================== */
@@ -4348,7 +4568,7 @@ byId("toTop").onclick = e => { e.preventDefault(); scrollTo({ top: 0, behavior: 
 /* page chrome that lives in the static markup */
 document.documentElement.lang = LANG === "en" ? "en" : "zh-CN";
 if (LANG === "en") {
-  const NAV_EN = { "": "Home", cases: "Cases", compare: "Hardware Comparison", how: "Framework Implementation" };
+  const NAV_EN = { "": "Home", cases: "Cases", compare: "Hardware Comparison", upstream: "Upstream PRs", how: "Framework Implementation" };
   $$("#nav a").forEach(a => { a.textContent = NAV_EN[a.dataset.route] ?? a.textContent; });
   const setT = (id, t) => { const el = byId(id); if (el) el.textContent = t; };
   setT("footCite", "Cite & data"); setT("footCredits", "Community acknowledgments"); setT("toTop", "Back to top ↑");
