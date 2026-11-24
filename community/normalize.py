@@ -312,10 +312,25 @@ def normalize_draft(draft, *, receipt_id=None):
             # Also inspect nested paired_operator_and_original_workload.kernel_check when present (pre-decoupling shape).
             diag = doc.get('diagnostic_evidence') if isinstance(doc, dict) else None
             if isinstance(diag, dict):
+                candidate_slugs = [c.get('id') for c in candidates if isinstance(c.get('id'), str)]
                 for section_key, section in diag.items():
                     paired = section.get('paired_operator_and_original_workload') if isinstance(section, dict) else None
                     if isinstance(paired, dict) and isinstance(paired.get('kernel_check'), dict):
                         kc = paired['kernel_check']
+                        legacy_variants = []
+                        for name in (kc.get('variants') or {}):
+                            row = kc['variants'][name]
+                            matched_cid = next(
+                                (cid for cid in candidate_slugs
+                                 if ('stock' in name and 'stock' in cid)
+                                 or ('stock' not in name and 'stock' not in cid and 'wide' in cid)),
+                                None,
+                            )
+                            legacy_variants.append({
+                                'name': name,
+                                'within_bound': bool(row.get('within_bound')),
+                                'candidate_id': matched_cid or f'legacy-{name.replace("_", "-")}',
+                            })
                         legacy_payload = {
                             'kind': 'operator-optimization',
                             'schema_version': 1,
@@ -326,8 +341,7 @@ def normalize_draft(draft, *, receipt_id=None):
                             'round_status': 'round_delivered',
                             'kernel_check': kc,
                             'end_to_end': paired.get('paired_workload') or {'status': 'not_measured', 'reason': 'not recorded'},
-                            'variants': [{'name': name, 'within_bound': bool(row.get('within_bound')), 'candidate_id': None}
-                                         for name, row in (kc.get('variants') or {}).items()],
+                            'variants': legacy_variants,
                         }
                         assessed = assess_operator_optimization(legacy_payload, receipt_id=receipt_id)
                         assessed['evidence_path'] = path
