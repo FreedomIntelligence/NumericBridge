@@ -9,8 +9,8 @@ open an issue, create a PR, or contact upstream on the contributor's behalf.
 
 | Caller | Endpoint or command |
 |---|---|
-| Public search MCP client | `https://community.numericbridge.com/mcp` (Streamable HTTP after HTTPS launch) |
-| Local contribution MCP client | `python -B -m community.mcp_submission --intake https://community.numericbridge.com/v1/submissions --token-file /private/upload-token` |
+| Public search MCP client | `https://numericbridge.com/mcp` (Streamable HTTP, read-only, no token) |
+| Local contribution MCP client | `python -B -m community.mcp_submission --intake https://numericbridge.com/v1/submissions --token-file /private/upload-token` |
 | Contribution MCP transport | `POST /v1/submissions` with Bearer authentication and the exact confirmed draft; the workflow never sends this HTTP request itself |
 
 The client must support MCP form elicitation. Configure the upload credential
@@ -19,8 +19,9 @@ community/site/data/search-index.json` to expose all three tools in one local
 MCP entry (or pass `consent_record` from `request.json` for pre-consented intake); use the remote search entry for the server-managed index. During
 private staging, an operator can tunnel to port 8788 on the server and replace
 the public origin with `http://127.0.0.1:<local-port>` in the client config.
-The configured destination is bound into the draft; changing it requires a new
-preview and confirmation. Do not assume the public endpoints are live.
+The public HTTPS endpoints require no SSH tunnel. Keep tunneling for private
+staging only. The configured destination is bound into the draft; changing it
+requires a new preview and confirmation.
 
 ## Lookup after request confirmation
 

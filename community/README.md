@@ -16,8 +16,9 @@ python -B -m community.records index --output /tmp/numericbridge-records.json
 python -m http.server 8000 --directory community/site
 ```
 
-Run commands from the repository root. GitHub Pages publishes `community/site/`
-and reads the JSON directly. Deploy the MCP endpoint separately when needed.
+Run commands from the repository root. The production site at
+`https://numericbridge.com/` serves `community/site/` and its public JSON records.
+The same HTTPS host exposes community search and authenticated intake.
 
 ## MCP search
 
@@ -28,7 +29,9 @@ python -m pip install -r community/requirements-mcp.txt
 python -B -m community.mcp_search
 ```
 
-Connect an MCP client using Streamable HTTP at `http://127.0.0.1:8769/mcp`.
+Connect an MCP client directly to `https://numericbridge.com/mcp` using
+Streamable HTTP. No upload token or SSH tunnel is needed for search. If you are
+running the server locally, use `http://127.0.0.1:8769/mcp` instead.
 For a client that starts its own process, use `python -B -m community.mcp_search --transport stdio`
 from the repository root instead.
 
@@ -89,11 +92,11 @@ Changing the content or inbox destination requires a new preview and consent.
 Configure a stdio MCP server with the community's intake URL and an upload
 credential issued by its operator. When enabled, the published site advertises
 the API address in `data/community-service.json`; `submission: null` means no
-endpoint is configured. The following uses a placeholder hostname:
+endpoint is configured. The following uses the production intake URL:
 
 ```sh
 python -B -m community.mcp_submission \
-  --intake https://community.numericbridge.com/v1/submissions --token-file /path/to/upload-token \
+  --intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token \
   --search-index community/site/data/search-index.json
 ```
 
@@ -109,7 +112,7 @@ MCP to review and confirm that draft:
 
 ```sh
 python -B -m community.submit_reviewed --draft-sha256 DRAFT_SHA256 \
-  --intake https://community.numericbridge.com/v1/submissions --token-file /path/to/upload-token
+  --intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token
 ```
 
 Use `--drafts` if the MCP was configured with a different draft directory.
@@ -138,8 +141,8 @@ additions once an inbox is configured.
 
 ### Community operator setup
 
-GitHub Pages hosts the catalog and endpoint descriptor. Run the write API on a
-community host with HTTPS and persistent private storage. For a Linux host:
+Production serves the static catalog and endpoint descriptor over HTTPS,
+alongside the API, with persistent private storage for intake. For a Linux host:
 
 1. Create a dedicated `numericbridge` service user and group. Check out the
    reviewed source at `/opt/numericbridge` with a current `origin/main` ref.
@@ -156,25 +159,25 @@ community host with HTTPS and persistent private storage. For a Linux host:
    `sudo systemctl enable --now numericbridge-intake`. The service binds to
    loopback; save and back up `/var/lib/numericbridge/inbox` separately from the
    code. Restart the service when rotating the upload token.
-3. Set `NUMERICBRIDGE_COMMUNITY_HOST=community.numericbridge.com` in
+3. Set `NUMERICBRIDGE_COMMUNITY_HOST=numericbridge.com` in
    `/etc/numericbridge/search.env`, install the
    [search unit](deploy/numericbridge-search.service), and enable it with
    `sudo systemctl enable --now numericbridge-search`. The
    [Nginx staging config](deploy/numericbridge-nginx.conf) exposes both routes
-   on loopback port 8788 for SSH tunneling. For public access, point
-   `community.numericbridge.com` to the service host and use the same routes
-   in its HTTPS virtual host. With Caddy 2.10 or later, use the
+   on loopback port 8788 for private staging only. For production, point
+   `numericbridge.com` to the service host and use the same routes in its HTTPS
+   virtual host. With Caddy 2.10 or later, use the
    [reverse proxy config](deploy/Caddyfile) and set the same hostname in its
    service environment. Search exposes `POST /mcp` via stateless Streamable
    HTTP; intake exposes `POST /v1/submissions`, the authenticated receipt
    status `GET /v1/submissions/RECEIPT` and `GET /healthz`. Set request
    rate limits at the public ingress.
 4. Call `GET /healthz` over HTTPS, check that an unauthorized `POST` returns
-   `401`, then test with a synthetic draft. Set the GitHub Actions repository
-   variable `NUMERICBRIDGE_INTAKE_URL` to the verified public HTTPS endpoint and
-   run the Pages workflow. Verify the public MCP with `tools/list` and a known
-   `search_community` query. Distribute the upload credential privately; only
-   the endpoint URL belongs in the Pages build. After publishing approved
+   `401`, then test with a synthetic draft. Confirm that the live
+   `data/community-service.json` advertises the verified HTTPS intake URL.
+   Verify the public MCP with `tools/list` and a known `search_community` query.
+   Distribute the upload credential privately; only the endpoint URL belongs
+   in the public descriptor. After publishing approved
    records, update the host checkout to the deployed catalog revision and
    restart `numericbridge-search` to load its new index.
 

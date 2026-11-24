@@ -74,6 +74,10 @@ and the listed autonomous decisions within its grant.
 
 ## Route community results
 
+Use the public search MCP at `https://numericbridge.com/mcp` (Streamable HTTP,
+no credential or SSH tunnel required). The bundled CLI is the fallback if MCP is
+unavailable.
+
 ```xml
 <entry>The target and task are confirmed.</entry>
 
@@ -383,6 +387,12 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 ## Community contribution
 
 Use the [community record guide](../../precision-compare/references/community-records.md).
+The public search MCP is read-only. For submissions and receipt status, use the
+configured local contribution MCP (stdio) with intake at
+`https://numericbridge.com/v1/submissions` and an operator-issued upload token
+file. No SSH tunnel is required. Keep credentials out of prompts and logs. If
+the configured intake URL changes, prepare a new preview and confirm it before
+sending.
 
 ```xml
 <contribute when="local delivery has a shareable result or a contribution is being resumed">
