@@ -27,26 +27,28 @@ NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL�
 
 ## 快速开始
 
-克隆仓库，将 Skill 导出到新目录。可以让 Agent 客户端从该目录加载 Skill，也可以把输出路径改为客户端的 Skill 目录。Precision Compare 自带共享工具和社区案例库的离线快照。[安装与更新说明](tools/README.md#portable-skills)
+**无需克隆即可安装。** 在 [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases) 中选择一个 `skills-vMAJOR.MINOR.PATCH` 版本，将其附件中的 `numericbridge-skills-*.zip` 和对应的 `.zip.sha256` 校验文件下载到同一目录。不要下载 GitHub 自动生成的 “Source code” 压缩包。把下方的示例版本换成你下载的版本：
 
 ```sh
-git clone https://github.com/FreedomIntelligence/NumericBridge.git
-cd NumericBridge
-python -B -m scripts install --output ../numericbridge-skills
+version=v1.2.3
+archive="numericbridge-skills-$version.zip"
+skills="numericbridge-skills-$version"
+shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-**先查一个案例。** 在仓库根目录运行以下命令，会拉取当前社区索引并返回一条 PEFT 记录。把 `peft` 换成你的工作负载所用的库即可。
+在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载五个 Skill，或将五个 Skill 文件夹一起复制到客户端的 Skill 目录。压缩包自带共享工具和社区案例库的离线快照。[更新与从仓库安装](tools/README.md#portable-skills)
+
+**离线查一个案例。** 在下载目录中运行下面的命令，从随包附带的快照查询 PEFT 案例。根据自己的负载替换硬件、模型、库和任务。
 
 ```sh
-python -B -m tools.community_search \
-  --index https://freedomintelligence.github.io/NumericBridge/data/search-index.json \
-  --library peft --limit 1
+python -B "$skills/precision-compare/scripts/community_search.py" \
+  --hardware H20Z --model Qwen3.5-9B-Base --library peft --task inference --limit 1
 ```
 
-**跑一次梯度比较。** 安装 PyTorch 和 NumPy 后，在仓库根目录运行下面的 CPU 示例。它使用相同的分类器、初始权重和同一批输入，分别用 FP32 和 BF16 做反向传播。输出会列出梯度差异，并给出两份采集结果及 `report.json` 的保存路径。
+**跑一次梯度比较。** 安装 PyTorch 和 NumPy 后，运行下面的 CPU 示例。它使用相同的分类器、初始权重和同一批输入，分别用 FP32 和 BF16 做反向传播。输出会列出梯度差异，并给出两份采集结果及 `report.json` 的保存路径。
 
 ```sh
-python skills/precision-compare/examples/compare_gradients.py
+python -B "$skills/precision-compare/examples/compare_gradients.py"
 ```
 
 自己的任务从 [NumericBridge Skill](skills/numericbridge/SKILL.md) 开始。告诉 Agent 目标硬件、模型、框架和任务，已有运行命令或采集结果也可以一起给它。

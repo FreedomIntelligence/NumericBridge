@@ -27,26 +27,28 @@ NumericBridge helps compare, diagnose and repair numerical differences across in
 
 ## Getting started
 
-Clone the repository and export the skills to a fresh directory. Point your agent client at the exported skills, or use its skills directory as the output path. Precision Compare includes the shared tools and an offline snapshot of the community case library. [Installation and updates](tools/README.md#portable-skills)
+**Install without cloning.** On [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases), choose a `skills-vMAJOR.MINOR.PATCH` release and download the `numericbridge-skills-*.zip` asset and its matching `.zip.sha256` file into the same directory. Do not use GitHub's “Source code” archives. Replace the example version with the one you downloaded:
 
 ```sh
-git clone https://github.com/FreedomIntelligence/NumericBridge.git
-cd NumericBridge
-python -B -m scripts install --output ../numericbridge-skills
+version=v1.2.3
+archive="numericbridge-skills-$version.zip"
+skills="numericbridge-skills-$version"
+shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-**Look up a case.** From the repository root, fetch the current community index and return one record for PEFT. Substitute the library used by your workload.
+On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the five skills, or copy the five skill folders together into its skills directory. The bundle includes the shared tools and an offline snapshot of the community case library. [Updates and checkout-based installation](tools/README.md#portable-skills)
+
+**Look up a case offline.** From the download directory, query the bundled snapshot for a PEFT case. Replace the hardware, model, library and task with your workload's details.
 
 ```sh
-python -B -m tools.community_search \
-  --index https://freedomintelligence.github.io/NumericBridge/data/search-index.json \
-  --library peft --limit 1
+python -B "$skills/precision-compare/scripts/community_search.py" \
+  --hardware H20Z --model Qwen3.5-9B-Base --library peft --task inference --limit 1
 ```
 
-**Run a first comparison.** With PyTorch and NumPy installed, run this CPU example from the repository root. It uses the same classifier, weights and batch for two backward passes, one in FP32 and one in BF16. The output gives the gradient differences and the path to both captures and `report.json`.
+**Run a first comparison.** With PyTorch and NumPy installed, run this CPU example. It uses the same classifier, weights and batch for two backward passes, one in FP32 and one in BF16. The output gives the gradient differences and the path to both captures and `report.json`.
 
 ```sh
-python skills/precision-compare/examples/compare_gradients.py
+python -B "$skills/precision-compare/examples/compare_gradients.py"
 ```
 
 For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKILL.md). Give the agent your hardware, model, framework and task, along with any run commands or captures you have.
