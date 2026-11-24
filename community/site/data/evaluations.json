@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-11-23",
+  "updated_at": "2026-11-24",
   "evaluations": [
     {
       "id": "trl-sfttrainer-checkpoint-20261021",
@@ -102247,6 +102247,502 @@
           "url": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json"
         }
       ]
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124",
+      "title": "Qwen3.8-27B BF16 text inference on Ascend 910C and NVIDIA B200",
+      "date": "2026-11-24",
+      "task": "inference",
+      "status": "partial",
+      "acceptance": {
+        "profile": "nb-default-v1",
+        "verdict": "fail"
+      },
+      "model": {
+        "name": "Qwen/Qwen3.8-27B",
+        "revision": "37561816e66b5b9153b1b64c10968c18c1e6f4a0",
+        "architecture": "Qwen3.5 Dense",
+        "size": "27B"
+      },
+      "summary": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack. Acceptance: fail under nb-default-v1; agreement is not accuracy attribution.",
+      "sides": [
+        {
+          "id": "ascend",
+          "label": "vllm_ascend",
+          "hardware": "Ascend 910C",
+          "frameworks": [
+            "vllm_ascend"
+          ],
+          "libraries": [
+            {
+              "name": "vllm",
+              "version": "0.18.0+empty"
+            },
+            {
+              "name": "torch",
+              "version": "2.9.0"
+            },
+            {
+              "name": "transformers",
+              "version": "5.3.0"
+            },
+            {
+              "name": "tokenizers",
+              "version": "0.22.2"
+            },
+            {
+              "name": "vllm-ascend",
+              "version": "0.0.0"
+            },
+            {
+              "name": "torch-npu",
+              "version": "2.9.0.post2"
+            }
+          ],
+          "settings": {
+            "dtype": "bfloat16",
+            "tensor_parallel_size": 1,
+            "max_model_len": 1024,
+            "enforce_eager": true,
+            "enable_prefix_caching": false,
+            "language_model_only": true,
+            "max_num_seqs": 4,
+            "max_num_batched_tokens": 1024,
+            "logprobs_mode": "raw_logprobs",
+            "max_logprobs": -1,
+            "gpu_memory_utilization": 0.93,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cann",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.18.0+empty",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "name": "vllm-ascend",
+                "status": "observed",
+                "value": "0.0.0",
+                "source": "installed-distribution"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "9.1.0",
+                "source": "loaded-cann-library-path"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "25.5.2",
+                "source": "ascend-driver-version-file"
+              },
+              "container": {
+                "status": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "id": "cuda",
+          "label": "vLLM",
+          "hardware": "NVIDIA B200",
+          "frameworks": [
+            "vLLM"
+          ],
+          "libraries": [
+            {
+              "name": "vllm",
+              "version": "0.34.0"
+            },
+            {
+              "name": "torch",
+              "version": "2.14.0"
+            },
+            {
+              "name": "transformers",
+              "version": "5.22.2"
+            },
+            {
+              "name": "tokenizers",
+              "version": "0.23.3"
+            }
+          ],
+          "settings": {
+            "dtype": "bfloat16",
+            "tensor_parallel_size": 1,
+            "max_model_len": 1024,
+            "enforce_eager": true,
+            "enable_prefix_caching": false,
+            "language_model_only": true,
+            "max_num_seqs": 4,
+            "max_num_batched_tokens": 1024,
+            "logprobs_mode": "raw_logprobs",
+            "max_logprobs": -1,
+            "gpu_memory_utilization": 0.93,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cuda",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.34.0",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "status": "not-applicable"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "13.0",
+                "source": "loaded-cuda-runtime-api"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "595.91.07",
+                "source": "nvidia-smi-driver-query"
+              },
+              "container": {
+                "status": "not-applicable"
+              }
+            }
+          }
+        }
+      ],
+      "common": [
+        "BF16 text only, TP=1, eager, prefix cache off, fixed input token IDs."
+      ],
+      "differences": [
+        "Hardware, vLLM core and plugin builds, and native attention backends."
+      ],
+      "comparisons": [
+        {
+          "id": "final-prefill",
+          "title": "Final-prefill distribution and target scores",
+          "side_ids": [
+            "ascend",
+            "cuda"
+          ],
+          "scope": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack.",
+          "metrics": [
+            {
+              "id": "js-mean",
+              "label": "js_mean",
+              "value": 1.6001326285055325e-05,
+              "unit": "nats"
+            },
+            {
+              "id": "js-p99",
+              "label": "js_p99",
+              "value": 0.0002084770304396389,
+              "unit": "nats"
+            },
+            {
+              "id": "decisive-top1-flips",
+              "label": "decisive_top1_flips",
+              "value": 0,
+              "unit": "count"
+            },
+            {
+              "id": "top1-agreement",
+              "label": "top1_agreement",
+              "value": 1.0,
+              "unit": "fraction"
+            },
+            {
+              "id": "target-logprob-mae",
+              "label": "target_logprob_mae",
+              "value": 0.12213576316833497,
+              "unit": "nats"
+            },
+            {
+              "id": "target-logprob-p99",
+              "label": "target_logprob_p99",
+              "value": 0.9991721343994127,
+              "unit": "nats"
+            },
+            {
+              "id": "target-nll-rel",
+              "label": "target_nll_rel",
+              "value": 0.0006929933158134541,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Fixed final-prefill histories",
+              "expected": 100,
+              "observed": 100,
+              "unit": "positions"
+            },
+            {
+              "label": "Candidate token scores",
+              "expected": 200,
+              "observed": 200,
+              "unit": "targets"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        "No later decode or multimodal path was tested."
+      ],
+      "evidence": [
+        {
+          "url": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "label": "Anonymized numerical and runtime evidence"
+        }
+      ],
+      "archive": null
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-verification",
+      "title": "Scoped FP32 solve-to-WY verification on 910C versus B200",
+      "date": "2026-11-24",
+      "task": "inference",
+      "status": "completed",
+      "acceptance": {
+        "profile": "nb-default-v1",
+        "verdict": "gap",
+        "passed": true
+      },
+      "model": {
+        "name": "Qwen/Qwen3.8-27B",
+        "revision": "37561816e66b5b9153b1b64c10968c18c1e6f4a0",
+        "architecture": "Qwen3.5 Dense",
+        "size": "27B"
+      },
+      "summary": "All acceptance limits passed. Target logprob MAE/P99 are still above optional optimization targets.",
+      "sides": [
+        {
+          "id": "ascend",
+          "label": "vllm_ascend",
+          "hardware": "Ascend 910C",
+          "frameworks": [
+            "vllm_ascend"
+          ],
+          "libraries": [
+            {
+              "name": "vllm",
+              "version": "0.18.0+empty"
+            },
+            {
+              "name": "torch",
+              "version": "2.9.0"
+            },
+            {
+              "name": "transformers",
+              "version": "5.3.0"
+            },
+            {
+              "name": "tokenizers",
+              "version": "0.22.2"
+            },
+            {
+              "name": "vllm-ascend",
+              "version": "0.0.0"
+            },
+            {
+              "name": "torch-npu",
+              "version": "2.9.0.post2"
+            }
+          ],
+          "settings": {
+            "dtype": "bfloat16",
+            "tensor_parallel_size": 1,
+            "max_model_len": 1024,
+            "enforce_eager": true,
+            "enable_prefix_caching": false,
+            "language_model_only": true,
+            "max_num_seqs": 4,
+            "max_num_batched_tokens": 1024,
+            "logprobs_mode": "raw_logprobs",
+            "max_logprobs": -1,
+            "gpu_memory_utilization": 0.93,
+            "async_scheduling": false,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cann",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.18.0+empty",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "name": "vllm-ascend",
+                "status": "observed",
+                "value": "0.0.0",
+                "source": "installed-distribution"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "9.1.0",
+                "source": "loaded-cann-library-path"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "25.5.2",
+                "source": "ascend-driver-version-file"
+              },
+              "container": {
+                "status": "unknown"
+              }
+            },
+            "precision_intervention": "Layer 0: FP32 inverse for WY u only; BF16 for w"
+          }
+        },
+        {
+          "id": "cuda",
+          "label": "vLLM",
+          "hardware": "NVIDIA B200",
+          "frameworks": [
+            "vLLM"
+          ],
+          "libraries": [
+            {
+              "name": "vllm",
+              "version": "0.34.0"
+            },
+            {
+              "name": "torch",
+              "version": "2.14.0"
+            },
+            {
+              "name": "transformers",
+              "version": "5.22.2"
+            },
+            {
+              "name": "tokenizers",
+              "version": "0.23.3"
+            }
+          ],
+          "settings": {
+            "dtype": "bfloat16",
+            "tensor_parallel_size": 1,
+            "max_model_len": 1024,
+            "enforce_eager": true,
+            "enable_prefix_caching": false,
+            "language_model_only": true,
+            "max_num_seqs": 4,
+            "max_num_batched_tokens": 1024,
+            "logprobs_mode": "raw_logprobs",
+            "max_logprobs": -1,
+            "gpu_memory_utilization": 0.93,
+            "async_scheduling": false,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cuda",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.34.0",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "status": "not-applicable"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "13.0",
+                "source": "loaded-cuda-runtime-api"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "595.91.07",
+                "source": "nvidia-smi-driver-query"
+              },
+              "container": {
+                "status": "not-applicable"
+              }
+            }
+          }
+        }
+      ],
+      "common": [
+        "BF16 text only, TP=1, eager, prefix cache off, fixed input token IDs."
+      ],
+      "differences": [
+        "Ascend only: preserve the layer-0 triangular inverse in FP32 for WY u; keep the w branch on BF16. B200 unchanged."
+      ],
+      "comparisons": [
+        {
+          "id": "final-prefill",
+          "title": "Final-prefill distribution and target scores",
+          "side_ids": [
+            "ascend",
+            "cuda"
+          ],
+          "scope": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack.",
+          "metrics": [
+            {
+              "id": "js-mean",
+              "label": "js_mean",
+              "value": 1.0940876500633431e-05,
+              "unit": "nats"
+            },
+            {
+              "id": "js-p99",
+              "label": "js_p99",
+              "value": 0.00014997013401552614,
+              "unit": "nats"
+            },
+            {
+              "id": "decisive-top1-flips",
+              "label": "decisive_top1_flips",
+              "value": 0,
+              "unit": "count"
+            },
+            {
+              "id": "top1-agreement",
+              "label": "top1_agreement",
+              "value": 1.0,
+              "unit": "fraction"
+            },
+            {
+              "id": "target-logprob-mae",
+              "label": "target_logprob_mae",
+              "value": 0.09417160034179688,
+              "unit": "nats"
+            },
+            {
+              "id": "target-logprob-p99",
+              "label": "target_logprob_p99",
+              "value": 0.31502511024475016,
+              "unit": "nats"
+            },
+            {
+              "id": "target-nll-rel",
+              "label": "target_nll_rel",
+              "value": 0.0013634487403324238,
+              "unit": "fraction"
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Fixed final-prefill histories",
+              "expected": 100,
+              "observed": 100,
+              "unit": "positions"
+            },
+            {
+              "label": "Candidate token scores",
+              "expected": 200,
+              "observed": 200,
+              "unit": "targets"
+            }
+          ]
+        }
+      ],
+      "notes": [
+        "100 original fixed histories, two repeats, zero-state single-chunk prefill. CPU FP32 distances are diagnostic only."
+      ],
+      "evidence": [
+        {
+          "url": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "label": "Anonymized numerical and runtime evidence"
+        }
+      ],
+      "archive": null
     }
   ]
 }

@@ -16602,6 +16602,474 @@
           }
         }
       }
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124",
+      "kind": "case",
+      "scope": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack. Acceptance: fail under nb-default-v1; agreement is not accuracy attribution.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Qwen3.8-27B BF16 text inference on Ascend 910C and NVIDIA B200",
+        "sources": [],
+        "category": "precision-evaluation",
+        "request": {
+          "hardware": "Ascend 910C and NVIDIA B200",
+          "model": "Qwen/Qwen3.8-27B",
+          "framework": "vLLM-Ascend and vLLM",
+          "task": "inference",
+          "goal": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack."
+        }
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h1",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "broad numerical difference",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h2",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Default Ascend execution has excess same-side repeat noise",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h3",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; unlocalized.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Cross-stack difference is reproducible on the same hardware",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h4",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; no_measured_benefit.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Switching the B-side GDN prefill backend does not restore acceptance",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h5",
+      "kind": "issue",
+      "scope": "environment; record_only; environment_only.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Offline Ascend image needed a private dependency overlay",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h6",
+      "kind": "issue",
+      "scope": "adapter; no_action; adapter_only.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "The first B-side probe assumed a single LM-head invocation",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h7",
+      "kind": "issue",
+      "scope": "unlocalized; no_action; matches_reference.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "LM-head arithmetic does not explain the sampled score difference",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h8",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "First-layer RMSNorm contributes a small reproducible numerical difference",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h9",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "First-layer QKV/Z projection differs near BF16 rounding midpoints",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h10",
+      "kind": "issue",
+      "scope": "adapter; no_action; adapter_only.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Projection replay needed two local adapter corrections",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h11",
+      "kind": "issue",
+      "scope": "numerical_policy; pr_draft_main; reference_semantics.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        },
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124-h11-upstream-draft.json",
+          "sha256": "28b089226d85e575593ab82e55e5771bf22f60064f0221151ee6a224db089701"
+        }
+      ],
+      "details": {
+        "title": "Fused Gemma RMSNorm uses different intermediate rounding on the tested stacks",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h12",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Full fused RMSNorm widening induces non-additive depth interactions on the score tail",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h13",
+      "kind": "issue",
+      "scope": "unlocalized; record_only; benefit_measured.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Synchronous in-process B200 eliminates observed repeat noise without restoring acceptance",
+        "sources": [],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h14",
+      "kind": "issue",
+      "scope": "numerical_policy; pr_draft_main; reference_semantics.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        },
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124-h14-upstream-draft.json",
+          "sha256": "57a51ea5dc9ea6fe6996d9bb7ddac7561e213dea29e7becddf90a0c99e7b922d"
+        }
+      ],
+      "details": {
+        "title": "The vLLM Triton causal prefill convolution rounds BF16 products before FP32 accumulation",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h15",
+      "kind": "issue",
+      "scope": "numerical_policy; record_only; reference_semantics.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Ascend GDN chunk recurrence rounds score and update intermediates to BF16 on zero-state first tokens",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h16",
+      "kind": "issue",
+      "scope": "numerical_policy; record_only; no_measured_benefit.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "Matched synchronous CUDA Triton prefill backend control on the original 100 histories",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h17",
+      "kind": "issue",
+      "scope": "numerical_policy; record_only; reference_semantics.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "First-layer Ascend GDN score residual reduces isolated FP64 error; tested on original workload",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h18",
+      "kind": "issue",
+      "scope": "numerical_policy; pr_draft_main; reference_semantics.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        },
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124-h18-upstream-draft.json",
+          "sha256": "539cf1873ae81e809207333c7537d21e5c7a6c3b1a8645f9290beae059cbdbd3"
+        }
+      ],
+      "details": {
+        "title": "Ascend GDN v_new error can be isolated at Gram, triangular solve or WY boundaries",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h19",
+      "kind": "issue",
+      "scope": "numerical_policy; record_only; no_measured_benefit.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ],
+      "details": {
+        "title": "WY RHS residual split does not materially improve the fixed-solve result",
+        "sources": [],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-h20",
+      "kind": "issue",
+      "scope": "library_defect; pr_draft_main; still_present.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        },
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124-h20-upstream-draft.json",
+          "sha256": "ff2137943977c14090d9d2bed37170d7c464211db2bb2665400664b2ab8c99ed"
+        }
+      ],
+      "details": {
+        "title": "Main Triton WY fixed-length specialization has an unbound chunk index",
+        "sources": [],
+        "classification": "confirmed-defect"
+      }
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-candidate",
+      "kind": "candidate",
+      "scope": "Keep the FP32 triangular inverse only for WY u at layer 0.",
+      "details": {
+        "title": "Preserve Ascend solve precision into WY u",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+            "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a",
+            "pointer": "/diagnostic_evidence/ascend_wy_solve/paired_operator_and_original_workload"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vllm_ascend",
+          "version": "0.0.0",
+          "commit": null
+        },
+        "applicability": "Original accepted candidate, with a paired latency and precision profile on 910C; not a default deployment recommendation.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "selected-for-further-study",
+        "limitations": [
+          "Scoped single-token final prefill. Full main integration, multi-chunk recurrence, and device-wide peak memory are unverified."
+        ]
+      },
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-native",
+      "kind": "verification",
+      "scope": "Focused FP64 operator replay and original dual-native run.",
+      "details": {
+        "title": "Scoped operator and 100-history native verification",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+            "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a",
+            "pointer": "/diagnostic_evidence/ascend_wy_solve/acceptance"
+          }
+        ],
+        "method": "native-runtime",
+        "outcome": "scoped-checks-passed",
+        "acceptance": {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a",
+          "pointer": "/diagnostic_evidence/ascend_wy_solve/acceptance"
+        }
+      },
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "qwen38-27b-bf16-text-910c-b200-20261124-fixed-workload",
+      "kind": "workload",
+      "scope": "Final prefill on 100 fixed text histories, 200 candidate token scores, two repeats per native stack.",
+      "details": {
+        "title": "Fixed 100-text-history final prefill",
+        "sources": []
+      },
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-wy-stock-variant",
+      "kind": "candidate",
+      "scope": "Stock BF16 inverse control in paired precision and timing.",
+      "details": {
+        "title": "Stock Ascend BF16 triangular inverse before WY",
+        "sources": [
+          {
+            "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+            "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a",
+            "pointer": "/diagnostic_evidence/ascend_wy_solve/paired_operator_and_original_workload"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vllm_ascend",
+          "version": "0.0.0",
+          "commit": null
+        },
+        "applicability": "Matched 910C operator and original-workload baseline; fails MAE gate with stock settings. This is the original runtime behavior; no patch is proposed for this variant.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Scoped single-token final prefill. Full main integration, multi-chunk recurrence, and device-wide peak memory are unverified."
+        ]
+      },
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
     }
   ],
   "links": [
@@ -33046,6 +33514,595 @@
         {
           "file": "evidence/submissions/qwen3-17b-native-prefix-reconstructed-910c-b20z-20261123.json",
           "sha256": "f4a32b5259938cf9bfa3170757fe13db85b573f0929c2c64cb5b754540d892e3"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-0",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-1",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h1"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-2",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h2"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-3",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h3"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-4",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h4"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-5",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h5"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-6",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h6"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-7",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h7"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-8",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h8"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-9",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h9"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-10",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h10"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-11",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h11"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-12",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h12"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-13",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h13"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-14",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h14"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-15",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h15"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-16",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h16"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-17",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h17"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-18",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h18"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-19",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h19"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-20",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h20"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-21",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-candidate"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-22",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "verification",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-native"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-23",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "workload",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-fixed-workload"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-member-24",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-verification"
+      },
+      "scope": "Record from the same native comparison case.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-native-solve-0",
+      "relation": "addresses",
+      "from": {
+        "kind": "candidate",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-candidate"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h18"
+      },
+      "scope": "Scoped case verification.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-native-solve-1",
+      "relation": "verifies",
+      "from": {
+        "kind": "verification",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-native"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-candidate"
+      },
+      "scope": "Scoped case verification.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-native-solve-2",
+      "relation": "uses_workload",
+      "from": {
+        "kind": "verification",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-native"
+      },
+      "to": {
+        "kind": "workload",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-fixed-workload"
+      },
+      "scope": "Scoped case verification.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-native-solve-3",
+      "relation": "measures",
+      "from": {
+        "kind": "verification",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-native"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-wide-solve-verification"
+      },
+      "scope": "Scoped case verification.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-wy-closeout-0",
+      "relation": "includes",
+      "from": {
+        "kind": "case",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-wy-stock-variant"
+      },
+      "scope": "Matched stock measurement of WY precision and speed.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
+        }
+      ]
+    },
+    {
+      "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-wy-closeout-1",
+      "relation": "addresses",
+      "from": {
+        "kind": "candidate",
+        "id": "case-qwen38-27b-bf16-text-910c-b200-20261124-wy-stock-variant"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "qwen38-27b-bf16-text-910c-b200-20261124-h18"
+      },
+      "scope": "Matched stock measurement of WY precision and speed.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/qwen38-27b-bf16-text-910c-b200-20261124.json",
+          "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
         }
       ]
     }

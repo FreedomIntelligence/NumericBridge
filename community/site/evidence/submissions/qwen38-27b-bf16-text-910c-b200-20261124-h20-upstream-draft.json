@@ -1,0 +1,21 @@
+{
+  "kind": "upstream_pr_draft",
+  "repository": "https://github.com/vllm-project/vllm-ascend",
+  "base_branch": "main",
+  "title": "Initialize the fixed-length Triton WY chunk index",
+  "body_markdown": "### What this PR does / why we need it?\n\nIn the Ascend Triton WY kernel, the specialization for `cu_seqlens=None` reads the chunk index `i_t` without defining it. Use the existing dimension-0 program ID in that specialization. The packed branch continues to obtain the chunk index from the sequence metadata and is unchanged. This is an independent execution defect, not the BF16 rounding RFC.\n\nThe undefined index is present on merged Ascend main `15697aa82248ce875954ec6c96163b797310fbab` and stable `v0.30.0` (`c09d3e20b9c45c80b34ae3781440d90904a44023`). The case image's exact distribution commit is unavailable.\n\n### Does this PR introduce _any_ user-facing change?\n\nThe previously uncompilable fixed-length WY operator invocation can run for the tested single batch. No change to packed inference. If filed, add a release note as directed by the target repository.\n\n### How was this patch tested?\n\nThe accompanying NPU regression sets a single 129-token sequence, two heads, identity inverse, unit beta and zero cumulative decay, with no `cu_seqlens`. The analytic results are `u=v` and `w=k`, including the partial last chunk. The stock overlay failed Triton compilation with `i_t is not defined`; the patched overlay on the same 910C passed exact equality. The patch applies to the pinned merged main. This is a process-local native source overlay on the existing runtime, not a full main CI or installed-main test. Multi-batch fixed-length layouts and engine reachability are outside this check. Performance is not applicable to comparison with the uncompilable baseline.\n\n### Checklist\n\n- [x] Native operator reproduction and analytic regression on one Ascend 910C.\n- [ ] Full upstream checkout and target device suite.\n\n### Patch\n\n```diff\n--- a/vllm_ascend/ops/triton/fla/wy_fast.py\n+++ b/vllm_ascend/ops/triton/fla/wy_fast.py\n@@ -51,6 +51,7 @@\n             bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(cu_seqlens + i_n + 1).to(tl.int32)\n             T = eos - bos\n         else:\n+            i_t = i_t_o\n             bos, eos = i_b * T, i_b * T + T\n \n         offs_t = tl.arange(0, BT)\n--- /dev/null\n+++ b/tests/e2e/nightly/single_node/ops/singlecard_ops/triton/test_gdn_wy_fixed_length.py\n@@ -0,0 +1,21 @@\n+# SPDX-License-Identifier: Apache-2.0\n+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project\n+\n+import torch\n+\n+from vllm_ascend.ops.triton.fla.wy_fast import recompute_w_u_fwd\n+\n+\n+def test_wy_fixed_length_multiple_chunks():\n+    b, t, h, d, bt = 1, 129, 2, 64, 64\n+    # Identity inverse, zero cumulative decay and beta=1 imply u=v, w=k.\n+    eye = torch.eye(bt, dtype=torch.bfloat16)\n+    a = eye[torch.arange(t) % bt][None, :, None, :].expand(b, t, h, bt).contiguous().npu()\n+    values = torch.arange(b * t * h, dtype=torch.int32).reshape(b, t, h, 1)\n+    v = ((values % 61 - 30) / 32).expand(b, t, h, d).to(torch.bfloat16).contiguous().npu()\n+    k = (-v).contiguous()\n+    beta = torch.ones((b, t, h), dtype=torch.bfloat16, device=\"npu\")\n+    decay = torch.zeros((b, h, t), dtype=torch.float32, device=\"npu\")\n+    w, u = recompute_w_u_fwd(k=k, v=v, beta=beta, g_cumsum=decay, A=a)\n+    torch.testing.assert_close(u.cpu(), v.cpu(), atol=0, rtol=0)\n+    torch.testing.assert_close(w.cpu(), k.cpu(), atol=0, rtol=0)\n```\n",
+  "guidance_urls": [
+    "https://github.com/vllm-project/vllm-ascend/blob/15697aa82248ce875954ec6c96163b797310fbab/.github/PULL_REQUEST_TEMPLATE.md",
+    "https://github.com/vllm-project/vllm-ascend/blob/15697aa82248ce875954ec6c96163b797310fbab/CONTRIBUTING.md"
+  ],
+  "pending_checks": [
+    "repo_style_test",
+    "native_on_target"
+  ],
+  "decision": {
+    "hypothesis": "H20",
+    "decision": "pr_draft_main",
+    "reason": "still_present",
+    "draft_status": "incomplete"
+  }
+}
