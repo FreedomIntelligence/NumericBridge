@@ -54,9 +54,13 @@ does not use the former contribution tunnel. To inspect a verified private
 backup on the same workstation without SSH, run
 `python -B -m community.inbox_view --state PATH_TO_PRIVATE_BACKUP`.
 
-Loopback prevents network access but does not authenticate local users or
-processes. Do not run the HTTP workbench on a shared host or expose it through
-a public proxy; serve only on a workstation you trust with the review data.
+Loopback prevents direct remote access but does not authenticate local users
+or processes. Use it only on a trusted workstation. On a deployment host,
+use `--state STATE_DIR --unix-socket SOCKET_PATH` in a restricted runtime
+directory instead. An authenticated HTTPS reverse proxy must be the only
+public entry point, force the upstream `Host` header to `localhost`, and deny
+unauthenticated access. The application does not authenticate HTTP users by
+itself. Do not serve it from the public community site or log private queries.
 
 Search by title or receipt ID. The status overview shows inbox-wide counts;
 the queue shows the number of matches. The active-pending filter shows only

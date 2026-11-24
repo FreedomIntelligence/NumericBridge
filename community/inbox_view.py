@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+from socketserver import ThreadingMixIn, UnixStreamServer
 import sqlite3
 import stat
 import subprocess
@@ -239,10 +240,10 @@ def render(data, **filters):
     return dashboard(data, **filters)
 
 
-def server(host, port, *, state=None):
+def server(host, port, *, state=None, unix_socket=None):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if self.headers.get('Host') != f'127.0.0.1:{self.server.server_port}':
+            if self.headers.get('Host') != self.server.expected_host:
                 self.send_error(403)
                 return
             url = urlsplit(self.path)
@@ -286,7 +287,22 @@ def server(host, port, *, state=None):
         def log_message(self, *_):
             pass
 
-    return ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    if unix_socket is None:
+        httpd = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+        httpd.expected_host = f'127.0.0.1:{httpd.server_port}'
+        return httpd
+
+    class PrivateUnixServer(ThreadingMixIn, UnixStreamServer):
+        daemon_threads = True
+        expected_host = 'localhost'
+
+    httpd = PrivateUnixServer(str(unix_socket), Handler)
+    try:
+        os.chmod(unix_socket, 0o660)
+    except OSError:
+        httpd.server_close()
+        raise
+    return httpd
 
 
 def main():
@@ -301,7 +317,10 @@ def main():
     parser.add_argument('--order', choices=sorted(ORDERS), default='newest', help=argparse.SUPPRESS)
     parser.add_argument('--page', type=_parse_page, default=1, help=argparse.SUPPRESS)
     parser.add_argument('--port', type=int, default=18890)
+    parser.add_argument('--unix-socket', type=Path, help='Private socket for an authenticated local proxy')
     args = parser.parse_args()
+    if args.unix_socket and not args.state:
+        parser.error('--unix-socket requires --state')
     if args.snapshot is not None:
         selected = args.receipt or args.snapshot
         if selected and not RECEIPT.fullmatch(selected):
@@ -309,7 +328,7 @@ def main():
         print(json.dumps(snapshot(Path('/var/lib/numericbridge'), selected, args.query, args.status,
                                   args.order, page=args.page)))
     else:
-        with server(args.ssh, args.port, state=args.state) as httpd:
+        with server(args.ssh, args.port, state=args.state, unix_socket=args.unix_socket) as httpd:
             httpd.serve_forever()
 
 
