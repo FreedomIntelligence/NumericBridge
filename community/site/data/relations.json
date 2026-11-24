@@ -17070,6 +17070,271 @@
           "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
         }
       ]
+    },
+    {
+      "id": "case-gemma4-bf16-910c-b200-20261124",
+      "kind": "case",
+      "scope": "Fixed 100-history native A/B inference and layer-0 RMSNorm optimization.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "Gemma4 31B BF16 text prefill: Ascend 910C vs NVIDIA B200",
+        "sources": [],
+        "request": {
+          "hardware": "Ascend 910C and NVIDIA B200",
+          "model": "google/gemma-4-31B-it",
+          "framework": "vLLM-Ascend and vLLM",
+          "task": "inference",
+          "goal": "Compare final-prefill BF16 precision under nb-default-v1."
+        },
+        "category": "precision-evaluation"
+      }
+    },
+    {
+      "id": "gemma4-ascend-deployment-20261124",
+      "kind": "issue",
+      "scope": "Private deployment resolved the initial environment mismatch.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "Shell-default runtime lacked Gemma4",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/deployment"
+          }
+        ],
+        "classification": "unconfirmed-hypothesis"
+      }
+    },
+    {
+      "id": "gemma4-rmsnorm-20261124",
+      "kind": "issue",
+      "scope": "First observed difference on matched operands; no established defect or full-model cause.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "Gemma4 RMSNorm and target-logprob tail discrepancy",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/diagnosis"
+          }
+        ],
+        "classification": "numerical-discrepancy"
+      }
+    },
+    {
+      "id": "gemma4-rms-baseline-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm baseline",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/baseline"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-recorded",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
+    },
+    {
+      "id": "gemma4-rms-reference-pow-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm reference pow",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/reference_pow"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
+    },
+    {
+      "id": "gemma4-rms-rsqrt-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm rsqrt",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/rsqrt"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
+    },
+    {
+      "id": "gemma4-rms-native-fp32-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm native fp32",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/native_fp32"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
+    },
+    {
+      "id": "gemma4-rms-torch-functional-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm torch functional",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/torch_functional"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
+    },
+    {
+      "id": "gemma4-rms-triton-fused-20261124",
+      "kind": "candidate",
+      "scope": "One layer-0 input RMSNorm in BF16 eager text prefill.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "details": {
+        "title": "RMSNorm triton fused",
+        "sources": [
+          {
+            "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+            "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884",
+            "pointer": "/operator_optimization/kernel_check/variants/triton_fused"
+          }
+        ],
+        "solution_type": "numerical-policy",
+        "target": {
+          "library": "vLLM-Ascend",
+          "version": "0.26.0rc1",
+          "commit": null
+        },
+        "applicability": "Case-private TP2 Gemma4 text prefill; compared against the BF16-rounded FP64 floor.",
+        "evidence_level": "runtime-tested-in-scope",
+        "decision": "not-selected",
+        "limitations": [
+          "Not a demonstrated full-model precision or speed improvement."
+        ]
+      }
     }
   ],
   "links": [
@@ -34105,6 +34370,291 @@
           "sha256": "ad96691aa1d499e406e98a1b25c1d9acabc490572afd94015abf41e76478f75a"
         }
       ]
+    },
+    {
+      "id": "includes-gemma4-bf16-910c-b200-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "comparison",
+        "id": "gemma4-bf16-910c-b200-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-ascend-deployment-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-ascend-deployment-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rmsnorm-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-baseline-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-baseline-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-reference-pow-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-reference-pow-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-rsqrt-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-rsqrt-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-native-fp32-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-native-fp32-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-torch-functional-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-torch-functional-20261124"
+      }
+    },
+    {
+      "id": "includes-gemma4-rms-triton-fused-20261124",
+      "relation": "includes",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "case",
+        "id": "case-gemma4-bf16-910c-b200-20261124"
+      },
+      "to": {
+        "kind": "candidate",
+        "id": "gemma4-rms-triton-fused-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-baseline-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-baseline-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-reference-pow-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-reference-pow-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-rsqrt-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-rsqrt-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-native-fp32-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-native-fp32-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-torch-functional-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-torch-functional-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
+    },
+    {
+      "id": "addresses-gemma4-rms-triton-fused-20261124",
+      "relation": "addresses",
+      "scope": "Gemma4 fixed-history A/B evaluation and operator evidence.",
+      "evidence": [
+        {
+          "file": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "sha256": "5b82e33ab77351054d1c4aee059c1dbd6688689856849d24f4d7b9a434a6b884"
+        }
+      ],
+      "from": {
+        "kind": "candidate",
+        "id": "gemma4-rms-triton-fused-20261124"
+      },
+      "to": {
+        "kind": "issue",
+        "id": "gemma4-rmsnorm-20261124"
+      }
     }
   ]
 }

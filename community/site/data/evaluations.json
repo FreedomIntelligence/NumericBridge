@@ -102743,6 +102743,220 @@
         }
       ],
       "archive": null
+    },
+    {
+      "id": "gemma4-bf16-910c-b200-20261124",
+      "date": "2026-11-24",
+      "title": "Gemma4 31B BF16 text prefill: Ascend 910C vs NVIDIA B200",
+      "task": "inference",
+      "status": "completed",
+      "acceptance": {
+        "profile": "nb-default-v1",
+        "verdict": "gap"
+      },
+      "model": {
+        "name": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "architecture": "Gemma4",
+        "size": "31B"
+      },
+      "summary": "Native A/B acceptance passed with target-logprob MAE and P99 above optional optimization thresholds. No confirmed upstream defect.",
+      "sides": [
+        {
+          "id": "a",
+          "label": "Ascend 910C",
+          "hardware": "2 × Ascend 910C",
+          "frameworks": [
+            "vLLM-Ascend",
+            "vLLM"
+          ],
+          "libraries": [
+            {
+              "name": "vLLM",
+              "version": "0.26.0+empty"
+            },
+            {
+              "name": "PyTorch",
+              "version": "2.10.0+cpu"
+            },
+            {
+              "name": "vLLM-Ascend",
+              "version": "0.26.0rc1"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tensor_parallel": 2,
+            "mode": "eager",
+            "prefix_cache": false,
+            "attention_backend": "stack default",
+            "max_num_seqs": 4,
+            "text_only": true,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cann",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.26.0+empty",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "name": "vllm_ascend",
+                "status": "observed",
+                "value": "0.26.0rc1",
+                "source": "installed-distribution"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "9.1.0",
+                "source": "loaded-cann-library-path"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "25.5.2",
+                "source": "ascend-driver-version-file"
+              },
+              "container": {
+                "status": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "id": "b",
+          "label": "NVIDIA B200",
+          "hardware": "2 × NVIDIA B200",
+          "frameworks": [
+            "vLLM"
+          ],
+          "libraries": [
+            {
+              "name": "vLLM",
+              "version": "0.34.0"
+            },
+            {
+              "name": "PyTorch",
+              "version": "2.14.0+cu130"
+            }
+          ],
+          "settings": {
+            "dtype": "BF16",
+            "tensor_parallel": 2,
+            "mode": "eager",
+            "prefix_cache": false,
+            "attention_backend": "TRITON_ATTN",
+            "max_num_seqs": 4,
+            "text_only": true,
+            "runtime_environment": {
+              "schema_version": 1,
+              "backend": "cuda",
+              "framework": {
+                "name": "vllm",
+                "status": "observed",
+                "value": "0.34.0",
+                "source": "installed-distribution"
+              },
+              "plugin": {
+                "status": "not-applicable"
+              },
+              "runtime": {
+                "status": "observed",
+                "value": "13.0",
+                "source": "loaded-cuda-runtime-api"
+              },
+              "driver": {
+                "status": "observed",
+                "value": "595.91.07",
+                "source": "nvidia-smi-driver-query"
+              },
+              "container": {
+                "status": "not-applicable"
+              }
+            }
+          }
+        }
+      ],
+      "common": [
+        "BF16, TP2, eager, text only, same checkpoint and 100 frozen token histories."
+      ],
+      "differences": [
+        "Ascend and CUDA platform, framework version, kernel and collective implementations differ."
+      ],
+      "notes": [
+        "No decode or multimodal tests.",
+        "Optimization results are condition-specific."
+      ],
+      "comparisons": [
+        {
+          "id": "ab",
+          "title": "Native A/B BF16 inference",
+          "scope": "Final prefill distributions and two alternative single-token scores per history.",
+          "side_ids": [
+            "a",
+            "b"
+          ],
+          "metrics": [
+            {
+              "id": "top1",
+              "label": "Top-1 agreement",
+              "unit": "fraction",
+              "value": 1.0
+            },
+            {
+              "id": "flips",
+              "label": "Decisive top-1 flips",
+              "unit": "positions",
+              "value": 0
+            },
+            {
+              "id": "target-mae",
+              "label": "Target logprob MAE",
+              "unit": "nat",
+              "value": 0.06332800447939192
+            },
+            {
+              "id": "target-p99",
+              "label": "Target logprob P99",
+              "unit": "nat",
+              "value": 0.4834863281249999
+            },
+            {
+              "id": "target-nll-rel",
+              "label": "Target NLL relative difference",
+              "unit": "fraction",
+              "value": 0.0004527090318677668
+            },
+            {
+              "id": "js-mean",
+              "label": "Tail-merged JS mean",
+              "unit": "nat",
+              "value": 9.53215953561876e-10
+            }
+          ],
+          "coverage": [
+            {
+              "label": "Paired final-prefill positions",
+              "unit": "positions",
+              "observed": 100,
+              "expected": 100
+            },
+            {
+              "label": "Paired alternative target logprobs",
+              "unit": "targets",
+              "observed": 200,
+              "expected": 200
+            }
+          ]
+        }
+      ],
+      "archive": null,
+      "evidence": [
+        {
+          "url": "evidence/submissions/gemma4-bf16-910c-b200-20261124.json",
+          "label": "Anonymized acceptance and operator measurements"
+        }
+      ]
     }
   ]
 }
