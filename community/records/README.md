@@ -27,6 +27,7 @@ directly and do not depend on a browser or a running site.
 | Framework under test | Evaluation side `frameworks`, repair `affected_library`, or `data/frameworks.json` for historical observations |
 | Measurements, coverage, run status, acceptance | Original evaluation or repair verification |
 | Cases, issues, solutions and their relationships | `data/relations.json` |
+| Upstream PR/MR contributions and append-only status events | `data/upstream.json` |
 | Public titles, summaries and affected workflows | Record `content`, or `data/content.json` for historical records |
 | Reproduction, implementation details and evidence | Referenced source records and evidence files |
 | Search projection | Generated `data/search-index.json` |

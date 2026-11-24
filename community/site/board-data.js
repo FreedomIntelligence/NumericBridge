@@ -254,7 +254,55 @@
     return compare;
   }
 
-  function deriveBoard(data, repairs, relations) {
+  function deriveUpstream(upstream) {
+    var doc = upstream && typeof upstream === "object" ? upstream : {};
+    var items = Array.isArray(doc.contributions) ? doc.contributions : [];
+    var events = Array.isArray(doc.events) ? doc.events : [];
+    var byId = new Map();
+    events.forEach(function (ev) {
+      if (!byId.has(ev.contribution_id)) byId.set(ev.contribution_id, []);
+      byId.get(ev.contribution_id).push(ev);
+    });
+    var contributions = items.map(function (item) {
+      var evs = (byId.get(item.id) || []).slice().sort(function (a, b) {
+        return String(a.date || "").localeCompare(String(b.date || ""));
+      });
+      var latest = evs[evs.length - 1] || null;
+      var find = function (st) { return evs.find(function (e) { return e.status === st; }) || null; };
+      var sub = find("submitted"), mrg = find("merged"), rel = find("released"), cls = find("closed");
+      var rawStatus = latest ? latest.status : "submitted";
+      var state = (rawStatus === "merged" || rawStatus === "released") ? "merged" : (rawStatus === "closed" ? "closed" : "review");
+      return Object.assign({}, item, {
+        events: evs,
+        status: rawStatus,
+        state: state,
+        submitted_at: sub ? sub.date : null,
+        merged_at: mrg ? mrg.date : null,
+        released_at: rel ? rel.date : null,
+        closed_at: cls ? cls.date : null,
+        observed_at: latest ? latest.observed_at : null,
+        merge_commit: (mrg && mrg.commit) || (rel && rel.commit) || null,
+        release_tag: (rel && rel.release) || (mrg && mrg.release) || null,
+      });
+    });
+    var projects = [];
+    contributions.forEach(function (c) {
+      if (c.project && projects.indexOf(c.project) < 0) projects.push(c.project);
+    });
+    return {
+      updated_at: doc.updated_at || "",
+      contributions: contributions,
+      counts: {
+        total: contributions.length,
+        merged: contributions.filter(function (c) { return c.state === "merged"; }).length,
+        review: contributions.filter(function (c) { return c.state === "review"; }).length,
+        closed: contributions.filter(function (c) { return c.state === "closed"; }).length,
+      },
+      projects: projects,
+    };
+  }
+
+  function deriveBoard(data, repairs, relations, upstream) {
     var evaluations = data.evaluations || [];
     var rows = [], unclassified = {};
     var bump = function (k) { unclassified[k] = (unclassified[k] || 0) + 1; };
@@ -429,6 +477,7 @@
       issues: entities.filter(function (e) { return e.kind === "issue"; }).length,
       confirmed_defects: entities.filter(function (e) { return e.kind === "issue" && e.details?.classification === "confirmed-defect"; }).length,
     } : null;
+    var upstreamBoard = deriveUpstream(upstream);
     var summary = {
       updated_at: data.updated_at || "",
       compare: compare, compare_repairs: compareRepairs(repairs, relations),
@@ -446,8 +495,9 @@
       cross_platform: rows.filter(function (r) { return r.axis_key === "platform"; }).length,
       hero: hero,
       community: community,
+      upstream: upstreamBoard.counts,
     };
-    return { summary: summary, rows: rows, repairs: repairs };
+    return { summary: summary, rows: rows, repairs: repairs, upstream: upstreamBoard };
   }
 
   function buildBoard(base) {
@@ -458,9 +508,16 @@
         return r.json();
       });
     };
-    return Promise.all([get("evaluations.json"), get("repairs.json"), get("content.json"), get("relations.json")])
+    var getOptional = function (name) {
+      return fetch(base + name).then(function (r) {
+        if (r.status === 404) return null;
+        if (!r.ok) throw new Error(name + ": HTTP " + r.status);
+        return r.json();
+      });
+    };
+    return Promise.all([get("evaluations.json"), get("repairs.json"), get("content.json"), get("relations.json"), getOptional("upstream.json")])
       .then(function (documents) {
-        var board=deriveBoard(documents[0], documents[1], documents[3]);
+        var board=deriveBoard(documents[0], documents[1], documents[3], documents[4]);
         board.content=Object.fromEntries(documents[2].records.map(function (entry) {
           return [entry.kind+":"+entry.id,entry.content];
         }));

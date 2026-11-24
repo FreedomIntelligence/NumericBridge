@@ -13,6 +13,8 @@ python3 -m http.server 8000 --directory community/site
 | `index.html` | Comparison board, platform views and repair results |
 | `index.html#/cases` | Target selection, library combinations, issues and solutions |
 | `index.html#/report/<case-id>` | Measured report for one comparison or verification linked from the case library |
+| `index.html#/compare` | Hardware platform comparison across measured targets |
+| `index.html#/upstream` | Upstream PR/MR contributions with status timelines and Side Peek verification details |
 | `index.html#/list` | Historical measurement list and existing record links |
 | `archive.html` | Evaluation, repair and measurement archives |
 | `rsi.html` | RSI iteration summaries |
@@ -24,7 +26,8 @@ the filters; links with a target or a case open that selection directly.
 
 `data/evaluations.json` and `data/repairs.json` own experiment configurations and
 measurements. `data/relations.json` connects cases, issues, solutions and
-verifications. Public titles and summaries live in record `content` or
+verifications. `data/upstream.json` tracks PRs/MRs submitted upstream with
+append-only status events. Public titles and summaries live in record `content` or
 `data/content.json`. The board, case library, archive and Agent retrieval consume
 these descriptions. See the [record model](../records/README.md).
 

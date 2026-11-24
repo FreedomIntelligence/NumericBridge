@@ -28,6 +28,7 @@ COLLECTIONS = {
     'community/site/data/repairs.json': ('repairs', 'library_groups'),
     'community/site/data/relations.json': ('entities', 'links'),
     'community/site/data/differences.json': ('records', 'models', 'sources'),
+    'community/site/data/upstream.json': ('events',),
 }
 EVIDENCE = 'community/site/evidence/'
 LEGACY_SITE = 'site/'
