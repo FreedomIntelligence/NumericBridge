@@ -10,6 +10,7 @@ StateDirectory=numericbridge
 StateDirectoryMode=0700
 LoadCredential=upload-token:/etc/numericbridge/upload-token
 Environment=GIT_TERMINAL_PROMPT=0
+Environment=NUMERICBRIDGE_CATALOG_SITE=/var/lib/numericbridge-catalog/current/site
 ExecStart=/opt/numericbridge/.venv/bin/python -B -m community.intake --inbox /var/lib/numericbridge/inbox --token-file %d/upload-token --port 8770
 Restart=on-failure
 RestartSec=5s

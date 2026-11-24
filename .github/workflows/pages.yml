@@ -1,8 +1,8 @@
-name: Publish precision history
+name: Publish legacy website redirects
 on:
   push:
     branches: [main]
-    paths: ['community/**', '.github/workflows/pages.yml', 'scripts/**']
+    paths: ['community/site/**', '.github/workflows/pages.yml', 'scripts/site_bundle.py']
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,22 +17,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: '3.12'
-      - run: python -B -m community.records validate
-      - name: Keep published history append-only
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: python -B -m scripts validate-immutability --ci
-      - name: Assemble the pinned website frontend and canonical public data
-        run: python -B -m scripts.site_bundle --output "$RUNNER_TEMP/numericbridge-site"
-      - name: Advertise the community submission endpoint
-        env:
-          NUMERICBRIDGE_INTAKE_URL: ${{ vars.NUMERICBRIDGE_INTAKE_URL }}
-        run: python -B -m community.service_manifest --output "$RUNNER_TEMP/numericbridge-site/data/community-service.json"
+      - name: Require a catalog-free source checkout
+        run: |
+          expected=$(printf '%s\n' community/site/README.md community/site/frontend-revision.txt)
+          actual=$(git ls-files -- community/site/)
+          if [ "$actual" != "$expected" ]; then
+            echo 'Only site documentation and the frontend pin belong in the source checkout:'
+            printf '%s\n' "$actual"
+            exit 1
+          fi
+      - name: Build and verify the legacy redirect artifact
+        run: |
+          site="$RUNNER_TEMP/numericbridge-site"
+          python -B -m scripts.site_bundle --legacy-pages --output "$site"
+          expected=$(printf '%s\n' 404.html archive.html index.html paper.html rsi.html)
+          test "$(LC_ALL=C ls -1A "$site")" = "$expected"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

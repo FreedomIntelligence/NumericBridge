@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/images/numericbridge-logo.svg" width="88" height="88" alt="NumericBridge logo">
-</p>
-
 <h1 align="center">NumericBridge</h1>
 
 <p align="center">
@@ -17,33 +13,28 @@
 
 <p align="center"><a href="#框架概览">框架概览</a> · <a href="#快速开始">快速开始</a> · <a href="#典型案例">典型案例</a> · <a href="#评测与修复历史">评测与修复历史</a></p>
 
-NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL）中的数值差异。确认配置后先查社区案例，再在自己的环境中运行检查。修复用原负载复验，结果可选择分享给社区。
+NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL）中的数值差异。确认配置后，可选择查阅社区案例，再在自己的环境中运行检查。修复用原负载复验，结果可选择分享给社区。
 
 ## 框架概览
 
-![NumericBridge 工作流：社区检索、原生准备、对比、诊断、修复、复验与交付](docs/images/numericbridge-overview.svg)
-
-*图中的 Ascend 910C / Qwen3.8-27B / verl 配置仅为示例；实测结果与已验证覆盖范围见[典型案例](#典型案例)。*
+工作流在原生环境准备、精度对比、问题诊断和原任务复验之间复用已确认的配置与证据。
 
 ## 快速开始
 
-**无需克隆即可安装。** 在 [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases) 中选择一个 `skills-vMAJOR.MINOR.PATCH` 版本，将其附件中的 `numericbridge-skills-*.zip` 和对应的 `.zip.sha256` 校验文件下载到同一目录。不要下载 GitHub 自动生成的 “Source code” 压缩包。把下方的示例版本换成你下载的版本：
+**无需克隆即可安装。** 在 [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/skills-v0.1.1) 中选择一个 `skills-vMAJOR.MINOR.PATCH` 版本，将其附件中的 `numericbridge-skills-*.zip` 和对应的 `.zip.sha256` 校验文件下载到同一目录。不要下载 GitHub 自动生成的 “Source code” 压缩包。把下方的示例版本换成你下载的版本：
 
 ```sh
-version=v1.2.3
+version=v0.1.1
 archive="numericbridge-skills-$version.zip"
 skills="numericbridge-skills-$version"
 shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载五个 Skill，或将五个 Skill 文件夹一起复制到客户端的 Skill 目录。压缩包自带共享工具和社区案例库的离线快照。[更新与从仓库安装](tools/README.md#portable-skills)
+在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载五个 Skill，或将五个 Skill 文件夹一起复制到客户端的 Skill 目录。新版 Skills ZIP 包含共享工具，但不附带社区记录或检索索引；旧版可能包含快照。[更新与从仓库安装](tools/README.md#portable-skills)
 
-**离线查一个案例。** 在下载目录中运行下面的命令，从随包附带的快照查询 PEFT 案例。根据自己的负载替换硬件、模型、库和任务。
+**需要源码时**，用 `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` 获取干净的当前版本；完整 Git 历史仍保留以前公开发布过的记录。
 
-```sh
-python -B "$skills/precision-compare/scripts/community_search.py" \
-  --hardware H20Z --model Qwen3.5-9B-Base --library peft --task inference --limit 1
-```
+**社区检索是可选步骤。** 可以浏览[社区案例库](https://freedomintelligence.github.io/NumericBridge/index.html#/cases)，或让 Agent 连接[托管的检索 MCP](community/README.md#mcp-search)。如果另有检索快照，可以[显式传给检索工具](tools/README.md#optional-community-lookup)。离线时可以跳过社区检索；安装和本地工作流都不会自行下载快照。
 
 **跑一次梯度比较。** 安装 PyTorch 和 NumPy 后，运行下面的 CPU 示例。它使用相同的分类器、初始权重和同一批输入，分别用 FP32 和 BF16 做反向传播。输出会列出梯度差异，并给出两份采集结果及 `report.json` 的保存路径。
 
@@ -61,14 +52,7 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 
 ## 典型案例
 
-| 工作负载 | 实测发现 | 证据 |
-| --- | --- | --- |
-| Qwen3.5-9B-Base · LoRA | 在第一个训练步，GPU 与 NPU 的梯度余弦相似度约为 0.9976，实际权重更新的余弦相似度约为 0.9775。 | [训练测量报告](reports/qwen35-precision-report.md) |
-| Qwen3.8-Flash-Next · 推理 | GPU 使用自动分配，NPU 使用 TP8。完整前向的 264 个抽样位置中，有 254 个位置的首选 token 相同。在后续固定历史的 32 个位置中，仅 2 个相同。输入覆盖 32K。NPU 上的原生 vLLM 和 SGLang 在评分前初始化失败。 | [推理报告](reports/qwen38-precision-report.md) |
-| DeepSeek-V4.1-Flash-1017 · GPU/NPU 比较 | 原始配置配对了 275 项张量观测中的 191 项，以及全部 3,168 个目标评分。后续单独适配的配置配对了全部 275 项张量观测。 | [原始比较](reports/deepseek41-precision-report.md) · [后续报告](reports/deepseek41-services-final-20261109/report.md) |
-| PEFT 0.17.1 · LoRA 适配器合并 | SVD 合并时重复应用了适配器的缩放因子。回移植上游修复后，24 个小型 CPU 负载全部通过，验证覆盖前向、输入梯度和检查点。 | [修复记录](community/site/evidence/peft-lora-svd-scaling.md) · [补丁](community/site/evidence/peft-lora-svd-scaling.patch) |
-
-前三项模型比较均报告所测配置下的数值，未设定精度验收阈值。[浏览全部报告](reports/README.md)
+实测案例见[社区案例库](https://numericbridge.com/#/cases)及[结果与证据](https://numericbridge.com/paper.html)。公开记录和证据由官网独立提供，不随工作流检出或当前 Skills 发行包分发。
 
 ## 评测与修复历史
 
@@ -88,11 +72,8 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 ```sh
 python -m pip install -r requirements-dev.txt
 python -B -m scripts validate
-python -B -m community.records validate
 ```
 
 ## 支持单位
-
-![中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司和深圳市大数据研究院](docs/images/numericbridge-community.png)
 
 [中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/) · [深圳市大数据研究院](https://www.sribd.cn/)

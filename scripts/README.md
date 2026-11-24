@@ -9,17 +9,16 @@ do not import or run the RSI engine.
 ```sh
 python -B -m scripts --help
 python -B -m scripts validate
-python -B -m scripts validate-immutability --base origin/main
 python -B -m scripts plan-history --help
 python -B -m scripts export-statistics --help
-python -B -m scripts export-search --refresh
-python -B -m scripts export-search --check
+python -B -m scripts export-search --refresh --site "$SITE"
+python -B -m scripts export-search --check --site "$SITE"
 python -B -m scripts install --output /tmp/exported-skills
 python -B -m scripts smoke-install
 ```
 
 `validate` checks skill metadata and tracked Markdown links. The community package
-owns catalog validation: `python -B -m community.records validate`.
+owns catalog validation: `python -B -m community.records validate --site "$SITE"`.
 `export-search` builds the compact, source-bound metadata used by browser and
 standalone Skill retrieval. It is local and deterministic; `--check` rejects a
 missing, stale or edited snapshot. Refresh it after reviewed catalog changes.
@@ -78,7 +77,7 @@ Run from the repository root. Replace the old script prefix and retain its flags
 | `smoke_install.py` | `python -B -m scripts smoke-install` |
 
 Install maintenance dependencies with `python -m pip install -r requirements-dev.txt`.
-Final reports live in [reports/](../reports/README.md); GitHub platform configuration
+Final reports live in the [server catalog](../docs/community-storage.md); GitHub platform configuration
 alone belongs in `.github/`. Historical source-path strings inside immutable
 published evidence remain unchanged and describe the original capture.
 

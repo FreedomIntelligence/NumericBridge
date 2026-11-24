@@ -15,12 +15,10 @@ import sys
 import tempfile
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from .install import INSTALLABLE_SKILLS, ROOT, install_skills
+from .install import INSTALLABLE_SKILLS, ROOT, check_workflow_file, install_skills
 from .validate import validate_links, validate_skills
 
 COMPARE = Path('precision-compare')
-SNAPSHOT = COMPARE / 'scripts/data/community-search.json'
-SNAPSHOT_SOURCE = ROOT / 'community/site/data/search-index.json'
 VERSION = r'v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
 
 
@@ -28,8 +26,7 @@ def release_inventory():
     """Map the export layout to its tracked inputs; do not publish local files."""
     folders = [f'skills/{name}' for name in INSTALLABLE_SKILLS]
     listed = subprocess.check_output(
-        ['git', 'ls-files', '--stage', '-z', '--', *folders, 'tools', 'LICENSE',
-         SNAPSHOT_SOURCE.relative_to(ROOT).as_posix()], cwd=ROOT)
+        ['git', 'ls-files', '--stage', '-z', '--', *folders, 'tools', 'LICENSE'], cwd=ROOT)
     inventory = {}
     for entry in os.fsdecode(listed).split('\0'):
         if not entry:
@@ -47,15 +44,15 @@ def release_inventory():
         elif relative.parts[0] == 'skills':
             member = Path(*relative.parts[1:])
         else:
-            member = SNAPSHOT if source == SNAPSHOT_SOURCE else relative
+            member = relative
         if (stage != '0' or mode not in ('100644', '100755') or not source.is_file()
                 or source.resolve() != source):
             raise ValueError(f'Release input must be a tracked regular file: {name}')
         if member in inventory:
             raise ValueError(f'Duplicate release member: {member}')
         inventory[member] = (source, int(mode, 8))
-    if SNAPSHOT not in inventory or Path('LICENSE') not in inventory:
-        raise ValueError('The offline snapshot and license must be tracked')
+    if Path('LICENSE') not in inventory:
+        raise ValueError('The license must be tracked')
     return inventory
 
 
@@ -82,6 +79,9 @@ def smoke_zip(archive, root):
     installed = root / 'skills'
     with ZipFile(archive) as zipped:
         zipped.extractall(installed)
+    for path in installed.rglob('*'):
+        if path.is_file():
+            check_workflow_file(path)
     folders = validate_skills(root)
     if {folder.name for folder in folders} != set(INSTALLABLE_SKILLS):
         raise ValueError('ZIP does not contain the full skill suite')
@@ -98,11 +98,6 @@ def smoke_zip(archive, root):
             cwd=work, stdout=subprocess.PIPE, check=True, text=True, timeout=120)
         return json.loads(completed.stdout)
 
-    lookup = run('scripts/community_search.py', '--hardware', 'H20Z', '--model',
-                 'Qwen3.5-9B-Base', '--library', 'peft', '--task', 'inference', '--limit', '1')
-    if (Path(lookup['retrieval']['source']) != installed / SNAPSHOT or
-            not lookup['matches']):
-        raise ValueError('Extracted offline search did not return the bundled PEFT case')
     gradients = run('examples/compare_gradients.py', '--output-root', str(work))
     artifacts = Path(gradients['artifacts']).resolve()
     if artifacts.parent != work.resolve():
@@ -110,7 +105,7 @@ def smoke_zip(archive, root):
     report = json.loads((artifacts / 'report.json').read_text(encoding='utf-8'))
     if report['status'] != 'completed' or report['coverage']['compared_elements'] != 12:
         raise ValueError('Extracted CPU gradient comparison did not complete all 12 values')
-    print(f'Clean ZIP installation: {len(folders)} skills; links and offline search valid; '
+    print(f'Clean ZIP installation: {len(folders)} skills; links valid; no bundled community data; '
           'CPU FP32/BF16 gradient comparison covered 12 values.')
 
 

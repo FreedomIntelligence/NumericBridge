@@ -1,17 +1,41 @@
 """Export standalone skills, bundling the canonical execution package once.
 
 python -m scripts.install --output /path/to/client/skills
-Existing destinations are rejected. No model runtime or device is used.
+Existing skill folders are rejected. No community records, model runtime or device are used.
 """
 import argparse
-import hashlib
+import json
 from pathlib import Path
 import shutil
 
-from tools.community_search import load_index
-
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLABLE_SKILLS = ('framework-adapt', 'numericbridge', 'operator-optimize', 'precision-compare', 'precision-repair')
+COMMUNITY_DATA_NAMES = {'community-search.json', 'search-index.json', 'evaluations.json',
+                        'repairs.json', 'relations.json'}
+
+
+def check_workflow_file(path):
+    """Reject catalog files and renamed catalog JSON, not numerical fixtures or search code."""
+    path = Path(path)
+    if path.name.lower() in COMMUNITY_DATA_NAMES:
+        raise ValueError(f'Community record data cannot be bundled: {path}')
+    if path.suffix.lower() != '.json':
+        return
+    try:
+        data = json.loads(path.read_bytes())
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return
+    if isinstance(data, dict) and (
+            data.get('kind') == 'numericbridge-search-index' or
+            ('schema_version' in data and
+             (any(isinstance(data.get(key), list) for key in ('evaluations', 'repairs')) or
+              all(isinstance(data.get(key), list) for key in ('entities', 'links'))))):
+        raise ValueError(f'Community record data cannot be bundled: {path}')
+
+
+def _copy_workflow_file(source, destination):
+    check_workflow_file(source)
+    return shutil.copy2(source, destination)
 
 
 def installable_folders(source):
@@ -26,26 +50,18 @@ def install_skills(source, destination):
     folders = installable_folders(source)
     if not folders:
         raise ValueError(f'{source}: no installable skills')
-    snapshot = ROOT / 'community/site/data/search-index.json'
-    if any(folder.name == 'precision-compare' for folder in folders):
-        metadata, _ = load_index(snapshot)
-        for source_pin in metadata['sources']:
-            source_path = ROOT / 'community/site' / source_pin['file']
-            if hashlib.sha256(source_path.read_bytes()).hexdigest() != source_pin['sha256']:
-                raise ValueError('Stale search snapshot; run python -B -m scripts export-search --refresh')
     for folder in folders:
         if (destination / folder.name).exists():
             raise FileExistsError(destination / folder.name)
     for folder in folders:
         shutil.copytree(folder, destination / folder.name,
-                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'),
+                        copy_function=_copy_workflow_file)
         if folder.name == 'precision-compare':
             shutil.copytree(ROOT / 'tools',
                             destination / folder.name / 'scripts/tools',
-                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.md'))
-            target = destination / folder.name / 'scripts/data/community-search.json'
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(snapshot, target)
+                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.md'),
+                            copy_function=_copy_workflow_file)
 
 
 def main():

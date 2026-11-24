@@ -74,30 +74,34 @@ and the listed autonomous decisions within its grant.
 
 ## Route community results
 
-Use the public search MCP at `https://numericbridge.com/mcp` (Streamable HTTP,
-no credential or SSH tunnel required). The bundled CLI is the fallback if MCP is
-unavailable.
+Community lookup is optional. Use the configured public search MCP at
+`https://numericbridge.com/mcp` (Streamable HTTP; no credential required), or
+query an explicitly provided snapshot with the bundled CLI. No records or index
+are bundled, and the workflow does not fetch an index automatically.
 
 ```xml
 <entry>The target and task are confirmed.</entry>
 
 <action>
-  Search the NumericBridge community: call search_community with hardware,
-  model, library and task (inference, sft or rl); add version only when pinned and model_size when needed. If MCP is
-  unavailable, run the same query with the bundled CLI.
+  If community lookup is available, call search_community with hardware,
+  model, library and task (inference, sft or rl); add version only when pinned
+  and model_size when needed. If MCP is unavailable, use the bundled CLI only
+  with a supplied index. Otherwise record lookup as unavailable and continue.
 </action>
 
 <output>
-  Save the search result with its status, source and index identity; distinguish
-  no match from unavailable lookup. Matching issues and solutions become the first
-  candidates when triage receives the result (--community).
+  When a lookup succeeds, save its status, source and index identity. A
+  successful empty lookup is not the same as unavailable lookup. Matching
+  issues and solutions become the first candidates when triage receives the
+  result (--community); omit that input when lookup was unavailable.
 </output>
 
 <next>Prepare the environment with or without a match; keep pinned versions.</next>
 ```
 
 Bundled CLI: [community_search.py](../../precision-compare/scripts/community_search.py)
-(`--model-size` for `model_size`).
+(required `--index`: local snapshot or explicitly selected HTTPS URL; optional
+`--sha256`: expected digest; `--model-size` for `model_size`).
 
 ## Prepare and compare
 

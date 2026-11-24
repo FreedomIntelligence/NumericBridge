@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/images/numericbridge-logo.svg" width="88" height="88" alt="NumericBridge logo">
-</p>
-
 <h1 align="center">NumericBridge</h1>
 
 <p align="center">
@@ -17,33 +13,28 @@
 
 <p align="center"><a href="#framework-overview">Overview</a> · <a href="#getting-started">Getting started</a> · <a href="#typical-cases">Typical cases</a> · <a href="#evaluation-and-repair-history">Results and repair history</a></p>
 
-NumericBridge helps compare, diagnose and repair numerical differences across inference, training and RL stacks. Confirm the setup, look up community cases, then run the checks in your environment. Verify fixes on the original workload and share results with the community if you choose.
+NumericBridge helps compare, diagnose and repair numerical differences across inference, training and RL stacks. Confirm the setup, optionally look up community cases, then run the checks in your environment. Verify fixes on the original workload and share results with the community if you choose.
 
 ## Framework overview
 
-![NumericBridge workflow: community lookup, native setup, comparison, diagnosis, repair, verification and delivery](docs/images/numericbridge-overview.svg)
-
-*The Ascend 910C / Qwen3.8-27B / verl configuration in the figure is an example. See [Typical cases](#typical-cases) for measured results and verified coverage.*
+The workflow reuses the confirmed setup and evidence across native preparation, precision comparison, diagnosis, and original-workload verification.
 
 ## Getting started
 
-**Install without cloning.** On [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases), choose a `skills-vMAJOR.MINOR.PATCH` release and download the `numericbridge-skills-*.zip` asset and its matching `.zip.sha256` file into the same directory. Do not use GitHub's “Source code” archives. Replace the example version with the one you downloaded:
+**Install without cloning.** On [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/skills-v0.1.1), choose a `skills-vMAJOR.MINOR.PATCH` release and download the `numericbridge-skills-*.zip` asset and its matching `.zip.sha256` file into the same directory. Do not use GitHub's “Source code” archives. Replace the example version with the one you downloaded:
 
 ```sh
-version=v1.2.3
+version=v0.1.1
 archive="numericbridge-skills-$version.zip"
 skills="numericbridge-skills-$version"
 shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the five skills, or copy the five skill folders together into its skills directory. The bundle includes the shared tools and an offline snapshot of the community case library. [Updates and checkout-based installation](tools/README.md#portable-skills)
+On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the five skills, or copy the five skill folders together into its skills directory. New Skills ZIP builds include the shared tools, but no community records or search index; older releases may include a snapshot. [Updates and checkout-based installation](tools/README.md#portable-skills)
 
-**Look up a case offline.** From the download directory, query the bundled snapshot for a PEFT case. Replace the hardware, model, library and task with your workload's details.
+**Develop from source.** Use `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` for a clean current checkout without the historical catalog objects. Full Git history still contains independently published older revisions.
 
-```sh
-python -B "$skills/precision-compare/scripts/community_search.py" \
-  --hardware H20Z --model Qwen3.5-9B-Base --library peft --task inference --limit 1
-```
+**Community lookup is optional.** Use the [case library](https://freedomintelligence.github.io/NumericBridge/index.html#/cases) or connect your agent to the [managed search MCP](community/README.md#mcp-search). If you have a separate snapshot, [pass it explicitly to the search tool](tools/README.md#optional-community-lookup). You can continue offline without community context; installation and the local workflow do not fetch a snapshot.
 
 **Run a first comparison.** With PyTorch and NumPy installed, run this CPU example. It uses the same classifier, weights and batch for two backward passes, one in FP32 and one in BF16. The output gives the gradient differences and the path to both captures and `report.json`.
 
@@ -61,14 +52,7 @@ Task recipes: [Inference](skills/precision-compare/references/inference.md) · [
 
 ## Typical cases
 
-| Workload | What the measurements showed | Evidence |
-| --- | --- | --- |
-| Qwen3.5-9B-Base · LoRA | On the first training step, cosine similarity across GPU and NPU was about 0.9976 for gradients and 0.9775 for stored weight updates. | [Training measurements](reports/qwen35-precision-report.md) |
-| Qwen3.8-Flash-Next · inference | With automatic placement on GPU and TP8 on NPU, the top token matched in 254 of 264 sampled full-forward rows and 2 of 32 later fixed-history rows. The runs included 32K inputs. Native NPU vLLM and SGLang failed during initialization, before scoring. | [Inference report](reports/qwen38-precision-report.md) |
-| DeepSeek-V4.1-Flash-1017 · GPU/NPU comparison | The original comparison paired 191 of 275 tensor observations and all 3,168 target scores. A later, separately adapted configuration paired 275 of 275 observations. | [Original comparison](reports/deepseek41-precision-report.md) · [Follow-up report](reports/deepseek41-services-final-20261109/report.md) |
-| PEFT 0.17.1 · LoRA adapter merging | SVD combination applied the adapter scale twice. After backporting the upstream fix, all 24 small CPU workloads passed, including forward, input-gradient and checkpoint checks. | [Repair record](community/site/evidence/peft-lora-svd-scaling.md) · [Patch](community/site/evidence/peft-lora-svd-scaling.patch) |
-
-The three model comparisons report measurements for the configurations tested. Numerical acceptance thresholds were unspecified. [Browse all reports](reports/README.md)
+Browse the [public case library](https://numericbridge.com/#/cases) and [measured reports](https://numericbridge.com/paper.html). Published records and evidence are served separately; the workflow checkout and the current Skills release do not contain them.
 
 ## Evaluation and repair history
 
@@ -88,11 +72,8 @@ Before submitting, run the repository and record checks from the repository root
 ```sh
 python -m pip install -r requirements-dev.txt
 python -B -m scripts validate
-python -B -m community.records validate
 ```
 
 ## Supported by
-
-![Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel and Shenzhen Research Institute of Big Data](docs/images/numericbridge-community.png)
 
 [Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/) · [Shenzhen Research Institute of Big Data](https://www.sribd.cn/en)

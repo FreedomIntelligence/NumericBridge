@@ -1,21 +1,24 @@
 # NumericBridge community
 
-This directory owns the public records and community services. The static
-frontend is developed separately in [NumericBridge Site](https://github.com/FreedomIntelligence/NumericBridge-site).
+The workflow repository holds community service code and schemas, not records.
+The [server catalog](../docs/community-storage.md) owns approved records, evidence
+and report archives. [NumericBridge Site](https://github.com/FreedomIntelligence/NumericBridge-site)
+contains only public frontend code; the private workbench reads catalog metadata.
 
 | Directory | Purpose |
 |---|---|
-| [site/](site/README.md) | Canonical public JSON records, selected evidence and frontend revision pin |
-| [records/](records/README.md) | Python validation, read-only search and explicit relations |
-| [mcp_search.py](mcp_search.py) | Optional MCP server for Agent access to community search |
+| [site/](site/README.md) | Frontend revision pin and production guide |
+| [records/](records/README.md) | Python validation, read-only search and relations |
+| [mcp_search.py](mcp_search.py) | Optional MCP community search server |
 | [mcp_submission.py](mcp_submission.py) | Local previews and confirmed uploads |
-| [intake.py](intake.py) | Private community inbox for received submissions |
+| [intake.py](intake.py) | Private inbox for received submissions |
 
 ```sh
-python -B -m community.records validate
-python -B -m community.records index --output /tmp/numericbridge-records.json
+SITE=/path/to/reviewed/catalog/site
+python -B -m community.records validate --site "$SITE"
+python -B -m community.records index --site "$SITE" --output /tmp/numericbridge-records.json
 work=$(mktemp -d)
-python -B -m scripts.site_bundle --output "$work/site"
+python -B -m scripts.site_bundle --data-site "$SITE" --output "$work/site"
 python -m http.server 8000 --bind 127.0.0.1 --directory "$work/site"
 ```
 
@@ -29,13 +32,13 @@ Install the optional server dependencies and start the endpoint from the reposit
 
 ```sh
 python -m pip install -r community/requirements-mcp.txt
-python -B -m community.mcp_search
+python -B -m community.mcp_search --index /path/to/search-index.json
 ```
 
 Connect an MCP client directly to `https://numericbridge.com/mcp` using
 Streamable HTTP. No upload token or SSH tunnel is needed for search. If you are
 running the server locally, use `http://127.0.0.1:8769/mcp` instead.
-For a client that starts its own process, use `python -B -m community.mcp_search --transport stdio`
+For a client that starts its own process, use `python -B -m community.mcp_search --transport stdio --index /path/to/search-index.json`
 from the repository root instead.
 
 The server exposes one tool, `search_community`. Its required arguments are
@@ -88,8 +91,9 @@ Use the [record format](records/README.md) and
 [writing guide](../skills/precision-compare/references/community-records.md).
 A draft accepts up to 1 MiB of records and minimum evidence. Evidence hashes
 use UTF-8 JSON, two-space indentation, unescaped Unicode and a final newline in
-the supplied key order. Preview validation uses local `origin/main`; the inbox
-also validates additions against the community catalog before storing them.
+the supplied key order. Preview validates against an explicitly supplied local
+catalog generation; the inbox revalidates independently against its current
+server-owned catalog before storing bytes.
 Changing the content or inbox destination requires a new preview and consent.
 
 Configure a stdio MCP server with the community's intake URL and an upload
@@ -100,7 +104,8 @@ endpoint is configured. The following uses the production intake URL:
 ```sh
 python -B -m community.mcp_submission \
   --intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token \
-  --search-index community/site/data/search-index.json
+  --catalog-site /path/to/reviewed/catalog/site \
+  --search-index /path/to/reviewed/catalog/site/data/search-index.json
 ```
 
 The contributor can choose anonymous (default), nickname, or GitHub
@@ -133,7 +138,7 @@ the NumericBridge checkout. Omit both options to prepare local drafts only. If
 MCP is unavailable, the equivalent preview command is:
 
 ```sh
-python -B -m community.records.submission --input submission.json --output preview.json
+python -B -m community.records.submission --catalog-site "$SITE" --input submission.json --output preview.json
 ```
 
 The input contains `title` and `additions`. The `additions` groups are
@@ -181,8 +186,8 @@ alongside the API, with persistent private storage for intake. For a Linux host:
    Verify the public MCP with `tools/list` and a known `search_community` query.
    Distribute the upload credential privately; only the endpoint URL belongs
    in the public descriptor. After publishing approved
-   records, update the host checkout to the deployed catalog revision and
-   restart `numericbridge-search` to load its new index.
+   records via the server catalog tool, restart `numericbridge-search`
+   to load its new index.
 
 For local testing, run `python -B -m community.intake --inbox PATH --token-file PATH`
 and use `http://127.0.0.1:8770/v1/submissions` as the MCP intake URL.
@@ -193,7 +198,7 @@ the deployed index returns its record ID.
 
 After accepting a named submission, run `python -B -m community.records.acknowledgments
 --receipt RECEIPT --case CASE_ID --zh DESCRIPTION --en DESCRIPTION` against the
-review checkout. Add the returned entry to `community/site/data/acknowledgments.json`
+authorized review input. Add the returned entry to the candidate's `data/acknowledgments.json`
 with the accepted case and use the same name and contribution in the community
 and related upstream PR bodies. An anonymous receipt returns `null`. Keep the
 receipt private. The maintainer opens PRs and handles any upstream follow-up.

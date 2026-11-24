@@ -1,8 +1,8 @@
 """Search a pinned community metadata index without model execution (stdlib).
-Call: python scripts/community_search.py --hardware H200 --model MODEL --library LIB
+Call: python scripts/community_search.py --index SNAPSHOT --hardware H200 --model MODEL --library LIB
 Input: --index local JSON / explicit HTTPS URL, optional --sha256; demand flags or --request JSON.
 Output: normalized demand, matching cases, issues, solutions and supported version combinations.
-Requires: Standard library. An exported skill includes a dated, offline metadata snapshot.
+Requires: Standard library. No index is bundled. Only an explicit URL triggers a fetch.
 
 Details:
 Library matches the tested framework or repair target. Dependencies remain in each stack.
@@ -273,7 +273,7 @@ def load_index(source, expected_sha256=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:')[0])
-    parser.add_argument('--index', help='metadata JSON file or explicit HTTPS URL')
+    parser.add_argument('--index', required=True, help='metadata JSON file or explicit HTTPS URL')
     parser.add_argument('--sha256', help='expected SHA-256 of the metadata index')
     parser.add_argument('--request', type=Path, help='request JSON; cannot be combined with demand flags')
     for field in (*FIELDS, 'query'):
@@ -291,14 +291,7 @@ def main():
             if request:
                 raise ValueError('--request cannot be combined with demand flags')
             request = _decode(args.request.read_bytes())
-        source = args.index
-        if source is None:
-            root = Path(__file__).resolve().parents[1]
-            source = next((p for p in (root / 'community/site/data/search-index.json',
-                                      root / 'data/community-search.json') if p.is_file()), None)
-            if source is None:
-                raise ValueError('Provide --index; no bundled metadata snapshot is available')
-        index, receipt = load_index(source, args.sha256)
+        index, receipt = load_index(args.index, args.sha256)
         result = search(index, request, limit=args.limit, offset=args.offset, related_limit=args.related_limit,
                         include_workflows=args.include_workflows, allow_alternatives=args.allow_alternatives)
         result['retrieval'] = receipt

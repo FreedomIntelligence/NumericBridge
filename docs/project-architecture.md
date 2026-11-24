@@ -14,11 +14,11 @@ Agent 从 [NumericBridge Skill](../skills/numericbridge/SKILL.md) 进入。[流�
 |---|---|
 | [skills/](../skills/numericbridge/SKILL.md) | NumericBridge 总入口、各阶段工作方法和专用工具（对比与验收在 precision-compare，诊断分诊、定位、交叉重放与诊断状态在 precision-repair） |
 | [tools/](../tools/README.md) | 实际共用的命令执行、依赖工作流、资源核验和证据工具 |
-| [community/](../community/README.md) | site/ 管理网页、公开数据与证据；records/ 管理校验与检索 |
+| [community/](../community/README.md) | site/ 保留前端版本；records/ 管理校验与检索，数据由[服务器目录](community-storage.md)发布 |
 | [scripts/](../scripts/README.md) | 安装、数据导出、仓库与发布校验等维护脚本 |
 | 本地 research/（Git 忽略） | 可选的 RSI 研究实验，代码与状态保留本地，不上传 GitHub |
 | 本地 tests/（Git 忽略） | 开发回归，仅供本地维护，不上传 GitHub |
-| docs/、reports/ | 现行使用指南、最终测评报告和科学图 |
+| docs/ | 现行使用指南；最终报告和证据由服务器存储 |
 | .github/ | GitHub 自动化配置 |
 | 本地私有 projects/、runs/ | 原生案例、资源配置、原始数组、完整日志与过程记录 |
 
@@ -48,7 +48,7 @@ Skill 脚本保留调用入口，共用工具只维护一份实现。
 组件结果不等于完整 RL、参数更新或长计算图通过。用户未给出验收标准时，使用版本化默认档 `nb-default-v1`（[验收说明](../skills/precision-compare/references/acceptance.md)）判定通过、有差距或不通过，并在交付中注明所用档位；历史记录保持原样。
 公开内容遵循[发布规则](publication.md)，原始结果和引用证据保持不可变。
 社区以案例关联评测、问题、多个方案和原任务复验；同一问题可对应本地补丁、配置策略或较新版本的修复途径。
-已整理全部 130 条评测、20 条修复历史和 7783 条测量视图，见[完整清单](../reports/community-record-inventory-20261117.md)。
+当前发布范围以[官网归档](https://numericbridge.com/archive.html)为准。
 其中 26 条 Skills/Agent 评测单列为工作流评测；测量视图不计为独立实验。
 [records 的检索接口](../community/records/README.md)支持按实际硬件、模型、库版本和任务筛选案例；网页的精度案例库（`#/cases`）展示问题、修复方案及各方案的复验结果。
 只有明确来源支持的关系才入库；源码检查、原任务复验、候选选择与数值验收分别表达。

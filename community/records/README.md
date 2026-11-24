@@ -4,11 +4,12 @@ This package validates and indexes community evaluations, issues, solutions and
 verification evidence. It runs locally over versioned JSON.
 
 ```sh
-python -B -m community.records validate
-python -B -m community.records search --hardware H200 --model Qwen3.5 --model-size 9B --library PEFT
-python -B -m community.records case --id case-qwen35-weighted-lora-bias
-python -B -m community.records verification --id verification-qwen35-weighted-lora-bias
-python -B -m community.records inventory
+SITE=/path/to/reviewed/catalog/site
+python -B -m community.records validate --site "$SITE"
+python -B -m community.records search --site "$SITE" --hardware H200 --model Qwen3.5 --model-size 9B --library PEFT
+python -B -m community.records case --site "$SITE" --id case-qwen35-weighted-lora-bias
+python -B -m community.records verification --site "$SITE" --id verification-qwen35-weighted-lora-bias
+python -B -m community.records inventory --site "$SITE"
 ```
 
 Commands accept `--site DIRECTORY`. Read commands accept `--output NEW_JSON`.
@@ -214,15 +215,14 @@ IDs, values and evidence when adding a follow-up. Update public wording through
 content metadata.
 
 ```sh
-python -B -m scripts export-search --refresh
-python -B -m community.records validate
-python -B -m scripts validate-immutability --base origin/main
+python -B -m scripts export-search --refresh --site "$SITE"
+python -B -m community.records validate --site "$SITE"
+# Then dry-run and promote with community.catalog_store as an authorized operator.
 ```
 
 See the [submission writing guide](../../skills/precision-compare/references/community-records.md)
 for Agent-authored summaries and the [publication policy](../../docs/publication.md)
-for repository scope. The [reviewed inventory](../../reports/community-record-inventory-20261117.md)
-and [association ledger](../site/evidence/community-record-associations-20261117.json)
-retain the historical mapping. The [H200 naming correction](../site/evidence/hardware-name-correction-H200-20261117.json)
-and [token-mean clarification](../site/evidence/token-mean-scope-clarification-20261117.md)
+for repository scope. The [association ledger](https://numericbridge.com/evidence/community-record-associations-20261117.json)
+retain the historical mapping. The [H200 naming correction](https://numericbridge.com/evidence/hardware-name-correction-H200-20261117.json)
+and [token-mean clarification](https://numericbridge.com/evidence/token-mean-scope-clarification-20261117.md)
 record the existing corrections.

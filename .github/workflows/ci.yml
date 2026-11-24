@@ -1,5 +1,8 @@
 name: Validate skill
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,25 +22,23 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -B -m scripts validate
-  history:
+  catalog-free-source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - run: python -B -m community.records validate
-      - name: Keep published history append-only
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          BEFORE: ${{ github.event.before }}
-        run: python -B -m scripts validate-immutability --ci
-      - name: Keep published files small
+      - name: Require a catalog-free source checkout
         run: |
-          large=$(find community/site -type f -size +50M)
-          if [ -n "$large" ]; then echo "Files over 50 MB belong in release or dataset storage:"; echo "$large"; exit 1; fi
+          expected=$(printf '%s\n' community/site/README.md community/site/frontend-revision.txt)
+          actual=$(git ls-files -- community/site/)
+          if [ "$actual" != "$expected" ]; then
+            echo 'Only site documentation and the frontend pin belong in the source checkout:'
+            printf '%s\n' "$actual"
+            exit 1
+          fi
+          test -z "$(git ls-files -- reports/ docs/images/ '*.html' '*.css' '*.js')" || {
+            echo 'Report archives and website assets belong outside the workflow checkout.'
+            exit 1
+          }
   clean-install:
     runs-on: ubuntu-latest
     steps:

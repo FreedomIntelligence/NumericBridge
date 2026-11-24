@@ -20,12 +20,6 @@ checkout, run `python -B -m tools.workflow --help` (or `record_run`). The Compar
 script paths are compatibility entrypoints for the same implementation; RSI
 imports this package directly.
 
-`community_search` is a read-only client for the pinned community index shared by
-Compare, Adapt and Repair. It returns matching records and version alternatives
-without starting a model; query the
-[community records interface](../community/records/README.md) by a returned ID
-for original metrics.
-
 ## Portable skills
 
 Use the [download and verification steps](../README.md#getting-started) to install
@@ -39,10 +33,27 @@ For an unreleased checkout, export from the repository root:
 python -B -m scripts install --output /path/to/fresh/skills
 ```
 
-Both methods bundle this package once inside Compare's `scripts/tools/`, with a
-pinned community search snapshot for offline retrieval. Once installed, the
-skills do not require a checkout, the RSI package or `PYTHONPATH`. To select a
-different reviewed snapshot, use the search tool's `--index` and `--sha256`.
+Checkout installs and new ZIP builds bundle this package once inside Compare's
+`scripts/tools/`, without community record data or a search index. Once installed, the skills do not
+require a checkout, the RSI package or `PYTHONPATH`. Installation and local
+workflow execution do not fetch the community index.
+
+### Optional community lookup
+
+Use the [managed search MCP](../community/README.md#mcp-search) if your client
+has it configured. For offline lookup with a separately obtained snapshot, pass
+its local path (and optionally its expected SHA-256 digest):
+
+```sh
+python -B /path/to/skills/precision-compare/scripts/community_search.py \
+  --index /path/to/search-index.json --sha256 "$snapshot_sha256" \
+  --hardware H20Z --model Qwen3.5-9B-Base --library peft --task inference --limit 1
+```
+
+From a checkout, use `python -B -m tools.community_search` with the same flags.
+An explicitly supplied HTTPS URL in `--index` fetches that index; without
+`--index` the CLI does not read or fetch anything. If neither the MCP nor a
+snapshot is available, continue without community context.
 
 ### Build a skills release
 

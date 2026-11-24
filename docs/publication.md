@@ -1,10 +1,11 @@
 # Public repository scope
 
-Publish reusable code, current guides and concise final results.
+The workflow repository contains reusable code, schemas and current guides.
 Developer regression suites remain local in the Git-ignored `tests/` directory.
-Current guides live in `docs/`, final reports and figures in `reports/`;
-community pages, public data and record tools are grouped under `community/`.
-`.github/` contains GitHub platform configuration only.
+The separate [site repository](https://github.com/FreedomIntelligence/NumericBridge-site)
+contains frontend code only. Approved records, evidence, reports and figures
+live in the [server-owned catalog](community-storage.md), not in the workflow,
+site, or private workbench repositories. `.github/` contains GitHub configuration.
 A result identifies hardware, model, software revisions, settings, measured scope,
 metrics, limitations and reproducibility or immutable evidence references.
 Completion and numerical acceptance have separate fields.
@@ -17,12 +18,12 @@ Community contributors send anonymized results to the
 [private intake](../community/README.md#mcp-contribution). Maintainers review
 the receipt, select records for publication and handle any upstream submission.
 
-## Keep public
+## Publish on the appropriate surface
 
 - Framework and skill code, minimum reproducers, patches and workflow validators.
 - Current architecture, usage and maintenance guides.
-- Final reports, configuration-scoped metrics, SVG figures and evidence hashes.
-- Published records and the evidence they reference, including relevant failures
+- Publish reviewed reports, scoped metrics, SVG figures, records and referenced
+  evidence from an approved server catalog generation. Include relevant failures
   and unresolved gaps. A later result does not rewrite a historical observation.
 
 ## Keep local

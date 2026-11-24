@@ -69,15 +69,27 @@ def main():
             cwd=cwd, env=env, capture_output=True, text=True, check=True, timeout=30).stdout
         if 'Details:' in cli_help or '--mode' not in cli_help:
             raise ValueError('installed tensor CLI help lost short declaration or mode flags')
-        retrieval = subprocess.run(
-            [sys.executable, '-I', '-B', str(installed / 'scripts/community_search.py'),
-             '--hardware', 'H20Z', '--model', 'Qwen3.5-9B-Base', '--library', 'peft', '--task', 'inference'],
-            cwd=cwd, env=env, capture_output=True, text=True, check=True, timeout=30)
+        search = [sys.executable, '-I', '-S', '-B', str(installed / 'scripts/community_search.py'),
+                  '--hardware', 'test accelerator', '--model', 'test model',
+                  '--library', 'test library', '--task', 'inference']
+        missing = subprocess.run(search, cwd=cwd, env=env, capture_output=True, text=True, timeout=30)
+        if missing.returncode != 2 or '--index' not in missing.stderr or missing.stdout:
+            raise ValueError('installed community search must require an explicit index')
+
+        # Exercise optional access without any tracked community records or network requests.
+        snapshot = cwd / 'empty-snapshot.json'
+        snapshot.write_text(json.dumps(dict(schema_version=1, kind='numericbridge-search-index',
+                                            policy_version=2, observation_date='2000-01-01',
+                                            sources=[dict(file=f'data/{name}.json', sha256='0' * 64)
+                                                     for name in ('evaluations', 'repairs', 'relations')],
+                                            aliases={}, hardware_rules=[], cases=[])), encoding='utf-8')
+        digest = sha256(snapshot.read_bytes()).hexdigest()
+        retrieval = subprocess.run(search + ['--index', str(snapshot), '--sha256', digest], cwd=cwd,
+                                   env=env, capture_output=True, text=True, check=True, timeout=30)
         lookup = json.loads(retrieval.stdout)
-        if (lookup['normalized_request']['hardware'] != 'NVIDIA H200' or
-                lookup['recommendation']['candidate_id'] != 'solution-qwen35-weighted-lora-bias-local' or
-                'community-search.json' not in lookup['retrieval']['source']):
-            raise ValueError('installed offline community retrieval lost configuration/evidence binding')
+        if (lookup['status'] != 'no-records' or lookup['matches'] or
+                lookup['retrieval']['source'] != str(snapshot) or lookup['retrieval']['index_sha256'] != digest):
+            raise ValueError('installed community search did not use the supplied snapshot')
         result = subprocess.run([sys.executable, '-I', '-B', str(installed / 'examples/compare_gradients.py'),
                                  '--output-root', str(cwd)], cwd=cwd, env=env, capture_output=True,
                                 text=True, check=True, timeout=120)
@@ -248,7 +260,7 @@ assert find(catalog,'environment',dict(framework='torch',device='cpu'))==[]
                         str(installed / 'scripts'), workflow['case']], cwd=cwd, env=env,
                        capture_output=True, text=True, check=True, timeout=30)
         print(f'Clean installation of {len(folders)} skills: links valid; '
-              'precision batch v1 reproduced; '
+              'explicit snapshot lookup verified; precision batch v1 reproduced; '
               'CPU FP32/BF16 captures validated; array/tree/manifest metrics agree for 12 gradient values; '
               'native repair workflow verified with zero-command replay.')
 

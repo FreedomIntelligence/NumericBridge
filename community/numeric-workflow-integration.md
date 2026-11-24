@@ -15,7 +15,7 @@ open an issue, create a PR, or contact upstream on the contributor's behalf.
 
 The client must support MCP form elicitation. Configure the upload credential
 outside the prompt, tool arguments, and logs. Append `--search-index
-community/site/data/search-index.json` to expose all three tools in one local
+/path/to/reviewed/catalog/site/data/search-index.json` to expose all three tools in one local
 MCP entry (or pass `consent_record` from `request.json` for pre-consented intake); use the remote search entry for the server-managed index. During
 private staging, an operator can tunnel to port 8788 on the server and replace
 the public origin with `http://127.0.0.1:<local-port>` in the client config.

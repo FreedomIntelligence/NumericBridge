@@ -130,9 +130,11 @@ def receipt_status(state, receipt_id):
 def pr_url(value):
     if value:
         parts = urlsplit(value)
-        if (parts.scheme != 'https' or parts.netloc != 'github.com' or parts.query or parts.fragment
-                or not re.fullmatch(r'/[\w.-]+/[\w.-]+/pull/[1-9][0-9]*', parts.path, re.ASCII)):
-            raise ValueError('Expected a GitHub pull request URL')
+        forge = {'github.com': 'pull', 'gitcode.com': 'merge_requests'}.get(parts.netloc)
+        if (parts.scheme != 'https' or not forge or parts.query or parts.fragment
+                or not re.fullmatch(fr'/[A-Za-z0-9.-]+/[A-Za-z0-9_.-]+/{forge}/[1-9][0-9]*', parts.path)
+                or {'.', '..'}.intersection(parts.path.split('/'))):
+            raise ValueError('Expected a GitHub or GitCode pull request URL')
     return value
 
 
@@ -145,6 +147,21 @@ def publication(case_id, site, index_path):
     if not any(row['id'] == case_id for row in index['cases']):
         raise ValueError('Case is absent from the deployed search index')
     return receipt['index_sha256']
+
+
+def server_publication(case_id, generation):
+    from .catalog_store import COMPONENT
+
+    catalog = Path('/var/lib/numericbridge-catalog')
+    pointer = catalog / 'current'
+    target = Path('releases') / generation
+    if not COMPONENT.fullmatch(generation) or not pointer.is_symlink() or pointer.readlink() != target:
+        raise ValueError('Expected the currently deployed server catalog generation')
+    site = catalog / target / 'site'
+    digest = publication(case_id, site, 'https://numericbridge.com/data/search-index.json')
+    if digest != sha256((site / 'data' / 'search-index.json').read_bytes()).hexdigest() or pointer.readlink() != target:
+        raise ValueError('Live search index or catalog generation changed; retry after verifying deployment')
+    return digest
 
 
 def decide(state, db, args):
@@ -166,15 +183,23 @@ def decide(state, db, args):
     community_pr = pr_url(args.community_pr or current['community_pr'])
     upstream_pr = pr_url(args.upstream_pr or current['upstream_pr'])
     index_sha = current['index_sha256'] if linking else None
+    generation = getattr(args, 'catalog_generation', None)
+    reason = args.reason.strip()
     if not linking and status == 'published':
-        if not (case_id and community_pr and args.site and args.index):
-            raise ValueError('Publication needs a case, community PR, published site snapshot and deployed index')
-        index_sha = publication(case_id, args.site, args.index)
-    elif args.site or args.index:
+        if generation:
+            if not case_id or args.site or args.index:
+                raise ValueError('Server publication needs a case and --catalog-generation instead of --site / --index')
+            index_sha = server_publication(case_id, generation)
+            reason += f' [catalog generation: {generation}]'
+        else:
+            if not (case_id and community_pr and args.site and args.index):
+                raise ValueError('Publication needs a case and --catalog-generation, or legacy Git publication evidence')
+            index_sha = publication(case_id, args.site, args.index)
+    elif args.site or args.index or generation:
         raise ValueError('Publication evidence is only used for the published transition')
     db.execute('''INSERT INTO events (receipt_id,state,reviewer,reason,at,case_id,
                   community_pr,upstream_pr,index_sha256) VALUES (?,?,?,?,?,?,?,?,?)''',
-               (args.receipt, status, args.reviewer.strip(), args.reason.strip(), now(),
+               (args.receipt, status, args.reviewer.strip(), reason, now(),
                 case_id, community_pr, upstream_pr, index_sha))
     return {'receipt_id': args.receipt, 'state': status,
             'attribution': draft_attribution(json.loads(raw)), 'index_sha256': index_sha}
@@ -235,6 +260,7 @@ def main():
     update.add_argument('--upstream-pr')
     update.add_argument('--site', type=Path)
     update.add_argument('--index', help='published index URL or locally verified snapshot')
+    update.add_argument('--catalog-generation', help='active server release; verify directly against the deployed index')
     normalize = commands.add_parser('normalize')
     normalize.add_argument('receipt', nargs='?')
     normalize.add_argument('--latest-pending', action='store_true', help='summarize active non-superseded pending_review receipts')
