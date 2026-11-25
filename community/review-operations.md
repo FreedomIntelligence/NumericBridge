@@ -23,6 +23,19 @@ are discovered from `inbox/` on the next CLI operation and start as
 `pending_review`. The original receipt is never modified. `show` includes
 private submission data and the event history; do not share its output publicly.
 
+Public intake cannot declare replacements. The review workbench flags matching
+case or evaluation IDs for investigation without merging or hiding the drafts.
+After verifying the same case and that the new receipt actually replaces the
+old one (not a separate run or independent follow-up), record the link:
+
+```sh
+sudo -u numericbridge .venv/bin/python -B -m community.review link-revision "$NEW_RECEIPT" "$OLD_RECEIPT" \
+  --reviewer "$REVIEWER" --reason 'Describe the evidence that this replaces the old version'
+```
+
+This stores a separate audited version link; the original bytes, review events
+and publication history are unchanged. A matching ID alone is not proof.
+
 After validating and promoting a [server catalog generation](../docs/community-storage.md),
 verify that the published case is visible. Record the generation below; the CLI
 checks the active catalog, the public index and the expected index digest. A GitHub

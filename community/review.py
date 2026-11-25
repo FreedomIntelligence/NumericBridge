@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS events (
     state TEXT NOT NULL, reviewer TEXT NOT NULL, reason TEXT NOT NULL,
     at TEXT NOT NULL, case_id TEXT, community_pr TEXT, upstream_pr TEXT, index_sha256 TEXT
 );
+CREATE TABLE IF NOT EXISTS revision_links (
+    new_receipt TEXT NOT NULL REFERENCES receipts(id),
+    old_receipt TEXT NOT NULL REFERENCES receipts(id),
+    reviewer TEXT NOT NULL, reason TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY (new_receipt, old_receipt), CHECK (new_receipt <> old_receipt)
+);
 '''
 
 
@@ -84,7 +90,7 @@ QUEUE = '''
 '''
 
 
-def supersession(inbox):
+def supersession(inbox, db=None):
     """Map each receipt to the receipts it replaces and the later receipts that replace it."""
     replaces, replaced_by = {}, {}
     for path in sorted(inbox.glob('submission-*.json')):
@@ -94,15 +100,20 @@ def supersession(inbox):
             continue
         earlier = draft.get('supersedes', []) if isinstance(draft, dict) else []
         replaces[path.stem] = list(earlier)
-        for old in earlier:
-            replaced_by.setdefault(old, []).append(path.stem)
+    if db is not None and db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='revision_links'").fetchone():
+        for new, old in db.execute('SELECT new_receipt, old_receipt FROM revision_links ORDER BY at, new_receipt, old_receipt'):
+            if new in replaces and old in replaces and old not in replaces[new]:
+                replaces[new].append(old)
+    for new, parents in replaces.items():
+        for old in parents:
+            replaced_by.setdefault(old, []).append(new)
     return replaces, replaced_by
 
 
 def queue(db, inbox=None):
     rows = [dict(row) for row in db.execute(QUEUE)]
     if inbox is not None:
-        replaces, replaced_by = supersession(inbox)
+        replaces, replaced_by = supersession(inbox, db)
         for row in rows:
             row['supersedes'] = replaces.get(row['receipt_id'], [])
             row['superseded_by'] = replaced_by.get(row['receipt_id'], [])
@@ -114,6 +125,7 @@ def receipt_status(state, receipt_id):
     inbox = state / 'inbox'
     read_receipt(inbox, receipt_id)
     row = None
+    _, replaced_by = supersession(inbox)
     ledger = state / 'review.sqlite3'
     if ledger.is_file() and not ledger.is_symlink():
         with closing(sqlite3.connect(ledger.resolve().as_uri() + '?mode=ro', uri=True)) as db:
@@ -121,7 +133,7 @@ def receipt_status(state, receipt_id):
             if db.execute("SELECT name FROM sqlite_master WHERE name='events'").fetchone():
                 row = db.execute('''SELECT state, at, community_pr, upstream_pr FROM events
                                     WHERE receipt_id=? ORDER BY seq DESC LIMIT 1''', (receipt_id,)).fetchone()
-    _, replaced_by = supersession(inbox)
+            _, replaced_by = supersession(inbox, db)
     return dict(receipt_id=receipt_id, review_state=row['state'] if row else 'pending_review',
                 updated_at=row['at'] if row else None, community_pr=row['community_pr'] if row else None,
                 upstream_pr=row['upstream_pr'] if row else None, superseded_by=replaced_by.get(receipt_id, []))
@@ -174,7 +186,7 @@ def decide(state, db, args):
     if not linking and status not in TRANSITIONS[current['state']]:
         raise ValueError(f"Invalid transition: {current['state']} -> {args.status}")
     if not linking and status in ('accepted', 'published'):
-        later = supersession(state / 'inbox')[1].get(args.receipt, [])
+        later = supersession(state / 'inbox', db)[1].get(args.receipt, [])
         if later:
             raise ValueError(f'{args.receipt} is superseded by {", ".join(later)}; review the latest receipt')
     if not args.reviewer.strip() or not args.reason.strip():
@@ -203,6 +215,32 @@ def decide(state, db, args):
                 case_id, community_pr, upstream_pr, index_sha))
     return {'receipt_id': args.receipt, 'state': status,
             'attribution': draft_attribution(json.loads(raw)), 'index_sha256': index_sha}
+
+
+def link_revision(state, db, args):
+    new, old = args.new_receipt, args.old_receipt
+    reviewer, reason = args.reviewer.strip(), args.reason.strip()
+    if new == old or not reviewer or not reason:
+        raise ValueError('Provide two different receipts, a reviewer and a reason')
+    inbox = state / 'inbox'
+    new_path, _ = read_receipt(inbox, new)
+    old_path, _ = read_receipt(inbox, old)
+    times = dict(db.execute('SELECT id, received_at FROM receipts WHERE id IN (?, ?)', (new, old)))
+    if (times[new], new_path.stat().st_mtime_ns) <= (times[old], old_path.stat().st_mtime_ns):
+        raise ValueError('The replacement must be newer than the previous receipt')
+    replaces, _ = supersession(inbox, db)
+    if old in replaces.get(new, ()):
+        raise ValueError('This replacement is already recorded')
+    pending, seen = [old], set()
+    while pending:
+        receipt = pending.pop()
+        if receipt == new:
+            raise ValueError('The proposed link would create a revision cycle')
+        if receipt not in seen:
+            seen.add(receipt)
+            pending.extend(replaces.get(receipt, ()))
+    db.execute('INSERT INTO revision_links VALUES (?, ?, ?, ?, ?)', (new, old, reviewer, reason, now()))
+    return {'new_receipt': new, 'old_receipt': old, 'status': 'linked'}
 
 
 def verify(state):
@@ -271,6 +309,11 @@ def main():
     link.add_argument('--reviewer', required=True)
     link.add_argument('--reason', required=True)
     link.set_defaults(case=None, community_pr=None, site=None, index=None)
+    revision = commands.add_parser('link-revision', help='confirm that a newer receipt replaces an older one')
+    revision.add_argument('new_receipt')
+    revision.add_argument('old_receipt')
+    revision.add_argument('--reviewer', required=True)
+    revision.add_argument('--reason', required=True)
     commands.add_parser('backup').add_argument('output', type=Path)
     commands.add_parser('verify')
     args = parser.parse_args()
@@ -290,7 +333,10 @@ def main():
                     elif args.command == 'show':
                         _, raw = read_receipt(state / 'inbox', args.receipt)
                         history = db.execute('SELECT * FROM events WHERE receipt_id=? ORDER BY seq', (args.receipt,))
-                        result = {'receipt': json.loads(raw), 'history': [dict(row) for row in history]}
+                        revisions = db.execute('SELECT * FROM revision_links WHERE new_receipt=? OR old_receipt=? ORDER BY at',
+                                               (args.receipt, args.receipt))
+                        result = {'receipt': json.loads(raw), 'history': [dict(row) for row in history],
+                                  'revision_links': [dict(row) for row in revisions]}
                     elif args.command == 'normalize':
                         rows = queue(db, state / 'inbox')
                         if args.receipt:
@@ -307,6 +353,8 @@ def main():
                             raise ValueError('normalize requires a receipt ID or --latest-pending')
                         if args.output:
                             args.output.write_bytes((json.dumps(result, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+                    elif args.command == 'link-revision':
+                        result = link_revision(state, db, args)
                     elif args.command in ('decide', 'link-upstream'):
                         result = decide(state, db, args)
                 if args.command == 'backup':
