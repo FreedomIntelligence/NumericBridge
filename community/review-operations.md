@@ -12,8 +12,11 @@ sudo -u numericbridge .venv/bin/python -B -m community.review decide "$RECEIPT" 
 ```
 
 `needs_information` and `declined` record other review outcomes. `list` shows
-each receipt's `supersedes` and `superseded_by`; a superseded receipt cannot be
-accepted or published, so decline it and review the latest one. Submitters read a
+each receipt's `supersedes` and `superseded_by`. A replaced receipt cannot be
+accepted or published. Leave its original review outcome alone and review the
+current version; do not record a new rejection just to remove an older version
+from the active queue. The workbench keeps old receipts under version history.
+Only decline a receipt for an actual review decision. Submitters read a
 receipt's current state through the inbox's authenticated
 `GET /v1/submissions/RECEIPT` (`community_submission_status` in MCP). New receipts
 are discovered from `inbox/` on the next CLI operation and start as
