@@ -24,7 +24,8 @@ python -m http.server 8000 --bind 127.0.0.1 --directory "$work/site"
 
 Run commands from the repository root. The production site at
 `https://numericbridge.com/` serves the pinned frontend and canonical public records.
-The same HTTPS host exposes community search and authenticated intake.
+The same HTTPS host exposes community search and authenticated intake. An
+operator may also enable token-free intake for new anonymous contributions.
 
 ## MCP search
 
@@ -85,7 +86,8 @@ The contributor needs no GitHub account or fork.
 | Operation | Input | Result |
 |---|---|---|
 | `prepare_community_submission` | `title` plus optional arrays `evaluations`, `repairs`, `library_groups`, `entities` and `links`, and an `evidence` map of new `evidence/submissions/*.json` paths to JSON objects. | `ready` returns `draft_id`, `draft_sha256` and the exact local `preview`; `invalid` returns findings. This does not upload data. |
-| `submit_community` | `draft_id` and `draft_sha256` after showing the preview. The MCP form asks for consent. | `received` returns `receipt_id`, `review_state: pending_review`, and `reused`. The same upload returns the original receipt. Other outcomes include `declined`, `cancelled`, `approval_unavailable`, `intake_unavailable`, `invalid_draft` and `submission_failed`. |
+| `submit_community` | `draft_id` and `draft_sha256` after showing the preview. The MCP form asks for consent unless a valid `consent_record` has recorded it. | `received` returns `receipt_id`, `review_state: pending_review`, and `reused`. The same upload returns the original receipt. Other outcomes include `declined`, `cancelled`, `approval_unavailable`, `intake_unavailable`, `invalid_draft` and `submission_failed`. |
+| `community_submission_status` | `receipt_id`. For public intake, use the same configured inbox and draft directory. | The receipt’s review state, or `status_unavailable` if no local status credential can be read. |
 
 Use the [record format](records/README.md) and
 [writing guide](../skills/precision-compare/references/community-records.md).
@@ -96,46 +98,99 @@ catalog generation; the inbox revalidates independently against its current
 server-owned catalog before storing bytes.
 Changing the content or inbox destination requires a new preview and consent.
 
-Configure a stdio MCP server with the community's intake URL and an upload
-credential issued by its operator. When enabled, the published site advertises
-the API address in `data/community-service.json`; `submission: null` means no
-endpoint is configured. The following uses the production intake URL:
+### Get a verified catalog snapshot
+
+The workflow checkout and the standalone search index do not contain the
+records and evidence needed to validate a draft. Ask the catalog operator for
+an export of one published generation’s `site/data/` and `site/evidence/` and its
+expected SHA-256, obtained through a trusted channel. Operators can export these
+two trees from one pinned [catalog release](../docs/community-storage.md#store-layout-and-access);
+do not export the private inbox or archives. Compare the downloaded archive's
+SHA-256 (for example with `shasum -a 256 ARCHIVE`) with the operator's expected
+value before extracting it into a new local directory. Do not assemble a
+snapshot file by file across a live catalog update. Validate the extracted site:
+
+```sh
+SITE=/path/to/frozen/site
+python -B -m community.records validate --site "$SITE"
+python -B -m scripts export-search --check --site "$SITE"
+```
+
+Point `--catalog-site` (or `NUMERICBRIDGE_CATALOG_SITE`) at the verified directory
+containing `data/` and `evidence/`. The local MCP does not fetch it automatically.
+
+### Configure agent contribution
+
+Configure the local stdio MCP in your agent client. Read the trusted site's
+`data/community-service.json` first: when present, `public_submission` advertises
+a URL with `method: "POST"` and `auth: "none"`. Use its URL as `--intake` and
+omit `--token-file`. For example, **if enabled and advertised**:
 
 ```sh
 python -B -m community.mcp_submission \
-  --intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token \
+  --intake https://numericbridge.com/v1/public-submissions \
   --catalog-site /path/to/reviewed/catalog/site \
   --search-index /path/to/reviewed/catalog/site/data/search-index.json
 ```
 
-The contributor can choose anonymous (default), nickname, or GitHub
-`@username` without a GitHub login. Pass `attribution_mode` and, for named
-credit, `attribution_name` to `prepare_community_submission`. The same
-confirmation authorizes the exact result and named credit on the community
-site and in related PRs maintained by NumericBridge, including upstream PRs.
+If `public_submission` is absent, do not assume the public API is available.
+The separate `submission` entry advertises the existing authenticated URL
+(`auth: "bearer"`); `submission: null` means it is not advertised. To use it,
+set `--intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token`
+with an upload credential issued by the operator. Omit `--intake` and
+`--token-file` to keep drafts local. To submit in a browser instead, prepare an
+anonymous draft with the public MCP configuration above, then select the saved
+`draft-<sha256>.json` at [the official submission page](https://numericbridge.com/submit.html).
+The browser previews it locally and only uploads it after confirmation. Save the
+private receipt file if you want to check its status later.
+
+Public intake accepts only **new anonymous** drafts; it does not accept
+`supersedes`. Authenticated intake still supports revisions and anonymous,
+nickname, or GitHub `@username` credit without a GitHub login. Pass
+`attribution_mode` and, for named credit, `attribution_name` to
+`prepare_community_submission`. The same confirmation authorizes the exact
+result and named credit on the community site and in related PRs maintained by
+NumericBridge, including upstream PRs.
+
+The agent shows the exact preview and waits for the user's MCP confirmation
+unless an explicit `share` consent in the case's `request.json` is supplied as
+`consent_record` and passes validation. Token-free transport does not authorize
+an upload. Do not send after a refusal or bypass the consent gate with HTTP.
 
 If `submit_community` returns `approval_unavailable`, keep the saved draft.
-In your own terminal, use the same Python environment, inbox and credential as
-MCP to review and confirm that draft:
+In your own terminal, use the same Python environment and inbox as MCP to
+review and confirm that draft. For public intake:
 
 ```sh
 python -B -m community.submit_reviewed --draft-sha256 DRAFT_SHA256 \
-  --intake https://numericbridge.com/v1/submissions --token-file /path/to/upload-token
+  --intake https://numericbridge.com/v1/public-submissions
 ```
+
+For authenticated intake, use its URL and add the same `--token-file` as MCP.
 
 Use `--drafts` if the MCP was configured with a different draft directory.
 The command displays the draft and only sends it after you type `SEND`. A
 receipt means the inbox saved it for review; it does not publish to GitHub.
 
-With `--search-index`, this one client entry exposes all three tools. Use an
+The public `POST /v1/public-submissions` uses the same confirmed draft envelope
+and `X-Draft-SHA256` value as authenticated intake, without an `Authorization`
+header. It returns the same receipt fields plus a secret 64-hex `status_token`.
+`GET /v1/public-submissions/{receipt}` requires that exact receipt’s token as
+`Authorization: Bearer …`; the receipt ID alone grants no access. The MCP and
+terminal client store the token in a mode `0600` file under `.status-tokens/`
+inside the configured draft directory. Do not display, log, or paste it into a
+prompt. If local storage fails or the token is lost, keep the receipt ID;
+resubmit the exact reviewed draft through the consent flow to recover access.
+
+With `--search-index`, this client exposes both contribution and search tools. Use an
 absolute index path when launching from a different directory. Restart the MCP
 after updating its index, or configure a separate connection to the public
 search MCP for the server-managed snapshot.
 
-The client must present the MCP form to the user. In clients that launch from
-another directory, use the absolute Python executable and set `PYTHONPATH` to
-the NumericBridge checkout. Omit both options to prepare local drafts only. If
-MCP is unavailable, the equivalent preview command is:
+For interactive confirmation, use a client that presents the MCP form to the
+user. In clients that launch from another directory, use the absolute Python
+executable and set `PYTHONPATH` to the NumericBridge checkout. If MCP is
+unavailable, the equivalent local-only preview command is:
 
 ```sh
 python -B -m community.records.submission --catalog-site "$SITE" --input submission.json --output preview.json
@@ -179,18 +234,30 @@ alongside the API, with persistent private storage for intake. For a Linux host:
    service environment. Search exposes `POST /mcp` via stateless Streamable
    HTTP; intake exposes `POST /v1/submissions`, the authenticated receipt
    status `GET /v1/submissions/RECEIPT` and `GET /healthz`. Set request
-   rate limits at the public ingress.
+   rate limits at the public ingress. To additionally expose the optional public
+   submission routes, set `NUMERICBRIDGE_PUBLIC_INTAKE_URL` (or pass `--public-url`
+   to the intake process) to the exact HTTPS public submissions URL. Apply the
+   public intake rate limits at ingress before advertising it.
 4. Call `GET /healthz` over HTTPS, check that an unauthorized `POST` returns
    `401`, then test with a synthetic draft. Confirm that the live
    `data/community-service.json` advertises the verified HTTPS intake URL.
    Verify the public MCP with `tools/list` and a known `search_community` query.
    Distribute the upload credential privately; only the endpoint URL belongs
-   in the public descriptor. After publishing approved
+   in the public descriptor. Generate that manifest with
+   `python -B -m community.service_manifest --output PATH`; set
+   `NUMERICBRIDGE_INTAKE_URL` for authenticated discovery and
+   `NUMERICBRIDGE_PUBLIC_INTAKE_URL` only for a verified public submission URL.
+   When enabling public intake, verify token-free POST and receipt-scoped GET
+   separately. After publishing approved
    records via the server catalog tool, restart `numericbridge-search`
    to load its new index.
 
 For local testing, run `python -B -m community.intake --inbox PATH --token-file PATH`
-and use `http://127.0.0.1:8770/v1/submissions` as the MCP intake URL.
+and use `http://127.0.0.1:8770/v1/submissions` as the authenticated MCP intake URL.
+To test public intake locally, add `--public-url http://127.0.0.1:8770/v1/public-submissions`
+and `--public-status-key-file /path/to/dedicated-secret` to the server command,
+then configure MCP with that URL and no token file. Keep the signing key
+separate from the legacy upload token and persistent across restarts.
 Keep `origin/main` current on the review host. Each `submission-<sha256>.json`
 holds the approved bytes for maintainers to review. Maintainers decide what to
 add to the catalog and whether to contact upstream. A case is searchable once

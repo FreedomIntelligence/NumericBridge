@@ -15,6 +15,7 @@ from .consent import recorded_consent, scan_draft
 from .intake import IntakeClient
 from .mcp_search import register_search
 from .records.submission import Submissions, add_catalog_site_argument, draft_attribution
+from .submission_client import PUBLIC_DRAFT_MESSAGE, public_draft_error, receipt_status, send_reviewed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,8 +43,9 @@ def terminal_fallback(submissions: Submissions, intake: IntakeClient, digest: st
     """Command the user runs in their own terminal to review and send the same draft."""
     def quote(value):
         return "'" + str(value).replace("'", "'\\''") + "'"
+    credential = f' --token-file {quote(intake.token_file)}' if intake.token_file is not None else ''
     return (f'cd {quote(ROOT)} && {quote(sys.executable)} -B -m community.submit_reviewed '
-            f'--draft-sha256 {digest} --intake {quote(intake.url)} --token-file {quote(intake.token_file)} '
+            f'--draft-sha256 {digest} --intake {quote(intake.url)}{credential} '
             f'--drafts {quote(submissions.drafts)}')
 
 
@@ -82,12 +84,16 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
           (`kind: "operator-optimization"`, `schema_version: 1`, `round_status`:
           `"handoff_open"` | `"round_delivered"`; never include server-assigned
           `tier` or `recommendation` fields).
-        Use a name only when the contributor chooses a nickname or GitHub @username.
-        When this draft revises an earlier submission (new or changed contribution
-        decisions or PR drafts), list that submission's receipt ID in supersedes.
+        Public intake only accepts new anonymous submissions. With authenticated
+        intake, use a name only when the contributor chooses a nickname or GitHub
+        @username. For an authenticated revision, list any earlier submission
+        receipt IDs in supersedes.
         Show the actual additions, destination and attribution, then offer submission through
         the client confirmation.
         """
+        if (intake is not None and intake.token_file is None
+                and (attribution_mode != 'anonymous' or supersedes)):
+            return dict(status='invalid', findings=[PUBLIC_DRAFT_MESSAGE])
         additions = dict(evaluations=dict(evaluations=evaluations or []),
                          repairs=dict(repairs=repairs or [], library_groups=library_groups or []),
                          relations=dict(entities=entities or [], links=links or []), evidence=evidence or {})
@@ -120,6 +126,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
             return dict(status='invalid_draft', message=str(error))
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured; keep this local draft')
+        if reason := public_draft_error(intake, draft):
+            return dict(status='invalid_draft', message=reason)
         findings = await asyncio.to_thread(scan_draft, draft)
         if findings:
             return dict(status='scan_findings', findings=findings[:20],
@@ -129,7 +137,7 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
             if consent is None:
                 return dict(status='consent_missing', message=reason)
             try:
-                result = await asyncio.to_thread(intake.send, draft, draft_sha256)
+                result = await asyncio.to_thread(send_reviewed, submissions, intake, draft, draft_sha256)
             except (OSError, ValueError, KeyError, TypeError) as error:
                 return dict(status='submission_failed', message=str(error))
             return dict(result, confirmation='prior_consent', consented_at=consent['confirmed_at'])
@@ -168,7 +176,7 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         if approved is not True:
             return unavailable('form_response_invalid', 'The client did not return a valid confirmation response')
         try:
-            return await asyncio.to_thread(intake.send, draft, draft_sha256)
+            return await asyncio.to_thread(send_reviewed, submissions, intake, draft, draft_sha256)
         except (OSError, ValueError, KeyError, TypeError) as error:
             return dict(status='submission_failed', message=str(error))
 
@@ -182,13 +190,15 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         """Read the review state of a receipt returned by submit_community.
 
         States: pending_review, needs_information, accepted, declined, published.
-        superseded_by lists later submissions that replace this one. A receipt is
-        searchable only after it is published and the deployed index returns it.
+        The public inbox uses a credential saved by this client; never ask the user
+        to put a status token into chat. superseded_by lists later submissions that
+        replace this one. A receipt is searchable only after it is published and
+        the deployed index returns it.
         """
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured')
         try:
-            return await asyncio.to_thread(intake.status, receipt_id)
+            return await asyncio.to_thread(receipt_status, submissions, intake, receipt_id)
         except (OSError, ValueError) as error:
             return dict(status='status_unavailable', message=str(error))
 
@@ -197,16 +207,16 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--intake', help='community submission URL; omit for local drafts only')
-    parser.add_argument('--token-file', type=Path, help='file containing the community upload credential')
+    parser.add_argument('--intake', help='public or authenticated community submission URL; omit for local drafts only')
+    parser.add_argument('--token-file', type=Path, help='file containing the upload credential (authenticated intake only)')
     parser.add_argument('--drafts', type=Path, default=Path.home() / '.numericbridge' / 'drafts',
                         help='private local draft directory')
     add_catalog_site_argument(parser)
     parser.add_argument('--search-index', type=Path, help='also expose search using this public index snapshot')
     parser.add_argument('--search-sha256', help='expected SHA-256 of the search index snapshot')
     args = parser.parse_args()
-    if bool(args.intake) != bool(args.token_file):
-        parser.error('--intake and --token-file must be configured together')
+    if args.token_file is not None and not args.intake:
+        parser.error('--token-file requires --intake')
     if args.search_sha256 and args.search_index is None:
         parser.error('--search-sha256 requires --search-index')
     try:

@@ -154,6 +154,9 @@ class Inbox:
                 if target.read_bytes() != raw:
                     raise ValueError('Stored submission differs from the reviewed draft')
                 return self.receipt(receipt_id, True)
+            from .consent import scan_draft
+            if scan_draft(draft):
+                raise ValueError('Remove private identifiers from the public draft')
             self.check_public_capacity(public_url)
         elif urlsplit(draft['destination']).path == PUBLIC_PATH:
             raise ValueError('Use the configured public intake endpoint for a public draft')

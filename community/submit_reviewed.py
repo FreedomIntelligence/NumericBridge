@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 import sys
 
+from .consent import scan_draft
 from .intake import IntakeClient
 from .records.submission import Submissions
+from .submission_client import public_draft_error, send_reviewed
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def confirm_and_send(submissions, intake, digest, terminal_in, terminal_out):
     draft = submissions.reviewed(f'draft-{digest}', digest)
+    if reason := public_draft_error(intake, draft):
+        raise ValueError(reason)
+    if intake.token_file is None and scan_draft(draft):
+        raise ValueError('Remove private identifiers, prepare a new draft and submit it again')
     review = {key: draft[key] for key in ('title', 'destination', 'attribution', 'supersedes', 'additions')
               if key in draft}
     print(json.dumps(review, ensure_ascii=False, indent=2), file=terminal_out)
@@ -22,14 +28,14 @@ def confirm_and_send(submissions, intake, digest, terminal_in, terminal_out):
           'Press Enter to cancel: ', end='', file=terminal_out, flush=True)
     if terminal_in.readline().rstrip('\r\n') != 'SEND':
         return {'status': 'cancelled'}
-    return intake.send(draft, digest)
+    return send_reviewed(submissions, intake, draft, digest)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--draft-sha256', required=True, help='SHA-256 returned by prepare_community_submission')
     parser.add_argument('--intake', required=True, help='same inbox URL used to prepare the draft')
-    parser.add_argument('--token-file', required=True, type=Path)
+    parser.add_argument('--token-file', type=Path, help='required for authenticated intake only')
     parser.add_argument('--drafts', type=Path, default=Path.home() / '.numericbridge' / 'drafts')
     args = parser.parse_args()
     if not all(stream.isatty() for stream in (sys.stdin, sys.stdout, sys.stderr)):
