@@ -76,8 +76,9 @@ community records or run model workloads.
 ## MCP contribution
 
 See the [Numeric workflow integration contract](numeric-workflow-integration.md)
-for the agent-facing interface and [private review operations](review-operations.md)
-for the maintainer CLI and backup procedure.
+for the agent-facing interface. The review CLI and its operating guide live in
+[NumericBridge Admin](https://github.com/FreedomIntelligence/NumericBridge-admin),
+the private maintainer repository.
 
 The [workflow](../skills/numericbridge/references/workflow.md#community-contribution)
 prepares an anonymized preview and asks once before sending it to the community.
