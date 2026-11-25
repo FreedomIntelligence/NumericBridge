@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-logo.svg" width="88" height="88" alt="NumericBridge logo">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-logo.svg" width="88" alt="NumericBridge logo">
 </p>
 
 <h1 align="center">NumericBridge</h1>
@@ -80,6 +80,9 @@ python -B -m scripts validate
 
 ## Supported by
 
-![Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel and Shenzhen Research Institute of Big Data](https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-community.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-dark.png">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-light.png" alt="Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel and Shenzhen Research Institute of Big Data">
+</picture>
 
 [Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/) · [Shenzhen Research Institute of Big Data](https://www.sribd.cn/en)

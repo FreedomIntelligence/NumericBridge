@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-logo.svg" width="88" height="88" alt="NumericBridge 标志">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-logo.svg" width="88" alt="NumericBridge 标志">
 </p>
 
 <h1 align="center">NumericBridge</h1>
@@ -80,6 +80,9 @@ python -B -m scripts validate
 
 ## 支持单位
 
-![中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司和深圳市大数据研究院](https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge/efe48ac7f3fdd18f4c721820ff8eeab342e121af/docs/images/numericbridge-community.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-dark.png">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-light.png" alt="中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司和深圳市大数据研究院">
+</picture>
 
 [中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/) · [深圳市大数据研究院](https://www.sribd.cn/)
