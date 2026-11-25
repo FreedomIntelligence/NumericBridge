@@ -11,7 +11,7 @@ and the [workflow](workflow.md) rather than asking you to design the experiment.
 已有材料（可选）：【案例目录、交接记录、运行命令或证据链接】。
 限制（可选）：【可用环境、预算、验收要求、不要动的任务或文件】。
 
-新任务请先确认目标和必要授权，再实际执行；已有案例请从已确认的范围和检查点继续，先查现有任务，不重复启动。能从材料查到的信息不用再问我。交付结论、证据和未完成项；未经我确认，不投稿、推送或开 PR。
+按 NumericBridge 工作流持续执行，不要只给计划或在进度更新后停下。若这是跨多轮的任务且支持 Goal 模式，请创建或恢复该任务的 Goal，持续推进到完成，或明确说明为什么无法继续。
 ```
 
 ## English
@@ -21,7 +21,7 @@ Use NumericBridge to help me [solve this problem, compare these targets, or deli
 Existing material (optional): [case directory, handoff, run command, or evidence link].
 Constraints (optional): [allowed environment, budget, acceptance criteria, or work to leave untouched].
 
-For a new task, confirm the goal and necessary authorization, then execute. For an existing case, resume within its confirmed scope from the checkpoint and check for active jobs before starting anything. Look up what you can from the supplied material. Deliver conclusions, evidence, and open items. Do not submit, push, or open a PR without my confirmation.
+Follow the NumericBridge workflow through execution. Do not stop at a plan or progress update. If this is a multi-round task and Goal mode is available, create or resume its Goal and keep working until the task is done or you can explain why it cannot continue.
 ```
 
 For a new case, mention the hardware, model, framework, and workload if known.
