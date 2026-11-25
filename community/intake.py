@@ -214,7 +214,7 @@ class Inbox:
             return self.receive(raw, digest, public_url=public_url)
 
     def status(self, receipt_id):
-        from .review import receipt_status
+        from .receipt_reader import receipt_status
         if not RECEIPT.fullmatch(receipt_id):
             raise KeyError(receipt_id)
         if not (self.directory / (receipt_id + '.json')).is_file():

@@ -414,7 +414,7 @@ def normalize_draft(draft, *, receipt_id=None):
 
 def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD', catalog_site=None):
     """Materialize an accepted/latest receipt onto a clean site directory and emit normalized metadata."""
-    from .review import read_receipt
+    from .receipt_reader import read_receipt
 
     if not re.fullmatch(r'submission-[0-9a-f]{64}', receipt_id or ''):
         raise ValueError('Invalid receipt ID')
