@@ -42,7 +42,7 @@ shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$s
 python -B "$skills/precision-compare/examples/compare_gradients.py"
 ```
 
-自己的任务从 [NumericBridge Skill](skills/numericbridge/SKILL.md) 开始。告诉 Agent 目标硬件、模型、框架和任务，已有运行命令或采集结果也可以一起给它。
+自己的任务从 [NumericBridge Skill](skills/numericbridge/SKILL.md) 开始，也可以复制[通用任务模板](skills/numericbridge/references/prompt-template.md)。讲清楚你想解决什么，有已有案例或运行材料就一并给出，不用自己写实验步骤。
 
 ## 工作流与 Skill
 

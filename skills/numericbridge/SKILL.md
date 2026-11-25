@@ -5,7 +5,7 @@ description: Run the NumericBridge precision workflow for an inference, SFT or R
 
 # NumericBridge
 
-- For a new request, follow [request confirmation](references/request.md).
+- Users can describe the goal in plain language or use the [request template](references/prompt-template.md). For a new request, follow [request confirmation](references/request.md).
 - For an authorized request, follow the [workflow](references/workflow.md) from
   optional community lookup, or resume at the recorded stage: `workflow.py status` for
   the plan and `diagnosis_state.py next` for an open diagnosis.

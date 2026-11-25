@@ -42,7 +42,7 @@ On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256
 python -B "$skills/precision-compare/examples/compare_gradients.py"
 ```
 
-For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKILL.md). Give the agent your hardware, model, framework and task, along with any run commands or captures you have.
+For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKILL.md) or copy the [request template](skills/numericbridge/references/prompt-template.md). Describe what you want to achieve, and include any existing case or run details you have.
 
 ## Workflow and skills
 
