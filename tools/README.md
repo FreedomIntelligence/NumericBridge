@@ -24,7 +24,7 @@ imports this package directly.
 
 Use the [download and verification steps](../README.md#getting-started) to install
 without a checkout. For updates, verify and extract the new version into a fresh
-directory, then switch the client to it or replace all five installed skill
+directory, then switch the client to it or replace all six installed skill
 folders together. Keep the previous directory if you need to roll back.
 
 For an unreleased checkout, export from the repository root:

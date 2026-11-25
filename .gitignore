@@ -12,6 +12,7 @@
 !/scripts/
 /skills/*
 !/skills/operator-optimize/
+!/skills/operator-verify/
 !/skills/framework-adapt/
 !/skills/numericbridge/
 !/skills/precision-compare/
@@ -26,6 +27,7 @@
 /research/
 __pycache__/
 *.pyc
+.lake/
 
 # Historical local deliveries are not part of the results-only publication.
 /community/site/evidence/deepseek41-*.zip

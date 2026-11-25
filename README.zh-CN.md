@@ -36,7 +36,7 @@ skills="numericbridge-skills-$version"
 shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载五个 Skill，或将五个 Skill 文件夹一起复制到客户端的 Skill 目录。新版 Skills ZIP 包含共享工具，但不附带社区记录或检索索引；旧版可能包含快照。[更新与从仓库安装](tools/README.md#portable-skills)
+在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载六个 Skill，或将六个 Skill 文件夹一起复制到客户端的 Skill 目录。新版 Skills ZIP 包含共享工具，但不附带社区记录或检索索引；旧版可能包含快照。[更新与从仓库安装](tools/README.md#portable-skills)
 
 **需要源码时**，用 `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` 获取干净的当前版本；完整 Git 历史仍保留以前公开发布过的记录。
 
@@ -52,7 +52,7 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 
 ## 工作流与 Skill
 
-[工作流](skills/numericbridge/references/workflow.md)按需加载各阶段的 Skill：[Framework Adapt](skills/framework-adapt/SKILL.md) 准备原生环境，[Precision Compare](skills/precision-compare/SKILL.md) 采集和对比，支持的路径运行失败或发现值得调查的数值差异时，进入 [Precision Repair](skills/precision-repair/SKILL.md)；诊断发现算子超出 FP64 误差范围时，进入 [Operator Optimize](skills/operator-optimize/SKILL.md)，给出每个方案的精度和速度。每一步沿用已确认的需求和证据。
+[工作流](skills/numericbridge/references/workflow.md)按需加载各阶段的 Skill：[Framework Adapt](skills/framework-adapt/SKILL.md) 准备原生环境，[Precision Compare](skills/precision-compare/SKILL.md) 采集和对比，支持的路径运行失败或发现值得调查的数值差异时，进入 [Precision Repair](skills/precision-repair/SKILL.md)；诊断发现算子超出 FP64 误差范围时，进入 [Operator Optimize](skills/operator-optimize/SKILL.md)，给出每个方案的精度和速度；涉及离散不变量（掩码越界、UB 容量、流水线同步或控制流/代数等价性）时，可通过 [Operator Verify](skills/operator-verify/SKILL.md) 进行离线静态审计与 Lean 4 形式化验证。每一步沿用已确认的需求和证据。
 
 任务配方：[推理](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md)。
 

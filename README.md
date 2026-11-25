@@ -36,7 +36,7 @@ skills="numericbridge-skills-$version"
 shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
 ```
 
-On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the five skills, or copy the five skill folders together into its skills directory. New Skills ZIP builds include the shared tools, but no community records or search index; older releases may include a snapshot. [Updates and checkout-based installation](tools/README.md#portable-skills)
+On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the six skills, or copy the six skill folders together into its skills directory. New Skills ZIP builds include the shared tools, but no community records or search index; older releases may include a snapshot. [Updates and checkout-based installation](tools/README.md#portable-skills)
 
 **Develop from source.** Use `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` for a clean current checkout without the historical catalog objects. Full Git history still contains independently published older revisions.
 
@@ -52,7 +52,7 @@ For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKI
 
 ## Workflow and skills
 
-The [workflow](skills/numericbridge/references/workflow.md) loads only the method it needs: [Framework Adapt](skills/framework-adapt/SKILL.md) for native setup, [Precision Compare](skills/precision-compare/SKILL.md) for measurement, [Precision Repair](skills/precision-repair/SKILL.md) for supported-path failures or numerical findings that warrant diagnosis, and [Operator Optimize](skills/operator-optimize/SKILL.md) for operators that diagnosis finds outside their FP64 bound, reporting each variant's precision and speed. Each stage reuses the confirmed request and evidence.
+The [workflow](skills/numericbridge/references/workflow.md) loads only the method it needs: [Framework Adapt](skills/framework-adapt/SKILL.md) for native setup, [Precision Compare](skills/precision-compare/SKILL.md) for measurement, [Precision Repair](skills/precision-repair/SKILL.md) for supported-path failures or numerical findings that warrant diagnosis, [Operator Optimize](skills/operator-optimize/SKILL.md) for operators that diagnosis finds outside their FP64 bound, reporting each variant's precision and speed, and [Operator Verify](skills/operator-verify/SKILL.md) for offline Lean 4 formal verification and static auditing of discrete operator invariants (masks, UB capacity, pipeline synchronization, and algebraic/control-flow equivalence). Each stage reuses the confirmed request and evidence.
 
 Task recipes: [Inference](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md).
 

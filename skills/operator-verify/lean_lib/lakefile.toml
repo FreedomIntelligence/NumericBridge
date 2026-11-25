@@ -1,0 +1,6 @@
+name = "AscendLean"
+version = "0.1.0"
+defaultTargets = ["AscendLean"]
+
+[[lean_lib]]
+name = "AscendLean"
