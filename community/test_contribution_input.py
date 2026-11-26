@@ -15,7 +15,7 @@ from mcp.shared.memory import create_client_server_memory_streams
 from pydantic import ValidationError
 from starlette.testclient import TestClient
 
-from community.contribution_input import Contribution
+from community.contribution_input import Contribution, compile_contribution
 from community.intake import Inbox, create_app
 from community.mcp_submission import create_server
 from community.records.catalog import Catalog
@@ -122,6 +122,70 @@ class TypedContributionTests(unittest.IsolatedAsyncioTestCase):
                 report = Contribution.model_validate(data).items[2].verification
                 self.assertEqual(report.metrics[0].model_dump(), measurement)
 
+    def test_pass_only_submission_is_searchable_without_an_issue_or_patch(self):
+        with TemporaryDirectory(prefix='numericbridge-pass-only-') as directory:
+            root = Path(directory).resolve()
+            code = root / 'code'
+            commit = git_fixture(code)
+            git(code, 'update-ref', 'refs/remotes/origin/main', commit)
+            site = root / 'catalog'
+            snapshot(site)
+            drafts = Submissions(code, root / 'drafts', destination=PUBLIC, catalog_site=site)
+            inbox = Inbox(code, root / 'inbox', catalog_site=site)
+            data = packet(commit)
+            data.update(id='passing-fixture', title='Passing synthetic comparison', items=data['items'][:1])
+            evaluation = data['items'][0]
+            evaluation['acceptance']['verdict'] = 'pass'
+            evaluation['metrics'][0]['value'] = 0
+            public, review = compile_contribution(data, {'mode':'anonymous'})
+            prepared = drafts.prepare(data['title'], public, review_evidence=review)
+            wire = prepared['preview']
+            self.assertEqual(wire['schema_version'], 5)
+            self.assertEqual(wire['review_evidence'], {})
+            raw = encode(wire, compact=True)
+            with TestClient(create_app(inbox, TOKEN, public_url=PUBLIC, public_status_key='test-signature-2026')) as app:
+                response = app.post('/v1/public-submissions', content=raw, headers={
+                    'content-type':'application/json', 'x-draft-sha256':sha256(raw).hexdigest()})
+            self.assertEqual(response.status_code, 201, response.text)
+            with drafts.preview_checkout(wire['title'], wire['additions']) as (checkout, _):
+                catalog = Catalog(checkout / 'community/site')
+                query = dict(hardware='CPU', library='Fixture engine', version='1.0',
+                             model='Synthetic model', task='inference')
+                result = catalog.search(query)
+                self.assertEqual(result['status'], 'matched')
+                self.assertEqual([row['id'] for row in result['matches']], ['contribution-passing-fixture'])
+                match = result['matches'][0]
+                self.assertEqual(match['issues'], [])
+                self.assertEqual(match['solutions'], [])
+                for configuration in match['configurations']:
+                    self.assertEqual(configuration['record']['acceptance']['verdict'], 'pass')
+                self.assertEqual(result['recommendation']['basis'], 'recorded-numerical-acceptance')
+                self.assertEqual(catalog.search(query | {'version':'2.0'})['status'], 'no-records')
+
+    def test_official_layout_keeps_checklist_and_one_paired_table(self):
+        with TemporaryDirectory(prefix='numericbridge-official-template-') as directory:
+            upstream = Path(directory) / 'upstream'
+            git_fixture(upstream)
+            template = upstream / '.github/PULL_REQUEST_TEMPLATE.md'
+            template.parent.mkdir()
+            template.write_text('## Summary\n\n### Test plan\n\n## Checklist\n\n- [ ] Human review\n')
+            git(upstream, 'add', '.')
+            git(upstream, 'commit', '-qm', 'Synthetic official template')
+            data = packet(git(upstream, 'rev-parse', 'HEAD'))
+            patch = data['items'][2]
+            patch['template_slots'] = [{'sections':['problem', 'change', 'patch']},
+                                       {'sections':['validation']}, {'sections':[]}]
+            patch['verification']['metrics'][0]['unit'] = 'slot|lane'
+            _, review = compile_contribution(data, {'mode':'anonymous'}, trusted_repos={REPOSITORY:upstream})
+            pr = review['review/fixture-fix.json']['upstream_pr_draft']
+            body = pr['body_markdown']
+            self.assertEqual([line for line in body.splitlines() if line.startswith('#')],
+                             ['## Summary', '### Test plan', '## Checklist'])
+            self.assertEqual(body.count('| Metric | Before | After | Unit |'), 1)
+            self.assertIn('| mismatch | 1 | 0 | slot&#124;lane |', body)
+            self.assertIn('## Checklist\n\n- [ ] Human review\n\n---', body)
+            self.assertIn('upstream_checklist', pr['pending_checks'])
+
     async def test_typed_mcp_roundtrip_revalidates_real_records_and_hides_private_material(self):
         with TemporaryDirectory(prefix='numericbridge-typed-') as root:
             root = Path(root).resolve()
@@ -173,7 +237,10 @@ class TypedContributionTests(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(attachment['patch_text'], PATCH)
                         self.assertIn('human_review', attachment['upstream_pr_draft']['pending_checks'])
                         self.assertNotIn('native_on_target', attachment['upstream_pr_draft']['pending_checks'])
-                        self.assertIn('mismatch: 1 → 0 (slot)', attachment['upstream_pr_draft']['body_markdown'])
+                        body = attachment['upstream_pr_draft']['body_markdown']
+                        self.assertIn('| Metric | Before | After | Unit |', body)
+                        self.assertIn('| mismatch | 1 | 0 | slot |', body)
+                        self.assertIn('**Native on target:** Verified in this scope.', body)
                         verification = wire['additions']['evidence']['evidence/submissions/fixture-fix.json']['verification']
                         self.assertNotIn('kind', verification)
                         self.assertEqual(verification['metrics'], [{'id':'mismatch', 'before':1, 'after':0, 'unit':'slot'}])
@@ -195,6 +262,7 @@ class TypedContributionTests(unittest.IsolatedAsyncioTestCase):
                         self.assertNotEqual(stale_ready['draft_sha256'], ready['draft_sha256'])
                         stale_pr = stale_ready['preview']['review_evidence']['review/fixture-fix.json']['upstream_pr_draft']
                         self.assertIn('native_on_target', stale_pr['pending_checks'])
+                        self.assertIn('**Native on target:** Pending.', stale_pr['body_markdown'])
                         intake.send.assert_not_called()
                         approval = await client.call_tool('submit_community', {
                             'draft_id':ready['draft_id'], 'draft_sha256':ready['draft_sha256']})

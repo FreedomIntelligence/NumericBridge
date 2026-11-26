@@ -2,6 +2,7 @@
 
 from datetime import date
 from hashlib import sha256
+import html
 import ipaddress
 import re
 from typing import Annotated, Literal
@@ -270,6 +271,17 @@ def _setup(row):
     return result
 
 
+def _metric_table(metrics):
+    def cell(value):
+        # Use entities so a unit cannot add columns or introduce inline Markdown.
+        escaped = html.escape(value, quote=False)
+        return re.sub(r'[\r\n\t|`\\_*\[\]~#]', lambda m: ' ' if m[0].isspace() else f'&#{ord(m[0])};', escaped)
+
+    rows = [f'| {metric.id} | {metric.before} | {metric.after} | {cell(metric.unit)} |'
+            for metric in metrics]
+    return '\n'.join(['| Metric | Before | After | Unit |', '| --- | ---: | ---: | --- |', *rows])
+
+
 def _pr_attachment(candidate, issue, credit, trusted_repos):
     from tools.strict_pr import inspect_template, render_pr
 
@@ -284,22 +296,26 @@ def _pr_attachment(candidate, issue, credit, trusted_repos):
     v = candidate.verification
     exact = (v.tested_commit, v.tested_patch_sha256) == (target.commit, version['patch_sha256'])
     checks = {}
-    if exact and v.execution == 'native' and v.coverage.observed == v.coverage.expected:
+    native_on_target = exact and v.execution == 'native' and v.coverage.observed == v.coverage.expected
+    if native_on_target:
         checks['native_on_target'] = dict(status='passed', evidence=(
             f'Focused native red/green comparison at {v.tested_commit}; '\
             f'patch SHA-256 {v.tested_patch_sha256}; {v.coverage.observed}/{v.coverage.expected} covered.'))
     proof = issue.reproducer or '\n'.join(f'- [{ref.label}]({ref.url})' for ref in issue.references)
     fence = '`' * (max([2, *(len(x) for x in re.findall(r'`+', v.command))]) + 1)
-    metrics = '\n\nPaired metrics (before → after):\n\n' + '\n'.join(
-        f'- {metric.id}: {metric.before} → {metric.after} ({metric.unit})' for metric in v.metrics)
-    blocks = dict(problem=f'{issue.trigger}\n\nExpected: {issue.expected}\n\nObserved: {issue.observed}',
+    blocks = dict(problem=f'**Trigger:** {issue.trigger}\n\n**Expected:** {issue.expected}'
+                          f'\n\n**Observed:** {issue.observed}',
                   change=candidate.change,
-                  validation=(f'{v.scope}\n\nReproduction:\n\n{proof}\n\nCommand:\n\n{fence}text\n'
-                              f'{v.command}\n{fence}\n\nBefore (failed): {v.baseline.summary}'
-                              f'\n\nAfter (passed): {v.patched.summary}\n\nCoverage: {v.coverage.observed}/'
-                              f'{v.coverage.expected} {v.coverage.unit}.\n\nTested base: `{v.tested_commit}`; '
-                              f'tested patch SHA-256: `{v.tested_patch_sha256}`.{metrics}'),
-                  patch=f'Attached unified diff (SHA-256 `{version["patch_sha256"]}`).')
+                  validation=(f'**Scope:** {v.scope}\n\n**Execution:** {v.execution}. '
+                              f'**Coverage:** {v.coverage.observed}/{v.coverage.expected} {v.coverage.unit}.\n\n'
+                              f'**Baseline (fail):** {v.baseline.summary}\n\n'
+                              f'**Patched (pass):** {v.patched.summary}\n\n{_metric_table(v.metrics)}\n\n'
+                              f'**Reproduction:**\n\n{proof}\n\n{fence}text\n{v.command}\n{fence}'),
+                  patch=(f'**Target:** `{target.base_branch}` at `{target.commit}`.\n\n'
+                         f'**Attached diff SHA-256:** `{version["patch_sha256"]}`.\n\n'
+                         f'**Tested base:** `{v.tested_commit}`. '
+                         f'**Tested diff SHA-256:** `{v.tested_patch_sha256}`.\n\n'
+                         f'**Native on target:** {"Verified in this scope" if native_on_target else "Pending"}.'))
     contents = None
     if template['format_status'] == 'verified':
         rows = candidate.template_slots

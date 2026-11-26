@@ -6,7 +6,7 @@ Archive measurements, not raw outputs. Use [the contribution workflow](../../num
 
 | Item | Submit |
 |---|---|
-| Evaluation | Model revision, workload, both sides' hardware/library versions and relevant settings, summary metrics with units, actual/expected coverage, acceptance criterion and verdict. |
+| Evaluation (including PASS) | Model revision, workload, both sides' hardware/library versions and settings, summary metrics with units, actual/expected coverage, criterion and verdict. With no defect, submit the evaluation alone. |
 | Issue | Measured setup, trigger, expected/observed behavior and classification. No patch required. |
 | Patch | At least one measured `{id, before, after, unit}` pair for the issue under the same workload, configuration and metric definition. Use the relevant metric, e.g. numerical error, failed runs or completion rate. |
 

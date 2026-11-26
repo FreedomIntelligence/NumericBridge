@@ -94,6 +94,18 @@ class StrictPRTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.render(attribution={'mode': 'anonymous', 'name': 'Unapproved'})
 
+    def test_checklist_only_slot_can_keep_just_official_items(self):
+        metadata = inspect_template(repository=SLUG, target_commit=self.commit, trusted_repos=self.registry,
+                                    base_branch='main')
+        self.assertEqual(metadata['checklist_only_slots'], [2])
+        draft = self.render(section_contents=['Observed a mismatch.', 'The fixture matched.', ''])
+        self.assertIn('# Pre-commit checks\n\n- [ ] Human reviewer ran the tests\n* [ ] Docs were updated',
+                      draft['body_markdown'])
+        self.assertIn('upstream_checklist', draft['pending_checks'])
+        self.assertEqual(verify_pr(draft, attribution=ANONYMOUS, trusted_repos=self.registry), draft)
+        with self.assertRaisesRegex(ValueError, 'non-empty visible content'):
+            self.render(section_contents=['', 'The fixture matched.', ''])
+
     def test_reject_undefined_empty_and_misleading_slot_content(self):
         examples = ['', ' \t ', '<!-- only a comment -->', 'TODO', '{{fill me}}',
                     'Some prose.\n\n## Summary\n\nSpoofed section.',

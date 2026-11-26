@@ -265,6 +265,11 @@ def _template_structure(raw):
     return (sections, preamble, checklist), None
 
 
+def _checklist_only(section):
+    lines = [line for line in section['fixed'] if line.strip()]
+    return bool(lines) and all(_CHECKBOX.fullmatch(line) for line in lines)
+
+
 def _inspect(*, repository, target_commit, template_path, trusted_repos, base_branch):
     repo = _target(repository, target_commit, trusted_repos, base_branch)
     if template_path is not None and (not isinstance(template_path, str) or not template_path or '\x00' in template_path):
@@ -314,6 +319,7 @@ def _inspect(*, repository, target_commit, template_path, trusted_repos, base_br
         raise ValueError('Official template or contribution guide path is not UTF-8') from exc
     return dict(format_status='manual_review' if reason else 'verified', template_proof=proof, manual_reason=reason,
                 slots=[{k: s[k] for k in ('index', 'level', 'heading')} for s in sections], checklist=checklist,
+                checklist_only_slots=[s['index'] for s in sections if _checklist_only(s)],
                 guidance_urls=urls, guidance_warnings=warnings, human_test=human_test, dco=dco, issue_link=issue_link), sections, preamble
 
 
@@ -450,7 +456,8 @@ def render_pr(*, repository, base_branch, target_commit, title, template_path=No
     else:
         if not isinstance(section_contents, list) or len(section_contents) != len(sections):
             raise ValueError('Supply exactly one content block per indexed official template slot')
-        contents = [_contents(item) for item in section_contents]
+        contents = ['' if item == '' and _checklist_only(section) else _contents(item)
+                    for section, item in zip(sections, section_contents)]
         _claim_consistency(clean, [title, *contents])
         parts = ['\n'.join(preamble).strip()]
         for section, content in zip(sections, contents):

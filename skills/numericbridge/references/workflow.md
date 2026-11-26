@@ -386,8 +386,8 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 </output>
 
 <next>
-  After a shareable delivery, follow Community contribution. A scoped fix or
-  a community receipt never changes original acceptance.
+  After a shareable delivery, follow Community contribution even for a PASS
+  with no issue or patch. A scoped fix or receipt never changes acceptance.
 </next>
 ```
 

@@ -133,15 +133,17 @@ do not supply catalog collections, library groups, virtual paths or file hashes.
 
 | Item `kind` | What to supply |
 | --- | --- |
-| `evaluation` | Task, model/revision, workload, two measured configurations, coverage, metrics with units, and `acceptance: {verdict, policy, criterion}`. A minimum public reproducer or public HTTPS evidence is required. `run_status` defaults to `completed` and is independent of `verdict`. |
+| `evaluation` | Archive PASS as well as non-pass results; no issue or patch is needed. Include task, model/revision, workload, both tested configurations, coverage, metrics with units, `acceptance: {verdict, policy, criterion}` and a minimum public reproducer or HTTPS evidence. Run completion is separate from acceptance. |
 | `issue` | Task, model or operator subject, setup, classification, trigger, expected/observed behavior, and a minimum public reproducer or public HTTPS evidence. Use an operator subject with shape/dtype for a synthetic operator-only problem. |
 | `patch_candidate` | Issue ID, target, exact diff, and scoped red/green verification with tested versions, command and coverage. `verification.metrics` requires at least one `{id, before, after, unit}` pair for the issue (e.g. error or failed runs), measured with the same workload, configuration and metric definition. Original acceptance is separate. |
 
 Use `inspect_upstream_pr_template({target})` before preparing a patch. For a
 supported official template, map its ordered `slots` using `template_slots`
-entries `{sections, note?}`. Put each of `problem`, `change`, `validation`, and
-`patch` in exactly one slot; the compiler generates these from the submitted facts.
-The fallback format maps its four slots automatically. With multiple official
+entries `{sections, note?}`. Place `problem`, `change`, `validation`, and `patch`
+once each. Validation uses one `Metric | Before | After | Unit` table; the patch
+block separates target and tested versions. For `checklist_only_slots`, use
+`{"sections": []}` to keep just the official unchecked items. The fallback maps
+its four slots automatically. With multiple official
 templates, specify the exact path. Unsupported official layouts are accepted only
 as a manual-format review item without a generated body. A missing, unreadable, or
 untrusted target is not eligible for fallback. The actual upstream filer handles
@@ -184,9 +186,9 @@ such as operator optimization; it cannot bypass typed patch validation.
   `tested_patch_sha256`. The service checks identity and format, not whether a
   submitted test actually ran.
 - Expose only `additions` to publication. Store `review_evidence` in the private
-  inbox. Keep old receipts immutable. Smoke-test a new evaluation, a matched
-  patch, rejection of a patch missing public metrics, and an exact legacy retry
-  before switching clients to v5.
+  inbox. Keep old receipts immutable. Before switching clients, smoke-test a
+  standalone PASS evaluation, a matched patch with a checklist-only slot,
+  rejection of a patch missing public metrics, and an exact legacy retry.
 
 ### Configure agent contribution
 
