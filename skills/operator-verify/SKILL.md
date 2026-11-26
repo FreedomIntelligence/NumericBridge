@@ -9,19 +9,17 @@ Run tools from this skill directory. Each tool's `--help` gives its interface.
 
 | Step | Tool | Output |
 |---|---|---|
-| Scan upstream kernel files for discrete bug candidates | [audit_scan](scripts/audit_scan.py) | `audit-findings.json` with candidate rule hits, lines, hashes, and categories |
 | Classify verification scope and build a request | [triage](scripts/triage.py) | `verify-request.json` with category, eligibility, route, and model modules |
 | Type-check Lean 4 proofs and audit `sorry` / axioms | [lean_check](scripts/lean_check.py) | `verify-report.json` with toolchain, hashes, theorem list, audit status, and verdict |
 
 Read [taxonomy](references/taxonomy.md) for the discrete-verification vs floating-point boundary, [handoff](references/handoff.md) for the input/output JSON contracts, and [TCB](references/tcb.md) for hardware modeling assumptions.
 
-`operator-verify` pairs with [operator-optimize](../operator-optimize/SKILL.md): `operator-verify` proves discrete structural, memory, synchronization, and algebraic/bit-level properties offline without an accelerator; pure floating-point rounding accuracy and runtime timing remain in [precision-compare](../precision-compare/SKILL.md) and [operator-optimize](../operator-optimize/SKILL.md).
+`operator-verify` pairs with [operator-optimize](../operator-optimize/SKILL.md): `operator-verify` proves discrete structural, memory, synchronization, and algebraic/bit-level properties offline for a localized operator without an accelerator; pure floating-point rounding accuracy and runtime timing remain in [precision-compare](../precision-compare/SKILL.md) and [operator-optimize](../operator-optimize/SKILL.md).
 
 ## Entry
 
-1. **Standalone mode.** Start from a kernel source file, PR diff, or Lean 4 target. Run `triage.py` to classify the issue into one of the discrete categories (`index_and_mask`, `resource_capacity`, `pipeline_sync`, `semantic_equivalence`) or route `numeric_rounding` back to dynamic precision tools.
+1. **Standalone mode.** Start from a single kernel source file, PR diff, or Lean 4 target. Run `triage.py` to classify the issue into one of the discrete categories (`index_and_mask`, `resource_capacity`, `pipeline_sync`, `semantic_equivalence`) or route `numeric_rounding` back to dynamic precision tools.
 2. **NumericBridge companion / pre-gate mode.** Accept an operator handoff (`result/optimize/<operator>/handoff.json`) or a `diagnosis.json` hypothesis, verify discrete invariants offline, and write `result/verify/<operator>/verify-report.json` as evidence alongside dynamic checks.
-3. **Repository audit mode.** Scan candidate operator files in an upstream repository (e.g., `sgl-kernel-npu`, `vllm-ascend`, `RL-Kernel`) to surface unreported defects, rule out false positives, and document implicit preconditions. Confirmed defects hand off directly to [upstream_status.py](../precision-compare/scripts/upstream_status.py) and [pr_draft.py](../precision-compare/scripts/pr_draft.py) for upstream PR delivery.
 
 ## Verify
 

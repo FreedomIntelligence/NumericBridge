@@ -48,19 +48,26 @@ CATEGORIES = {
 # Word-boundary regex patterns to prevent substring collisions (e.g. "race" in "trace", "tail" in "detail", "192" in "head_dim 192").
 _CATEGORY_PATTERNS = (
     ('pipeline_sync', re.compile(
-        r'\b(?:setflag|waitflag|hardevent|mte2|mte3|pipe_[a-z0-9]+|data\s+race|race\s+condition|deadlock|pipebarrier|syncall)\b',
+        r'\b(?:setflag|waitflag|hardevent|ibwait|ibset|mte2|mte3|pipe_[a-z0-9]+|data\s+race|race\s+condition|deadlock|pipebarrier|syncall)\b',
         re.I,
     )),
     ('resource_capacity', re.compile(
-        r'\b(?:unified\s+buffer|ub\s+overflow|ub\s+budget|ub\s+limit|multibuffer|192\s*k(?:i?b)?|248\s*k(?:i?b)?|32b\s*align|sram)\b',
+        r'\b(?:unified\s+buffer|ub\s+(?:overflow|overrun|budget|limit|alias\w*)|tbuf|ubcastsafe|'
+        r'in-place\s+(?:[a-z0-9_:-]+\s+){0,3}(?:cast|alias\w*)|cast\s+in-place|'
+        r'byte[- ]vs[- ]element|multibuffer|192\s*k(?:i?b)?|248\s*k(?:i?b)?|32b\s*align|sram|silent\s+(?:host-side\s+)?tile\s+clamp\w*)\b',
+        re.I,
+    )),
+    # Specific semantic-equivalence phrases that contain the word "mask" must precede generic index_and_mask `\bmask\b`.
+    ('semantic_equivalence', re.compile(
+        r'\b(?:inverted\s+bool(?:ean)?(?:\s+[a-z0-9_]+){0,2}\s+mask|welford|ldl\^?t|log2e)\b',
         re.I,
     )),
     ('index_and_mask', re.compile(
-        r'\b(?:mask|masked\s+load|tail\s+(?:block|tile|lane|padding|slot)|padding_option|tiling|int32\s+overflow|oob|out-of-bounds|updatemask|counter)\b',
+        r'\b(?:mask|masked\s+load|boundary_check|tail\s+(?:block|tile|lane|padding|slot)|padding_option|tiling|int32\s+overflow|oob|out-of-bounds|updatemask|counter|unconditional\s+store|stride)\b',
         re.I,
     )),
     ('semantic_equivalence', re.compile(
-        r'(?:-inf\b|\b(?:bitvec|bitwise|torch\.compile|lowering|fusion|megakernel|reduction|equivalence|nan|online\s+softmax|softmax|poison|ldl\^?t)\b)',
+        r'(?:-inf\b|\b(?:bitvec|bitwise|torch\.compile|lowering|fusion|megakernel|reduction|equivalence|nan|online\s+softmax|softmax|poison|transpose|inverted\s+bool(?:ean)?|silent\s+truncat\w*)\b)',
         re.I,
     )),
     ('numeric_rounding', re.compile(
@@ -93,6 +100,8 @@ def triage(operator=None, category=None, description='', backend='unknown',
     if handoff is not None:
         handoff_path = str(handoff)
         handoff_data = json.loads(Path(handoff).read_text(encoding='utf-8'))
+        if not isinstance(handoff_data, dict):
+            raise ValueError(f'handoff file must contain a JSON object: {handoff}')
         if not operator:
             op_info = handoff_data.get('operator')
             if isinstance(op_info, dict):
@@ -151,7 +160,7 @@ def main(argv=None):
                         choices=('triton-ascend', 'ascendc', 'triton', 'cuda', 'unknown'))
     parser.add_argument('--source', type=Path, help='Optional kernel source file path')
     parser.add_argument('--handoff', type=Path, help='Optional operator-optimize handoff.json path')
-    parser.add_argument('--mode', default='standalone', choices=('standalone', 'repo_audit'),
+    parser.add_argument('--mode', default='standalone', choices=('standalone', 'numericbridge_companion'),
                         help='Workflow entry mode (auto-set to numericbridge_companion when --handoff is passed)')
     parser.add_argument('--claim-kind', default='universal_proof',
                         choices=('universal_proof', 'refutation', 'equivalence'))

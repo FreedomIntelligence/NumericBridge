@@ -163,4 +163,31 @@ theorem loopPacked4Shared_exact (curColNum vl : Nat) (hvl : 0 < vl) :
   have hge := le_ceilDiv_mul curColNum (4 * vl) (by omega)
   omega
 
+/-- Round `bytes` up to the nearest 32-byte Ascend UB alignment boundary. -/
+def alignUp32 (bytes : Nat) : Nat :=
+  ceilDiv bytes 32 * 32
+
+theorem alignUp32_ge (bytes : Nat) : bytes ≤ alignUp32 bytes :=
+  le_ceilDiv_mul bytes 32 (by decide)
+
+theorem alignUp32_mod32 (bytes : Nat) : alignUp32 bytes % 32 = 0 := by
+  unfold alignUp32
+  exact Nat.mul_mod_left _ 32
+
+/-- Two half-open UB byte intervals `[s1, e1)` and `[s2, e2)` are disjoint. -/
+abbrev ubDisjoint (s1 e1 s2 e2 : Nat) : Prop :=
+  e1 ≤ s2 ∨ e2 ≤ s1
+
+/-- Hardware constraint for AscendC `Cast(dst, src, count)` inside a UB buffer of `bufBytes`:
+    both ranges stay in bounds, are 32-byte aligned, and the source and destination byte ranges
+    must be strictly disjoint unless `srcWidth = dstWidth` and they start at the exact same offset
+    (partial overlap is forbidden even for equal-width casts). -/
+abbrev ubCastSafe (bufBytes srcOff dstOff count srcWidth dstWidth : Nat) : Prop :=
+  srcOff % 32 = 0 ∧
+  dstOff % 32 = 0 ∧
+  srcOff + count * srcWidth ≤ bufBytes ∧
+  dstOff + count * dstWidth ≤ bufBytes ∧
+  ((srcWidth = dstWidth ∧ srcOff = dstOff) ∨
+    ubDisjoint srcOff (srcOff + count * srcWidth) dstOff (dstOff + count * dstWidth))
+
 end AscendLean.UBModel

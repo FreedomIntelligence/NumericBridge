@@ -22,13 +22,15 @@ import sys
 import time
 
 
-_THEOREM_RE = re.compile(r'^\s*(?:(?:protected|noncomputable)\s+)*(?:theorem|lemma)\s+([A-Za-z0-9_.\']+)', re.M)
-_AXIOM_RE = re.compile(r'\baxiom\s+([A-Za-z0-9_.\']+)')
+_THEOREM_RE = re.compile(
+    r'^\s*(?:@\[[^\]]*\]\s*)*(?:(?:protected|noncomputable)\s+)*(?:theorem|lemma)\s+([A-Za-z0-9_.\']+)',
+    re.M,
+)
+_AXIOM_RE = re.compile(r'\baxiom\s+(«[^»]+»|[^\s:({\[]+)')
 _SORRY_RE = re.compile(r'\b(?:sorry|sorryAx)\b')
 _ADMIT_RE = re.compile(r'\badmit\b')
 _UNSAFE_ESCAPE_RE = re.compile(
-    r'\b(?:native_decide|unsafe|opaque|implemented_by|extern|ofReduceBool|ofReduceNat|trustCompiler)\b'
-    r'|@\[[^\]]*\b(?:implemented_by|extern)\b'
+    r'\b(?:native_decide|unsafe|opaque|implemented_by|extern|ofReduceBool|ofReduceNat|trustCompiler|skipKernelTC)\b'
 )
 _COMPILER_SORRY_RE = re.compile(r"declaration uses ['`]?sorry(?:Ax)?['`]?", re.I)
 
@@ -137,18 +139,27 @@ def audit_lean_source(text):
 
 def _find_lake_project(target_path, explicit_project=None):
     if explicit_project is not None:
-        return Path(explicit_project).resolve()
+        resolved = Path(explicit_project).resolve()
+        if not resolved.is_dir():
+            raise FileNotFoundError(f'Lake project directory not found: {explicit_project}')
+        return resolved
     for parent in Path(target_path).resolve().parents:
         if (parent / 'lakefile.toml').is_file() or (parent / 'lakefile.lean').is_file():
             return parent
     return None
 
 
-def _probe_version(binary):
+def _probe_version(binary, cwd=None):
     if not binary:
         return None
     try:
-        proc = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=15)
+        proc = subprocess.run(
+            [binary, '--version'],
+            cwd=str(cwd) if cwd is not None else None,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
         if proc.returncode == 0:
             return proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else ''
     except (OSError, subprocess.SubprocessError):
@@ -184,8 +195,8 @@ def check_lean(target, project=None, build_lib=False, kernel_sources=None,
         else None
     )
     toolchain = {
-        'lean_version': _probe_version(lean_bin),
-        'lake_version': _probe_version(lake_bin),
+        'lean_version': _probe_version(lean_bin, cwd=project_dir),
+        'lake_version': _probe_version(lake_bin, cwd=project_dir),
         'lean_toolchain': toolchain_pin,
     }
 

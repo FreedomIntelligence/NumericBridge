@@ -7,8 +7,8 @@ This directory contains the reusable `AscendLean` Lean 4 library for offline acc
 | Module | Scope | Key primitives |
 |---|---|---|
 | `AscendLean.PipeModel` | `pipeline_sync` | Ascend DaVinci async pipes (`PIPE_MTE2`, `PIPE_V`, `PIPE_MTE3`, `PIPE_S`), all 12 directed FIFO `HardEvent`s (`MTE3_MTE2`, `V_S`, `S_MTE2`, etc.), `runOps`, `VerifiedSafe` |
-| `AscendLean.UBModel` | `resource_capacity`, `index_and_mask` | `A3_UB_BITS` (192 KiB), `A5_UB_BITS` (248 KiB = 2,031,616 bits), `INT32_MAX`, `INT64_MAX`, `nextPow2`, `le_ceilDiv_mul`, AscendC `updateMask` / 4-way packed stores |
-| `AscendLean.TritonModel` | `semantic_equivalence`, `index_and_mask` | `BitVec 64` bitwise select, `ExtInt` tiled reductions, IEEE-754 online-softmax `(-inf) - (-inf) = NaN` abstract domain, masked-load `LaneVal` padding taint, `indexedLoadSafe` |
+| `AscendLean.UBModel` | `resource_capacity`, `index_and_mask` | `A3_UB_BITS` (192 KiB), `A5_UB_BITS` (248 KiB = 2,031,616 bits), `INT32_MAX`, `INT64_MAX`, `nextPow2`, `le_ceilDiv_mul`, `alignUp32`, `ubDisjoint`, `ubCastSafe`, AscendC `updateMask` / 4-way packed stores |
+| `AscendLean.TritonModel` | `semantic_equivalence`, `index_and_mask` | `BitVec 64` bitwise select, `ExtInt` tiled reductions, IEEE-754 online-softmax `(-inf) - (-inf) = NaN` abstract domain (`runOnline_fixed_all_neginf`), masked-load `LaneVal` padding taint (`sumRow`, `sumRow_zero_padded`, `sumRow_undef_poisons`), `indexedLoadSafe` |
 
 ## Build and check
 

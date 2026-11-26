@@ -233,7 +233,23 @@ theorem runOnline_fixed_invariant (tiles : List TileHasFinite) (st : OnlineState
           have hrec := ih { m := .finite, s := .pos } (Or.inr ⟨rfl, rfl⟩)
           exact ⟨fun _ => hrec.2 rfl, fun _ => hrec.2 rfl⟩
 
-/-! ### 4. Masked Load Padding Taint & Indexed Load Bounds -/
+theorem runOnline_fixed_all_neginf (tiles : List TileHasFinite) (st : OnlineState)
+    (h0 : st.m = .negInf ∧ st.s = .zero) (hall : ∀ b ∈ tiles, b = false) :
+    runOnline onlineStepFixed st tiles = { m := .negInf, s := .zero } := by
+  induction tiles generalizing st with
+  | nil =>
+      rcases st with ⟨m, s⟩
+      simp only at h0
+      simp [runOnline, h0.1, h0.2]
+  | cons b bs ih =>
+      have hb : b = false := hall b (List.Mem.head _)
+      subst hb
+      have hstep : onlineStepFixed st false = { m := .negInf, s := .zero } := by
+        simp [onlineStepFixed, h0.1, h0.2, expDiff, sumMul, sumAdd]
+      simp only [runOnline, List.foldl_cons, hstep]
+      exact ih { m := .negInf, s := .zero } ⟨rfl, rfl⟩ (fun x hx => hall x (List.Mem.tail _ hx))
+
+/-! ### 4. Masked Load Padding Taint, Row Reductions & Indexed Load Bounds -/
 
 /-- Value with explicit uninitialized/undefined UB lane state (Triton `padding_option=""`). -/
 inductive LaneVal where
@@ -250,6 +266,57 @@ def laneAdd (a b : LaneVal) : LaneVal :=
   match a, b with
   | .val x, .val y => .val (x + y)
   | _, _ => .undef
+
+/-- Row reduction `tl.sum` over `bn` lanes with UB taint tracking. -/
+def sumRow (f : Nat → LaneVal) : Nat → LaneVal
+  | 0 => .val 0
+  | n + 1 => laneAdd (sumRow f n) (f n)
+
+/-- Pure mathematical row sum over valid indices `0 .. n-1`. -/
+def sumSpec (a : Nat → Int) : Nat → Int
+  | 0 => 0
+  | n + 1 => sumSpec a n + a n
+
+theorem sumRow_zero_padded (a : Nat → Int) (n bn : Nat) (hnb : n ≤ bn) :
+    sumRow (fun j => if j < n then .val (a j) else .val 0) bn = .val (sumSpec a n) := by
+  induction bn with
+  | zero =>
+      have hn0 : n = 0 := by omega
+      subst hn0; rfl
+  | succ m ih =>
+      by_cases hnm : n ≤ m
+      · simp only [sumRow]
+        rw [ih hnm]
+        have hnot : ¬ (m < n) := by omega
+        simp [hnot, laneAdd]
+      · have hneq : n = m + 1 := by omega
+        subst hneq
+        simp only [sumRow]
+        have hprefix :
+            ∀ r, r ≤ m →
+              sumRow (fun j => if j < m + 1 then .val (a j) else .val 0) r = .val (sumSpec a r) := by
+          intro r hr
+          induction r with
+          | zero => rfl
+          | succ t iht =>
+              simp only [sumRow, iht (by omega)]
+              have ht : t < m + 1 := by omega
+              simp [ht, laneAdd, sumSpec]
+        rw [hprefix m (Nat.le_refl m)]
+        simp [laneAdd, sumSpec]
+
+theorem sumRow_undef_poisons (a : Nat → Int) (n bn : Nat) (hlt : n < bn) :
+    sumRow (fun j => if j < n then .val (a j) else .undef) bn = .undef := by
+  induction bn with
+  | zero => omega
+  | succ m ih =>
+      simp only [sumRow]
+      by_cases hnm : n < m
+      · rw [ih hnm]
+        cases (if m < n then LaneVal.val (a m) else LaneVal.undef) <;> rfl
+      · have hnot : ¬ (m < n) := by omega
+        simp only [hnot, ↓reduceIte]
+        cases sumRow (fun j => if j < n then .val (a j) else .undef) m <;> rfl
 
 /-- Inner product of length `bk` where lanes `j < k` are valid and `j ≥ k` are padded. -/
 def dotRow (f g : Nat → LaneVal) : Nat → LaneVal
