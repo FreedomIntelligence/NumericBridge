@@ -1,163 +1,27 @@
 # Community submission guide
 
-Select public findings from diagnosis.json and its linked evidence; follow
-[the workflow](../../numericbridge/references/workflow.md#community-contribution)
-for preview and consent.
+Archive measurements, not raw outputs. Use [the contribution workflow](../../numericbridge/references/workflow.md#community-contribution) for consent and delivery. Read the MCP schema for field definitions.
 
 ## Record the result
 
-| Work completed | What to record |
+| Item | Submit |
 |---|---|
-| Comparison | Tested configurations, workload, coverage, measured differences and the acceptance verdict with its profile. |
-| Diagnosis | The observed issue and investigation linked to the comparison or native failure, with the evidence for its classification. |
-| Solution | Each candidate linked to the issue with its scope, configuration, outcome and tradeoffs; mark source review, workaround or original-path verification. |
+| Evaluation | Model revision, workload, both sides' hardware/library versions and relevant settings, summary metrics with units, actual/expected coverage, acceptance criterion and verdict. |
+| Issue | Measured setup, trigger, expected/observed behavior and classification. No patch required. |
+| Patch | At least one measured `{id, before, after, unit}` pair for the issue under the same workload, configuration and metric definition. Use the relevant metric, e.g. numerical error, failed runs or completion rate. |
 
-Group the submission under one `case` relation entity (`details.request` with
-hardware, model, framework, task and goal; `details.category`) with an `includes`
-link to every comparison, repair, issue and candidate it adds; search indexes
-cases, so records outside a case are not retrievable, and the preview then also
-checks their search facets. Record hardware, checkpoint and revision, tested
-framework/version, task and settings. Use `model.architecture` and `model.size` for search (`tiny` for a custom
-miniature fixture, with its dimensions and seed), `frameworks` for tested
-frameworks, `libraries` for dependencies and `affected_library` for the repair
-target, with versions and commits in their own fields.
+Every patch needs a focused red/green result, coverage and the exact tested base and diff digest. Label the scope (operator, component or end-to-end). **A focused pass never changes original acceptance.** Include a minimal public reproducer or public evidence link. Keep raw logits, tensors, private inputs, full logs and environment receipts local.
 
-Copy each preflight worker's environment receipt into that evaluation side's
-`settings.runtime_environment` (or `environment.settings.runtime_environment`
-for the measured repair environment). Carry each solution verification's own
-versions. Retain the version source and keep unknown distinct from not
-applicable. Use the observed configuration for recommendations; keep candidate
-versions with the solution proposal until verified. Older records may omit the
-receipt.
+## Prepare and inspect
 
-## Write the public entry
-
-Give the symptom in a short title and summary (`content.title`, optional
-`content.summary`, in `zh` and/or `en`; `details.content` for lifecycle entities);
-keep settings and metrics in structured fields. `content.workflows` describes
-affected tasks. Clarify historical wording by typed ID in `data/content.json`.
-Include only the evidence needed to trace the result; keep raw logs, prompts,
-private paths and host details local.
+Use `prepare_contribution` for new evaluations, issues and tested patches. The tool builds the catalog records. For a patch, inspect the merged target with `inspect_upstream_pr_template`; follow its slot order and leave unrun checks pending. Untrusted targets block preparation. Only maintainers receive the diff and PR draft (`preview.review_evidence`); only `preview.additions` is eligible for publication.
 
 ## Operator variants
 
-After [operator optimization](../../operator-optimize/SKILL.md), add one
-candidate per kept variant (the baseline, the slow fix and each kernel), linked
-to the issue, so users can choose between precision and speed. Use
-`numerical-policy` or `patch` as the solution type and put the tradeoff in
-`applicability` and `limitations`. Attach the `kernel_check.py` report and the
-end-to-end results as evidence: per variant the error against FP64 and the
-dtype floor, reproducibility, paired timing with its conditions, and the
-original workload's metrics, throughput, TTFT/TPOT and peak memory, each with
-the baseline measured on the same host. Mark unmeasured values `not_measured`
-with the reason. Package the operator round as `operator_optimization`
-(`kind: "operator-optimization"`, `schema_version: 1`, built and checked by
-[operator_optimization.py](../scripts/operator_optimization.py)) inside an
-`evidence/submissions/*.json` document:
-
-- Set `round_status: "handoff_open"` when optimization is only handed off or
-  partially checked (for instance, captured operands and `slow_fix` checked
-  without target `random`/`edge` shapes or paired timing); carry `open_items`
-  (`remaining_distance`, `variants_not_yet_tried`, `next_step`) without claiming
-  complete variant benchmarks.
-- Set `round_status: "round_delivered"` once a round finishes; include
-  `kernel_check` (`kernel_check.py` output), `end_to_end` (or
-  `{"status": "not_measured", "reason": ...}`), and `variants` referencing the
-  kept `candidate` entities in `relations.entities`.
-- Report factual measurements only; never add `tier` or `recommendation` fields
-  in the client payload. Precision tiers, recommendations, and multi-round
-  aggregation are handled on the community server side.
-
-## Submission identity
-
-`prepare_community_submission` returns `base_commit`: the community catalog
-revision the submission service used to validate and merge the record. It is
-not the NumericBridge revision the case ran, and a different value is not a
-blocker; record it in the case state. Fix the draft only when the result is
-`invalid`.
-
-When request.json records `community_contribution.consent: share`, pass its path
-as `consent_record` to `submit_community`: the draft is sent without a form when
-its attribution matches the consent and the private-identifier scan is clean
-(`consent_missing` or `scan_findings` otherwise), and the receipt carries
-`confirmation: prior_consent`. The inbox validates every received draft again,
-including each `upstream_pr_draft` with `pr_draft.py check`, and rejects one
-that fails. Without recorded consent, `submit_community` asks through the client;
-if it returns `approval_unavailable`, keep the draft and offer the terminal
-fallback (`python -B -m community.submit_reviewed --draft-sha256 SHA`), which
-sends only after the user types `SEND`.
-
-## Prepare an upstream PR draft
-
-For a verified patch intended for upstream, inspect the target repository's base
-branch contribution guide and PR template first (`pr_draft.py inspect --repo
-CLONE --ref TARGET_BRANCH` reads `.github/PULL_REQUEST_TEMPLATE*`,
-`CONTRIBUTING.md`, and DCO/checklist requirements); pass `--repo` to
-`pr_draft.py scaffold` (plus `--request request.json` or `--attribution-mode`)
-so `template_source` (`"repository_template"` vs `"numericbridge_default"`) and
-`contribution_requirements` are recorded and checked against the body. `scaffold`
-appends a concise NumericBridge provenance footer (repository and Case Library
-links, and the user's `nickname` or `@github` discoverer credit when chosen;
-omitted when anonymous).
-When the target repository has no PR template or contribution guide,
-`pr_draft.py` uses the pre-agreed NumericBridge fallback format (**Problem /
-Change / Validation / Patch**) with `fallback_used: true` and notes what could
-not be checked. Include a
-title, affected setup, minimal reproducer, matched before/after results,
-commands run and the patch. Base the draft on current main and cite only merged
-upstream commits for where the defect is present or fixed. Related issues and
-PRs, open or merged, may be cited; an unmerged PR does not count as a fix (see the
-workflow's upstream status). A PR draft travels with the community submission;
-maintainers review it and file it upstream, so the user never opens the PR.
-Leave pending checks unchecked and record a PR URL only once it exists.
-
-Prepare a draft so maintainers only review and file it: a patch that applies to
-the target branch, a test in the target repository's style that fails before
-and passes after, native verification on the target branch or released build,
-performance numbers and a body following the repository template. Mark each as
-a `diagnosis_state.py decide --check-item` (`applies_cleanly`,
-`repo_style_test`, `native_on_target`, `performance`, `template_body`); a draft
-missing one is submitted as incomplete with the missing check named. A backport
-targets the distribution the user installs (for example a plugin's release
-branch) and uses that distribution's own patch or build mechanism. Check
-`applies_cleanly` per target ref with
-[upstream_status.py](../scripts/upstream_status.py) `--patch`.
-
-The record follows `result/contribution-decisions.json`: one issue per decided
-hypothesis, a draft for each `pr_draft_main` or `backport_draft`, and the
-ownership and reason in the issue's classification. Before preparing, run
-[anonymize_scan.py](../scripts/anonymize_scan.py) over the submission input,
-evidence and draft bodies with `--term` for host aliases and account names, and
-fix every finding.
-
-Record where the defect is and where it was fixed in the candidate's optional
-`details.upstream`: `affected` (versions or refs still containing it), `fixed_in`
-(first fixed release, or null), `fixed_commit` (the merged fix), `upgrade_blocker`
-and `refs` (`ref`, `commit`, `state` rows from `upstream_status.py`). A fixed
-release needs the merge commit or a fixed ref; search returns the block with the
-solution.
-
-When decisions change after a submission (a new or revised draft), prepare a new
-draft with `supersedes` listing the earlier receipt IDs and submit it the same
-way; reviewers then accept only the latest receipt. `community_submission_status`
-(or `python -B -m community.submission_status RECEIPT --intake URL --token-file
-FILE`) returns a receipt's review state, linked PRs and any later receipt that
-supersedes it.
-
-Attach the draft as `upstream_pr_draft` in a new `evidence/submissions/*.json`
-document (`repository`, `base_branch`, `title`, `body_markdown`, `guidance_urls`,
-`pending_checks`) referenced from the `prepare_community_submission` evidence map;
-the regular preview and consent cover it. [pr_draft.py](../scripts/pr_draft.py)
-`scaffold` builds that document from the decision, the filled sections and the
-target repository's template headings, fills `pending_checks` from the decision's
-checks and, for a backport, states the fixed release and upgrade blocker; `check`
-rejects placeholders and empty sections.
+For [operator optimization](../../operator-optimize/SKILL.md), use the dedicated `operator_optimization` evidence format and [validator](../scripts/operator_optimization.py). Record FP64 error, reproducibility, paired timings and original-workload impact when measured. Mark missing checks rather than estimating; ranking is server-owned.
 
 ## Local preview
 
-Without the contribution MCP, keep the anonymized input and validate it from the
-repository checkout:
+Without MCP, keep the anonymized draft local. For legacy catalog objects, use `python -B -m community.records.submission --input submission.json --output preview.json`.
 
-```sh
-python -B -m community.records.submission --input submission.json --output preview.json
-```
+[Submission schema and operator setup](https://github.com/FreedomIntelligence/NumericBridge/blob/main/community/README.md#typed-contribution-input)

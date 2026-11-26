@@ -19,9 +19,16 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements-dev.txt
+            community/requirements-mcp.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -B -m scripts validate
+      - run: python -B -m unittest scripts.test_case_delivery_state scripts.test_upstream_status scripts.test_strict_pr
+      - if: matrix.python == '3.12'
+        run: |
+          python -m pip install -r community/requirements-mcp.txt
+          python -B -m unittest community.test_contribution_contract community.test_public_intake community.test_review_visibility community.test_contribution_input
   catalog-free-source:
     runs-on: ubuntu-latest
     steps:

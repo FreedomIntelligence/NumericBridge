@@ -14,10 +14,13 @@ Details:
 present: the pattern matches any listed file at that ref (null without --pattern).
 applies: `git apply --check` of the patch on that ref's tree (the fix is still needed there).
 reverse_applies: the patch is already in that tree (fixed). Only merged history is read:
-open issues and unmerged PRs are never consulted. merged_commits lists first-parent
-commits on the ref whose message matches --log-grep (for example the function or symptom),
-newest first, to cite the fixing merge. Suggested state: fixed when reverse_applies or the
-pattern disappears after appearing on another checked ref; present when the pattern
+open issues and unmerged PRs are never consulted. Use authoritative upstream
+refs: a short tag selects the tag, and a short branch selects the origin-tracking
+branch before a local branch. A full ref or commit explicitly selects that object.
+merged_commits lists first-parent commits on the ref whose message matches --log-grep
+(for example the function or symptom), newest first, to cite the fixing merge.
+Suggested state: fixed when reverse_applies or the pattern disappears after
+appearing on another checked ref; present when the pattern
 matches or the patch applies; absent when the files do not exist; unknown otherwise.
 CLI exit: 0=checked, 2=input error.
 """
@@ -62,7 +65,10 @@ def check(repo, refs, paths=(), pattern=None, patch=None, log_grep=(), fetch=Fal
     rows = []
     for ref in refs:
         resolved = None
-        for candidate in (ref, 'origin/' + ref, 'refs/tags/' + ref):
+        candidates = (ref,)
+        if not ref.startswith('refs/') and not re.fullmatch(r'[a-fA-F0-9]{40}|[a-fA-F0-9]{64}', ref):
+            candidates = ('refs/tags/' + ref, 'refs/remotes/origin/' + ref, ref)
+        for candidate in candidates:
             out = _git(repo, 'rev-parse', '--verify', '--quiet', candidate + '^{commit}', check=False)
             if out.returncode == 0:
                 resolved = out.stdout.strip()

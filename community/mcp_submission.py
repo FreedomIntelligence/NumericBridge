@@ -9,12 +9,16 @@ from typing import Annotated, Any, Literal
 from mcp import types
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.shared.exceptions import MCPError
-from pydantic import Field, StringConstraints
+from pydantic import Field, StringConstraints, ValidationError
+
+from tools.contribution_contract import TARGET, candidate_versions, capabilities, receipt_binding, require_target
+from tools.strict_pr import inspect_template, load_registry
 
 from .consent import recorded_consent, scan_draft
+from .contribution_input import Contribution, PatchTarget, compile_contribution
 from .intake import IntakeClient
 from .mcp_search import register_search
-from .records.submission import Submissions, add_catalog_site_argument, draft_attribution
+from .records.submission import Submissions, add_catalog_site_argument, attribution, draft_attribution
 from .submission_client import PUBLIC_DRAFT_MESSAGE, public_draft_error, receipt_status, send_reviewed
 
 
@@ -50,11 +54,75 @@ def terminal_fallback(submissions: Submissions, intake: IntakeClient, digest: st
 
 
 def create_server(submissions: Submissions, intake: IntakeClient | None = None) -> MCPServer:
-    server = MCPServer('numericbridge-contribution', version='1.0.0', subscriptions=False,
-                       instructions='Show the local preview, then use submit_community for the only sharing confirmation. Never answer it on the user\'s behalf.')
+    trusted_repos = submissions.trusted_repos
+    configured = capabilities(intake.url if intake is not None else None)
+    if submissions.destination != configured['destination']:
+        raise ValueError('The draft destination must match the configured NumericBridge inbox')
+    server = MCPServer('numericbridge-contribution', version='1.2.0', subscriptions=False,
+                       instructions='Upstream is read-only. Use NumericBridge intake for contribution. '
+                                    'Show the local preview, then use submit_community for the only sharing '
+                                    'confirmation. Never answer it on the user\'s behalf.')
 
     @server.tool(
-        title='Prepare a NumericBridge contribution',
+        title='Read NumericBridge contribution capabilities',
+        annotations=types.ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                          idempotentHint=True, openWorldHint=False),
+        structured_output=True,
+    )
+    async def community_contribution_capabilities() -> dict[str, Any]:
+        """Report the only contribution route, supported attribution and revision support."""
+        return dict(configured, contribution_input_versions=[1], typed_draft_schema_version=5,
+                    review_evidence_separate=True, trusted_upstream_templates_configured=bool(trusted_repos))
+
+    @server.tool(title='Inspect the pinned upstream PR template',
+                 annotations=types.ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                                   idempotentHint=True, openWorldHint=False),
+                 structured_output=True)
+    async def inspect_upstream_pr_template(target: PatchTarget) -> dict[str, Any]:
+        """Read the official template from a configured local clone, never from caller-supplied paths."""
+        try:
+            result = await asyncio.to_thread(inspect_template, repository=target.repository,
+                base_branch=target.base_branch, target_commit=target.commit,
+                template_path=target.template_path, trusted_repos=trusted_repos)
+            return dict(status='ok', **result)
+        except (OSError, ValueError) as error:
+            return dict(status='invalid', findings=[str(error)])
+
+    @server.tool(title='Prepare typed NumericBridge contribution',
+                 annotations=types.ToolAnnotations(readOnlyHint=False, destructiveHint=False,
+                                                   idempotentHint=True, openWorldHint=False),
+                 structured_output=True)
+    async def prepare_contribution(
+        contribution: Contribution,
+        attribution_mode: Literal['anonymous', 'nickname', 'github'] = 'anonymous',
+        attribution_name: str | None = None,
+        supersedes: Annotated[list[Receipt], Field(max_length=10)] | None = None,
+        delivery_target: str = TARGET,
+    ) -> dict[str, Any]:
+        """Compile evaluated results, issues and patches into public records and review-only material."""
+        try:
+            require_target(delivery_target)
+            if configured['intake_mode'] == 'public' and (attribution_mode != 'anonymous' or supersedes):
+                raise ValueError(PUBLIC_DRAFT_MESSAGE)
+            credit = attribution(attribution_mode, attribution_name)
+            additions, review = await asyncio.to_thread(compile_contribution, contribution, credit,
+                trusted_repos=trusted_repos)
+            versions = candidate_versions(review)
+            findings = await asyncio.to_thread(scan_draft, dict(additions=additions, review_evidence=review))
+            if findings:
+                return dict(status='scan_findings', findings=[{k: v for k, v in finding.items() if k != 'match'}
+                                                               for finding in findings[:20]])
+            prepared = await asyncio.to_thread(submissions.prepare, contribution.title, additions,
+                review_evidence=review, attribution_mode=attribution_mode, attribution_name=attribution_name,
+                replaces=supersedes or [])
+            return dict(prepared, candidate_versions=versions)
+        except ValidationError as error:
+            return dict(status='invalid', findings=error.errors(include_input=False, include_url=False, include_context=False))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
+            return dict(status='invalid', findings=[str(error)])
+
+    @server.tool(
+        title='Prepare a NumericBridge contribution (legacy catalog objects)',
         annotations=types.ToolAnnotations(readOnlyHint=False, destructiveHint=False,
                                           idempotentHint=True, openWorldHint=False),
         structured_output=True,
@@ -70,17 +138,17 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         attribution_mode: Literal['anonymous', 'nickname', 'github'] = 'anonymous',
         attribution_name: str | None = None,
         supersedes: Annotated[list[Receipt], Field(max_length=10)] | None = None,
+        delivery_target: str = TARGET,
     ) -> dict[str, Any]:
         """Validate additions and save an exact local preview without sending it.
 
         Only include public, reviewed summaries and minimum evidence. Evidence
         maps a new site-relative evidence/submissions/*.json path to its JSON
         object. Reuse the community record schemas for all supplied records.
-        Reserved evidence object keys validated automatically:
-        - `upstream_pr_draft`: output of pr_draft.py scaffold/check (includes
-          repository, base_branch, title, body_markdown, guidance_urls,
-          pending_checks, template_source, attribution).
-        - `operator_optimization`: output of operator_optimization.py scaffold/check
+        Use `prepare_contribution` for new PR or patch candidates. Legacy drafts
+        already received remain readable; new legacy public patch evidence is
+        not accepted. This tool still supports specialized evidence such as
+        `operator_optimization`: output of operator_optimization.py scaffold/check
           (`kind: "operator-optimization"`, `schema_version: 1`, `round_status`:
           `"handoff_open"` | `"round_delivered"`; never include server-assigned
           `tier` or `recommendation` fields).
@@ -91,16 +159,21 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         Show the actual additions, destination and attribution, then offer submission through
         the client confirmation.
         """
-        if (intake is not None and intake.token_file is None
-                and (attribution_mode != 'anonymous' or supersedes)):
+        try:
+            require_target(delivery_target)
+        except ValueError as error:
+            return dict(status='invalid', findings=[str(error)])
+        if configured['intake_mode'] == 'public' and (attribution_mode != 'anonymous' or supersedes):
             return dict(status='invalid', findings=[PUBLIC_DRAFT_MESSAGE])
         additions = dict(evaluations=dict(evaluations=evaluations or []),
                          repairs=dict(repairs=repairs or [], library_groups=library_groups or []),
                          relations=dict(entities=entities or [], links=links or []), evidence=evidence or {})
         try:
-            return await asyncio.to_thread(submissions.prepare, title, additions,
+            versions = candidate_versions(additions['evidence'])
+            prepared = await asyncio.to_thread(submissions.prepare, title, additions,
                 attribution_mode=attribution_mode, attribution_name=attribution_name,
                 replaces=supersedes or [])
+            return dict(prepared, candidate_versions=versions)
         except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
             return dict(status='invalid', findings=[str(error)])
 
@@ -111,7 +184,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         structured_output=True,
     )
     async def submit_community(draft_id: DraftID, draft_sha256: DraftHash, ctx: Context,
-                               consent_record: str | None = None) -> dict[str, Any]:
+                               consent_record: str | None = None,
+                               delivery_target: str = TARGET) -> dict[str, Any]:
         """Send this exact draft to the community inbox for maintainer review.
 
         With consent_record (the case's request.json path), send without a form when
@@ -121,8 +195,11 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         confirmation; rejecting or cancelling sends nothing.
         """
         try:
+            require_target(delivery_target)
             draft = await asyncio.to_thread(submissions.reviewed, draft_id, draft_sha256)
-        except (OSError, ValueError, KeyError, TypeError) as error:
+            evidence = draft['review_evidence'] if draft['schema_version'] == 5 else draft['additions']['evidence']
+            candidate_versions(evidence)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
             return dict(status='invalid_draft', message=str(error))
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured; keep this local draft')
@@ -158,6 +235,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                 message=f"Share this anonymized result with NumericBridge so others can reuse it?\n"
                 f"Title: {draft['title']}\nCommunity inbox: {draft['destination']}\n"
                 f"{credit_message}\n"
+                + (f"Maintainer-only attachments: {len(draft['review_evidence'])}. Review both parts of the preview.\n"
+                   if draft.get('review_evidence') else '')
                 + (f"Replaces earlier submissions: {', '.join(draft['supersedes'])}\n"
                    if draft.get('supersedes') else '')
                 + f"Draft SHA-256: {draft_sha256}",
@@ -186,7 +265,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                                           idempotentHint=True, openWorldHint=True),
         structured_output=True,
     )
-    async def community_submission_status(receipt_id: Receipt) -> dict[str, Any]:
+    async def community_submission_status(receipt_id: Receipt,
+                                          draft_sha256: DraftHash | None = None) -> dict[str, Any]:
         """Read the review state of a receipt returned by submit_community.
 
         States: pending_review, needs_information, accepted, declined, published.
@@ -195,12 +275,24 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         replace this one. A receipt is searchable only after it is published and
         the deployed index returns it.
         """
+        binding = None
+        if draft_sha256 is not None:
+            if receipt_id != f'submission-{draft_sha256}':
+                return dict(status='invalid_binding', message='Receipt does not belong to the requested draft SHA-256')
+            try:
+                draft = await asyncio.to_thread(submissions.reviewed, f'draft-{draft_sha256}', draft_sha256)
+                binding = receipt_binding(draft, draft_sha256, receipt_id)
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+                return dict(status='invalid_binding', message=str(error))
         if intake is None:
             return dict(status='intake_unavailable', message='No community inbox is configured')
         try:
-            return await asyncio.to_thread(receipt_status, submissions, intake, receipt_id)
+            status = await asyncio.to_thread(receipt_status, submissions, intake, receipt_id)
         except (OSError, ValueError) as error:
             return dict(status='status_unavailable', message=str(error))
+        if binding is not None and status.get('status') == 'found':
+            return dict(status, receipt_binding=binding)
+        return status
 
     return server
 
@@ -212,6 +304,7 @@ def main():
     parser.add_argument('--drafts', type=Path, default=Path.home() / '.numericbridge' / 'drafts',
                         help='private local draft directory')
     add_catalog_site_argument(parser)
+    parser.add_argument('--upstream-registry', type=Path, help='operator-managed JSON repo slug to local Git clone mapping')
     parser.add_argument('--search-index', type=Path, help='also expose search using this public index snapshot')
     parser.add_argument('--search-sha256', help='expected SHA-256 of the search index snapshot')
     args = parser.parse_args()
@@ -221,8 +314,9 @@ def main():
         parser.error('--search-sha256 requires --search-index')
     try:
         intake = IntakeClient(args.intake, args.token_file) if args.intake else None
+        registry = args.upstream_registry.resolve() if args.upstream_registry is not None else None
         submissions = Submissions(ROOT, args.drafts, destination=intake.url if intake else None,
-                                  catalog_site=args.catalog_site)
+                                  catalog_site=args.catalog_site, trusted_repos=load_registry(registry))
         server = create_server(submissions, intake)
         if args.search_index is not None:
             register_search(server, args.search_index, index_sha256=args.search_sha256)

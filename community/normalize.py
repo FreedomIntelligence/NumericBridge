@@ -12,7 +12,8 @@ from tools.operator_optimization import check as check_operator_optimization
 from tools.pr_draft import check as check_pr_draft
 from .records.catalog import Catalog
 from .records.search import compile_index
-from .records.submission import SITE, Submissions, encode
+from .records.submission import (SITE, Submissions, encode, validate_draft_envelope,
+                                 validate_visibility)
 
 
 def _finite(value):
@@ -198,6 +199,9 @@ def aggregate_operator_rounds(rounds):
 def normalize_draft(draft, *, receipt_id=None):
     """Produce a standardized maintainer review summary from a validated inbox submission."""
     additions = draft.get('additions') or {}
+    if draft.get('schema_version') == 5:
+        validate_draft_envelope(draft)
+        validate_visibility(draft['title'], additions, draft['review_evidence'])
     evaluations = (additions.get('evaluations') or {}).get('evaluations') or []
     repairs = (additions.get('repairs') or {}).get('repairs') or []
     library_groups = (additions.get('repairs') or {}).get('library_groups') or []
@@ -372,7 +376,7 @@ def normalize_draft(draft, *, receipt_id=None):
         cls = (item.get('details') or {}).get('classification') or 'unknown'
         issue_by_classification[cls] = issue_by_classification.get(cls, 0) + 1
 
-    return {
+    summary = {
         'schema_version': 1,
         'receipt_id': receipt_id,
         'draft_schema_version': draft.get('schema_version'),
@@ -410,6 +414,9 @@ def normalize_draft(draft, *, receipt_id=None):
         'other_evidence': other_evidence,
         'unindexed_records': unindexed,
     }
+    if draft.get('schema_version') == 5:
+        summary['counts']['review_evidence_files'] = len(draft['review_evidence'])
+    return summary
 
 
 def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD', catalog_site=None):
@@ -421,6 +428,9 @@ def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD', catal
     _, raw = read_receipt(Path(inbox), receipt_id)
     draft = json.loads(raw)
     additions = draft.get('additions') or {}
+    # Validate the visibility boundary before creating any output. The accepted
+    # inbox bytes are immutable; no private attachment enters the public checkout.
+    normalized = normalize_draft(draft, receipt_id=receipt_id)
 
     repo = Path(repo).resolve()
     out = Path(output_dir).resolve()
@@ -447,7 +457,6 @@ def apply_receipt(repo, inbox, receipt_id, output_dir, *, base_ref='HEAD', catal
         Catalog(site_out)
         compile_index(Catalog(site_out))
 
-    normalized = normalize_draft(draft, receipt_id=receipt_id)
     normalized['materialized_base_commit'] = preview['base_commit']
     normalized['changed_files'] = sorted(preview['files'])
     (out / 'normalized.json').write_bytes(encode(normalized))

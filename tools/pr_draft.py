@@ -98,20 +98,31 @@ def _resolve_ref(repo, ref):
     raise ValueError(f'ref not found in {repo}: {ref}')
 
 
-def _extract_headings(markdown):
+def _heading_sections(markdown):
+    lines = markdown.splitlines()
     headings = []
-    in_fence = False
-    for line in markdown.splitlines():
+    fence = None
+    for index, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith('```'):
-            in_fence = not in_fence
+        marker = re.match(r'^(`{3,}|~{3,})(.*)$', stripped)
+        if fence:
+            if (marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence)
+                    and not marker[2].strip()):
+                fence = None
             continue
-        if in_fence:
+        if marker:
+            fence = marker[1]
             continue
-        match = re.match(r'^#{2,3}\s+(.+?)\s*#*$', line)
+        match = re.match(r'^(#{2,3})\s+(.+?)\s*#*$', line)
         if match:
-            headings.append(match.group(1).strip())
-    return headings
+            headings.append((index, len(match[1]), match[2].strip()))
+    for n, (start, level, title) in enumerate(headings):
+        end = next((index for index, depth, _ in headings[n + 1:] if depth <= level), len(lines))
+        yield title, '\n'.join(lines[start + 1:end]).strip()
+
+
+def _extract_headings(markdown):
+    return [title for title, _ in _heading_sections(markdown)]
 
 
 def inspect_repo(repo, ref='HEAD'):
@@ -320,13 +331,11 @@ def check(document):
     for text in (document.get('title', ''), body):
         for match in PLACEHOLDER.finditer(text):
             problems.append(f'placeholder left: {match.group(0)!r}')
-    sections = re.split(r'^## ', body, flags=re.MULTILINE)[1:]
     headings = []
-    for section in sections:
-        heading, _, content = section.partition('\n')
-        headings.append(heading.strip())
-        if not content.strip():
-            problems.append(f'empty section: {heading.strip()}')
+    for heading, content in _heading_sections(body):
+        headings.append(heading)
+        if not content:
+            problems.append(f'empty section: {heading}')
     if not isinstance(document.get('pending_checks', []), list):
         problems.append('pending_checks must be a list')
     template_source = document.get('template_source')

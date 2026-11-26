@@ -45,20 +45,28 @@ source, index SHA and available snapshot date for either route.
 
 ## Offer contribution after local delivery
 
-1. Respect a prior refusal or no-share instruction. Prepare only publicly
+Workflow agents submit local PR/MR drafts only to NumericBridge intake. Never
+open or update PRs/MRs (including drafts) in the original upstream repository,
+create public forks, or push branches to publish those drafts. Read upstream
+repositories for verification and templates only. NumericBridge maintainers
+review the community submission and handle any upstream filing. An existing
+upstream PR does not count as a NumericBridge contribution or receipt.
+
+1. Call `community_contribution_capabilities` before preparing a contribution.
+   Respect a prior refusal or no-share instruction. Prepare only publicly
    shareable results and minimum evidence. Public intake accepts only new
    anonymous drafts, not named credit or revisions. Use authenticated intake
    when the user wants named credit or a revision; do not silently convert
    named consent to anonymous consent. A credit choice does not authorize
    sending. Never derive a name from local identity.
-2. Call `prepare_community_submission` with `title` and the relevant arrays
-   `evaluations`, `repairs`, `library_groups`, `entities`, `links`, and the
-   `evidence` object, keyed by new `evidence/submissions/*.json` paths. See the
-   [record schemas](records/README.md). Optionally pass `attribution_mode`:
-   `anonymous` (omit `attribution_name`), `nickname` (supply the chosen name),
-   or `github` (supply `@username`; no login), and `supersedes` (prior receipt
-   IDs when updating an earlier submission). `ready` returns `preview`,
-   `draft_id`, and `draft_sha256`; `invalid` returns findings and sends nothing.
+2. Call `prepare_contribution` with a [typed contribution](README.md#typed-contribution-input).
+   Use `inspect_upstream_pr_template` before preparing a patch candidate. Show
+   both `preview.additions` (eligible to publish) and `preview.review_evidence`
+   (maintainers only). Optionally pass `attribution_mode`: `anonymous` (omit
+   `attribution_name`), `nickname` (chosen name), or `github` (chosen
+   `@username`; no login), and `supersedes` (prior receipt IDs). `ready` returns
+   `preview`, `draft_id`, and `draft_sha256`; preparation never sends. Do not use
+   the legacy catalog tool to route around an unsupported or untrusted template.
 3. Named credit covers the NumericBridge site, the community PR, and any related
    upstream PR filed by maintainers. When `request.json` records
    `community_contribution.consent: "share"`, pass `consent_record` (the

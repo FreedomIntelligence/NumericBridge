@@ -120,6 +120,74 @@ python -B -m scripts export-search --check --site "$SITE"
 Point `--catalog-site` (or `NUMERICBRIDGE_CATALOG_SITE`) at the verified directory
 containing `data/` and `evidence/`. The local MCP does not fetch it automatically.
 
+### Typed contribution input
+
+Call `community_contribution_capabilities` first, then
+`prepare_contribution({contribution, attribution_mode?, attribution_name?, supersedes?})`.
+MCP advertises the full schema. `contribution` has `schema_version: 1`, `id`,
+`title`, `measured_on` (`YYYY-MM-DD`), and 1–12 `items` from one task. Use stable
+lowercase slug IDs. Each item produces one public evidence object and each patch
+one private attachment; both lanes combined are limited to 20 objects and 1 MiB.
+The compiler creates case records, references and IDs;
+do not supply catalog collections, library groups, virtual paths or file hashes.
+
+| Item `kind` | What to supply |
+| --- | --- |
+| `evaluation` | Task, model/revision, workload, two measured configurations, coverage, metrics with units, and `acceptance: {verdict, policy, criterion}`. A minimum public reproducer or public HTTPS evidence is required. `run_status` defaults to `completed` and is independent of `verdict`. |
+| `issue` | Task, model or operator subject, setup, classification, trigger, expected/observed behavior, and a minimum public reproducer or public HTTPS evidence. Use an operator subject with shape/dtype for a synthetic operator-only problem. |
+| `patch_candidate` | Issue ID, target, exact diff, and scoped red/green verification with tested versions, command and coverage. `verification.metrics` requires at least one `{id, before, after, unit}` pair for the issue (e.g. error or failed runs), measured with the same workload, configuration and metric definition. Original acceptance is separate. |
+
+Use `inspect_upstream_pr_template({target})` before preparing a patch. For a
+supported official template, map its ordered `slots` using `template_slots`
+entries `{sections, note?}`. Put each of `problem`, `change`, `validation`, and
+`patch` in exactly one slot; the compiler generates these from the submitted facts.
+The fallback format maps its four slots automatically. With multiple official
+templates, specify the exact path. Unsupported official layouts are accepted only
+as a manual-format review item without a generated body. A missing, unreadable, or
+untrusted target is not eligible for fallback. The actual upstream filer handles
+human checkboxes, sign-off and unrun checks. A stale or offline regression does
+not mark native validation on the pinned target as passed.
+
+The `ready` response distinguishes `preview.additions` (eligible for public
+review and publication) from `preview.review_evidence` (full diff and PR draft,
+maintainers only). `preview_metadata` is local validation metadata outside the
+exact wire bytes and digest. The v5 inbox revalidates the template against its
+own trusted mirror and never materializes the private attachment in the public
+catalog. `submit_community` still sends only the confirmed draft; an intake
+receipt is not a publication or an upstream PR. Keep private inputs and full
+logs local, even if an attachment is maintainer-only.
+
+The local MCP and intake operator must configure `--upstream-registry` for typed
+patches. It is an operator-owned JSON object mapping `owner/repo` to local
+read-only Git clone paths. A clone with `origin` must have the authoritative
+`refs/remotes/origin/<base_branch>` ref; a bare mirror can provide that ref
+explicitly. The pinned commit must be reachable from it, not merely present in
+an unmerged PR ref. The contributor never supplies a local clone path. An unconfigured service can
+accept typed issues/evaluations but rejects typed patches. Deploy the v5 intake
+before using the new tool with a remote server. Use the MCP/terminal client for
+v5; browser upload requires corresponding v5 frontend support. Historical
+v2–v4 drafts and existing receipts retain their original format, and already
+received drafts can be retried unchanged. New patch-bearing legacy drafts are
+not admitted. The legacy catalog tool remains available for specialized schemas
+such as operator optimization; it cannot bypass typed patch validation.
+
+### Intake rollout checklist
+
+- Deploy `community.intake` and the publication tooling together. Both POST
+  routes accept the schema 5 envelope `{schema_version, title, destination,
+  attribution, additions, review_evidence, supersedes?}`; `supersedes` is
+  authenticated only. Do not send `preview_metadata`. The wire bytes and
+  `X-Draft-SHA256` must agree; do not rewrite the body before hashing or storing it.
+- Configure the intake's trusted repo mapping with `--upstream-registry` or
+  `NUMERICBRIDGE_UPSTREAM_REGISTRY`. Each patch's private attachment and public
+  paired metrics must agree on `patch_sha256`, `tested_commit` and
+  `tested_patch_sha256`. The service checks identity and format, not whether a
+  submitted test actually ran.
+- Expose only `additions` to publication. Store `review_evidence` in the private
+  inbox. Keep old receipts immutable. Smoke-test a new evaluation, a matched
+  patch, rejection of a patch missing public metrics, and an exact legacy retry
+  before switching clients to v5.
+
 ### Configure agent contribution
 
 Configure the local stdio MCP in your agent client. Read the trusted site's

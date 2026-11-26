@@ -53,7 +53,10 @@ independent sides in parallel and returns the next skill on failure.
   as absent: do not skip, narrow or reshape a draft to avoid overlap with them.
   They may be cited as related work. Check
   three refs from a local clone with `upstream_status.py`: current main, the
-  latest release and the user's pinned version or distribution branch. Where a
+  latest release and the user's pinned version or distribution branch. Prefer
+  full authoritative refs (for example `refs/remotes/origin/main`) and pass the
+  resolved target commit to PR template inspection; a local checkout or PR ref
+  is not an upstream version for build or adoption. Where a
   defect was found (the tested version) is not where it is
   delivered: fixed on main but present on the pinned ref → upgrade plus a
   backport draft against the distribution the user installs (for example a
@@ -240,8 +243,11 @@ Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
 </action>
 
 <output>
-  Each candidate in diagnosis.json. Verified when the focused regression and the
-  original-case acceptance both pass.
+  Record each candidate in diagnosis.json and keep two results separate: a
+  focused regression can verify an independent defect without restoring the
+  original acceptance. Mark a candidate as a verified fix for the original case
+  only after both its focused regression and independent supported-native
+  acceptance on the original workload pass.
 </output>
 
 <next>
@@ -257,10 +263,10 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
 ```xml
 <tracks>
   Two tracks with different ends. Diagnosis and repair is a deliverable task:
-  it ends at local delivery and community submission with a met standard
-  (acceptance restored, an inherent difference shown, or an operator confirmed
-  outside its FP64 bound with a verified fix that follows the reference), and
-  its PR drafts follow from that evidence. Precision optimization is a
+  it ends at local delivery (acceptance restored, an inherent difference shown,
+  or bounded attribution of a non-passing original). An independently verified
+  operator fix can be delivered alongside that outcome without changing it.
+  Any community submission and PR drafts follow the evidence and consent. Precision optimization is a
   continuing task: each round delivers the variants measured so far with their
   precision and speed, records what remains open, and can be resumed in a later
   session or by another contributor. An optimization round never holds back
@@ -365,65 +371,47 @@ Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
   upstream state at main, latest release and pinned ref, decision, reason, and
   draft checks), then write `result/contribution-decisions.json` with
   `diagnosis_state.py decisions`; the report, community record and PR drafts
-  follow it.
+  follow it. In case-state.json, fill and validate the v1 delivery_summary with
+  the original verdict, local outcome and each candidate's focused regression
+  and relationship to the original. Use case_state.py check; a new checkpoint
+  can start from template --with-delivery-summary.
 </action>
 
 <output>
-  Mark each stage complete, partial, blocked or not applicable (outside scope, or
-  its trigger did not fire). A CPU slice does not complete an agreed dual-native
-  comparison. A required item whose inputs are unavailable (for example a
-  reproduction whose original token histories were never published) stays
-  partial with the missing input named, even when every run finished. Give the
-  configuration, coverage, acceptance verdict and profile,
-  runnable setup and evidence links; link issues.md for open issues. Provide
-  reports, bundles or offline replay when requested.
+  Report: stage status (complete/partial/blocked/N/A) and blockers; original
+  verdict and criterion; versions, coverage and key stats; each fix's scoped
+  red/green result and before/after metrics. Link setup, issues and requested evidence.
+  Missing required inputs stay partial and named. CPU is not dual-native proof.
+  Say “NumericBridge 链路已完成” only with evidence for every required stage.
 </output>
 
 <next>
-  Output “NumericBridge 链路已完成” only when every required stage has completion
-  evidence. Then, or after a shareable partial delivery, execute community
-  contribution if `request.json` records `community_contribution.consent: "share"`
-  (reporting the receipt and preview path without re-asking), or offer it once
-  when no intake choice was recorded.
+  After a shareable delivery, follow Community contribution. A scoped fix or
+  a community receipt never changes original acceptance.
 </next>
 ```
 
 ## Community contribution
 
-Use the [community record guide](../../precision-compare/references/community-records.md).
-The public search MCP is read-only. For submissions and receipt status, use the
-configured local contribution MCP (stdio) with intake at
-`https://numericbridge.com/v1/submissions` and an operator-issued upload token
-file. No SSH tunnel is required. Keep credentials out of prompts and logs. If
-the configured intake URL changes, prepare a new preview and confirm it before
-sending.
+**Only submit to NumericBridge.** Upstream is read-only: never open or update
+PRs/MRs, fork publicly, or push for submission by any means. Do not give runners
+upstream write credentials. Maintainers handle upstream filing; an existing PR
+is not a community receipt.
 
-```xml
-<contribute when="local delivery has a shareable result or a contribution is being resumed">
-  Honor a prior decline. Prepare an anonymized draft with minimum evidence and a
-  PR or backport draft for each pr_draft_main or backport_draft decision; the
-  record's issues and drafts match result/contribution-decisions.json. Run
-  `anonymize_scan.py` over the draft, evidence and PR bodies (adding host aliases and account names with
-  --term) and fix every finding before preparing. Use the credit recorded in
-  request.json's community_contribution. Fix findings from
-  prepare_community_submission until it returns ready. Use the configured
-  NumericBridge contribution MCP tools directly (do not manually invoke local
-  repo submission scripts with another Python environment). With consent
-  recorded at intake, call submit_community with the draft ID, digest and
-  consent_record (the request.json path); it sends without a form and the inbox
-  re-checks the records and PR drafts. Then tell the user the receipt and preview
-  path; no further confirmation is needed. Without recorded consent,
-  submit_community asks through the client; a recorded or later decline ends the
-  offer. If submission is
-  unavailable, keep the local draft and report its path. A receipt means pending
-  review; call the result searchable only when the deployed index returns its IDs.
-  When decisions change after a receipt, submit an updated draft that names the
-  earlier receipt (supersedes), and read review progress with
-  community_submission_status. Contribution status does not change local
-  delivery status.
-</contribute>
-```
-
-Scan before preparing with [anonymize_scan.py](../../precision-compare/scripts/anonymize_scan.py).
-Without MCP, keep the anonymized draft and use the
-[local preview](../../precision-compare/references/community-records.md#local-preview).
+1. **Check route and consent.** Use `community_contribution_capabilities`.
+   Honor declines. Public intake is new anonymous drafts only; named credit and
+   `supersedes` require authenticated intake. Keep unsupported submissions local.
+2. **Prepare.** Scan with [anonymize_scan.py](../../precision-compare/scripts/anonymize_scan.py)
+   using local aliases. Follow the [archive checklist](../../precision-compare/references/community-records.md)
+   and use `prepare_contribution`. For patches, inspect the pinned merged template
+   and confirm the exact tested diff binding. On a template blocker, don't bypass
+   validation. Review both visibility lanes and the consented attribution.
+3. **Send only the reviewed draft.** Pass ID and digest to `submit_community`.
+   Use `consent_record` for recorded `share`; otherwise offer once through client
+   confirmation. If blocked, keep and report the draft. Changes require a new
+   preview; retry an unchanged draft with its original ID and digest.
+4. **Record the result.** Save `receipt_binding` and `review_state` in
+   `delivery_summary.community`; run `case_state.py check`. Report the receipt
+   and preview path. Status proof uses receipt ID **and** draft SHA. Received
+   means pending review, not published; verify discoverability in the deployed
+   index. Preserve old receipts; never bind a changed patch to an old receipt.

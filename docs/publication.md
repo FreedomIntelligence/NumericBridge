@@ -17,6 +17,10 @@ For public record fields and wording, use the
 Community contributors send anonymized results to the
 [private intake](../community/README.md#mcp-contribution). Maintainers review
 the receipt, select records for publication and handle any upstream submission.
+Typed submissions keep full patches and generated upstream PR drafts in the
+private inbox. The public catalog only materializes the reviewed public
+additions; do not copy maintainer-only attachments or reference them from
+public records.
 
 ## Publish on the appropriate surface
 

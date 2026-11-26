@@ -15,8 +15,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .records.submission import (COLLECTIONS, DIGEST, Submissions, add_catalog_site_argument,
-                                 draft_attribution, draft_supersedes, encode)
+from .records.submission import (DIGEST, Submissions, add_catalog_site_argument, draft_attribution,
+                                 draft_supersedes, encode, validate_additions_shape, validate_draft_envelope,
+                                 validate_public_content)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -117,14 +118,14 @@ class IntakeClient:
 
 
 class Inbox:
-    def __init__(self, repo, directory, *, catalog_site=None):
+    def __init__(self, repo, directory, *, catalog_site=None, trusted_repos=None):
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.directory.stat().st_mode & 0o077:
             raise ValueError('The community inbox directory must be private (mode 0700)')
         if not os.access(self.directory, os.W_OK | os.X_OK):
             raise ValueError('The service account must be able to write to the community inbox')
-        self.records = Submissions(repo, self.directory, catalog_site=catalog_site)
+        self.records = Submissions(repo, self.directory, catalog_site=catalog_site, trusted_repos=trusted_repos)
         self.records.baseline()
 
     def receive(self, raw, digest, *, public_url=None):
@@ -138,12 +139,10 @@ class Inbox:
             return self.receipt(receipt_id, True)
 
         draft = json.loads(raw)
-        keys = {'schema_version', 'title', 'destination', 'base_commit', 'additions', 'files'}
-        extra = {2: set(), 3: {'attribution'}, 4: {'attribution', 'supersedes'}}
-        if (not isinstance(draft, dict) or type(draft.get('schema_version')) is not int
-                or draft['schema_version'] not in extra or set(draft) != keys | extra[draft['schema_version']]
-                or raw != encode(draft, compact=True)):
+        validate_draft_envelope(draft)
+        if raw != encode(draft, compact=True):
             raise ValueError('Invalid submission format')
+        separated = draft['schema_version'] == 5
         credit = draft_attribution(draft)
         replaced = draft_supersedes(draft)
         endpoint(draft['destination'])
@@ -154,24 +153,23 @@ class Inbox:
                 if target.read_bytes() != raw:
                     raise ValueError('Stored submission differs from the reviewed draft')
                 return self.receipt(receipt_id, True)
-            from .consent import scan_draft
-            if scan_draft(draft):
-                raise ValueError('Remove private identifiers from the public draft')
-            self.check_public_capacity(public_url)
         elif urlsplit(draft['destination']).path == PUBLIC_PATH:
             raise ValueError('Use the configured public intake endpoint for a public draft')
+        if public_url is not None or separated:
+            from .consent import scan_draft
+            if scan_draft(draft):
+                raise ValueError('Remove private identifiers from the submission')
+        if public_url is not None:
+            self.check_public_capacity(public_url)
         additions = draft['additions']
-        if (not isinstance(additions, dict) or set(additions) != {*COLLECTIONS, 'evidence'}
-                or not all(isinstance(additions[k], dict) and additions[k].keys() <= set(keys)
-                           and all(isinstance(v, list) for v in additions[k].values())
-                           for k, keys in COLLECTIONS.items())
-                or not isinstance(additions['evidence'], dict)
-                or not all(isinstance(v, dict) for v in additions['evidence'].values())):
-            raise ValueError('Invalid community additions')
-        # Validate against the community baseline, without changing the approved bytes.
-        # The submitter's code baseline and generated path digests are preview metadata.
+        validate_additions_shape(additions)
+        if not separated:
+            validate_public_content(additions)
+        # Independently revalidate against the community baseline. Store the exact
+        # approved wire bytes only after both lanes have passed validation.
+        options = {'review_evidence': draft['review_evidence']} if separated else {}
         self.records.preview(draft['title'], additions, attribution_mode=credit['mode'],
-                             attribution_name=credit.get('name'), replaces=replaced)
+                             attribution_name=credit.get('name'), replaces=replaced, **options)
         fd, temporary = tempfile.mkstemp(dir=self.directory, prefix='.incoming-')
         try:
             with os.fdopen(fd, 'wb') as stream:
@@ -335,13 +333,21 @@ def main():
                         help='enable public intake for this exact HTTPS destination')
     parser.add_argument('--public-status-key-file', type=Path, default=os.environ.get('NUMERICBRIDGE_PUBLIC_STATUS_KEY_FILE'),
                         help='private signing key file for persistent public receipt tokens')
+    parser.add_argument('--upstream-registry', type=Path,
+                        default=os.environ.get('NUMERICBRIDGE_UPSTREAM_REGISTRY'),
+                        help='trusted upstream clones for strict review drafts')
     parser.add_argument('--port', type=int, default=8770)
     add_catalog_site_argument(parser)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error('--port must be between 1 and 65535')
     try:
-        app = create_app(Inbox(ROOT, args.inbox, catalog_site=args.catalog_site), read_token(args.token_file),
+        trusted_repos = None
+        if args.upstream_registry is not None:
+            from tools.strict_pr import load_registry
+            trusted_repos = load_registry(args.upstream_registry)
+        inbox = Inbox(ROOT, args.inbox, catalog_site=args.catalog_site, trusted_repos=trusted_repos)
+        app = create_app(inbox, read_token(args.token_file),
                          public_url=args.public_url, public_status_key=(
                              read_token(args.public_status_key_file) if args.public_status_key_file else None))
     except (OSError, ValueError) as error:

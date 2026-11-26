@@ -69,7 +69,7 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 
 ## 参与贡献
 
-通过[社区投稿 MCP](community/README.md#mcp-contribution)分享比较结果或修复案例。请附上模型和依赖库版本、运行配置、观测差异和证据。分享修复时，附上同一原始负载修复前后的结果。社区维护者负责审核、入库和必要的上游 PR。[社区记录指南](skills/precision-compare/references/community-records.md) · [发布规则](docs/publication.md)
+通过[社区投稿 MCP](community/README.md#typed-contribution-input) 的 `prepare_contribution` 分享实测结果、已验证的问题或补丁候选。附上可复现的范围、结果和证据；原始验收和补丁局部回归分开记录。完整补丁和上游 PR 草稿仅交给维护者评审，由维护者决定发布哪些内容、是否向上游开 PR。[社区记录指南](skills/precision-compare/references/community-records.md) · [发布规则](docs/publication.md)
 
 [社区鸣谢](https://freedomintelligence.github.io/NumericBridge/#/acknowledgments)记录已收录案例的贡献。
 
