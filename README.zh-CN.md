@@ -21,7 +21,7 @@ NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL�
 
 ## 框架概览
 
-![以目标配置为起点，依次进行数值对比、问题诊断、修复优化和回归测试。工作流参考社区知识库，交付适配实现、运行配置和验证报告。](https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/a87fcea9fabc9cb6f2e7c2aeeff0cd1e0a5dd72e/assets/overview.drawio.svg)
+![以目标配置为起点，依次进行数值对比、问题诊断、修复优化和回归测试。工作流参考社区知识库，交付适配实现、运行配置和验证报告。](https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/cdeb05f20944d4985c9ad197b0807a98f1459dc4/assets/overview.drawio.svg)
 
 工作流在原生环境准备、精度对比、问题诊断和原任务复验之间复用已确认的配置与证据。
 
