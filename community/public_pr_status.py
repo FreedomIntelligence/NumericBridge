@@ -1,4 +1,4 @@
-"""Refresh a read-only status feed for explicitly published GitHub and GitCode PRs."""
+"""Refresh the published PR status feed and an optional admin-only PR watch feed."""
 
 import argparse
 from datetime import datetime, timedelta, timezone
@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 from tempfile import NamedTemporaryFile
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
@@ -37,12 +38,23 @@ def canonical_pr(url, forge=None):
     return None
 
 
-def allowlist(registry):
+def allowlist(registry, *, tracking=False):
     doc = json.loads(Path(registry).read_bytes())
-    if doc.get('schema_version') != 1 or not isinstance(doc.get('contributions'), list):
-        raise ValueError('Expected a version 1 published upstream registry')
-    return sorted({url for item in doc['contributions'] if item.get('forge') in FORGES
-                   if (url := canonical_pr(item.get('url'), item['forge']))})
+    if (not isinstance(doc, dict) or type(doc.get('schema_version')) is not int
+            or doc['schema_version'] != 1 or not isinstance(doc.get('contributions'), list)):
+        kind = 'tracking targets' if tracking else 'published upstream'
+        raise ValueError(f'Expected a version 1 {kind} registry')
+    urls = set()
+    for item in doc['contributions']:
+        if not isinstance(item, dict):
+            raise ValueError('Expected PR registry entries to be objects')
+        forge = item.get('forge')
+        url = canonical_pr(item.get('url'), forge) if isinstance(forge, str) and forge in FORGES else None
+        if url:
+            urls.add(url)
+        elif tracking:
+            raise ValueError('Tracking targets must be valid GitHub or GitCode PR URLs matching their forge')
+    return sorted(urls)
 
 
 def clock(value):
@@ -232,14 +244,51 @@ def write_json(path, data, mode):
             temporary.unlink(missing_ok=True)
 
 
-def refresh(registry, cache, output, *, now=None, client=github, budget=2, gitcode_client=gitcode, gitcode_budget=2):
+def _validate_paths(**paths):
+    resolved, identities = {}, {}
+    for name, path in paths.items():
+        if path is None:
+            continue
+        key = f'--{name.replace("_", "-")}'
+        try:
+            canonical = Path(path).resolve()
+        except RuntimeError as error:
+            raise ValueError(f'Cannot resolve {key}') from error
+        if canonical in resolved:
+            raise ValueError(f'{resolved[canonical]} and {key} must be different files')
+        resolved[canonical] = key
+        try:
+            info = canonical.stat()
+        except FileNotFoundError:
+            continue
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError(f'{key} must be a regular file')
+        identity = info.st_dev, info.st_ino
+        if identity in identities:
+            raise ValueError(f'{identities[identity]} and {key} must be different files')
+        identities[identity] = key
+
+
+def refresh(registry, cache, output, *, tracking_targets=None, admin_output=None,
+            now=None, client=github, budget=2, gitcode_client=gitcode, gitcode_budget=2):
+    if (tracking_targets is None) != (admin_output is None):
+        raise ValueError('--tracking-targets and --admin-output must be supplied together')
+    _validate_paths(registry=registry, cache=cache, output=output,
+                    tracking_targets=tracking_targets, admin_output=admin_output)
+    published = set(allowlist(registry))
+    urls = published if tracking_targets is None else published.union(allowlist(tracking_targets, tracking=True))
     now = now or datetime.now(timezone.utc)
-    entries = collect(allowlist(registry), read_cache(cache), now, client=client, budget=budget,
+    entries = collect(urls, read_cache(cache), now, client=client, budget=budget,
                       gitcode_client=gitcode_client, gitcode_budget=gitcode_budget)
-    public = {key: {field: row.get(field) for field in PUBLIC_FIELDS} for key, row in entries.items()
-              if row.get('state') and clock(row.get('fetched_at'))}
+    verified = {key: {field: row.get(field) for field in PUBLIC_FIELDS} for key, row in entries.items()
+                if row.get('state') and clock(row.get('fetched_at'))}
+    # Only the current published registry grants public visibility, never the cache or watch list.
+    public = {url: row for url, row in verified.items() if url in published}
+    feed = {'schema_version': 1, 'refreshed_at': stamp(now)}
+    if admin_output is not None:  # A failed admin write must not advance the public feed.
+        write_json(admin_output, dict(feed, pull_requests=verified), 0o644)
     write_json(cache, entries, 0o600)
-    write_json(output, {'schema_version': 1, 'refreshed_at': stamp(now), 'pull_requests': public}, 0o644)
+    write_json(output, dict(feed, pull_requests=public), 0o644)
     return len(public)
 
 
@@ -247,11 +296,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--registry', type=Path, default=DEFAULT_REGISTRY)
     parser.add_argument('--cache', type=Path, required=True)
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True, help='Public output containing only published PRs')
+    parser.add_argument('--tracking-targets', type=Path, help='Separate v1 registry of admin watch targets')
+    parser.add_argument('--admin-output', type=Path, help='Unserved output containing the verified union')
     args = parser.parse_args()
-    if args.cache.resolve() == args.output.resolve():
-        parser.error('The private cache and public output must be different files')
-    print(f'Published PRs with verified status: {refresh(args.registry, args.cache, args.output)}')
+    try:
+        count = refresh(args.registry, args.cache, args.output, tracking_targets=args.tracking_targets,
+                        admin_output=args.admin_output)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    print(f'Published PRs with verified status: {count}')
 
 
 if __name__ == '__main__':
