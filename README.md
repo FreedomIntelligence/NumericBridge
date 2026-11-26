@@ -21,6 +21,8 @@ NumericBridge helps compare, diagnose and repair numerical differences across in
 
 ## Framework overview
 
+![An example target setup feeds numerical comparison, issue diagnosis, repair and optimization, and regression testing. The workflow draws on the community knowledge base and delivers an adapted implementation, runtime configuration and validation report.](https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/a87fcea9fabc9cb6f2e7c2aeeff0cd1e0a5dd72e/assets/overview.drawio.svg)
+
 The workflow reuses the confirmed setup and evidence across native preparation, precision comparison, diagnosis, and original-workload verification.
 
 ## Getting started
