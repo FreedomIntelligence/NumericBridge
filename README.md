@@ -69,7 +69,7 @@ Use the [community case library](https://freedomintelligence.github.io/NumericBr
 
 ## Contributing
 
-Use `prepare_contribution` in the [community submission MCP](community/README.md#typed-contribution-input) to share tested results, verified issues or patch candidates. Include reproducible scope, outcomes and evidence. Keep original acceptance separate from a patch's focused regression. Only maintainers receive the full patch and upstream PR draft; they decide what to publish and whether to file upstream. [Community record guide](skills/precision-compare/references/community-records.md) · [Publication guidelines](docs/publication.md)
+The contribution tool fetches and verifies the official catalog automatically. Contributors do not supply a catalog archive or checksum. Use `prepare_contribution` in the [community submission MCP](community/README.md#typed-contribution-input) to share tested results, verified issues or patch candidates. Include reproducible scope, outcomes and evidence. Keep original acceptance separate from a patch's focused regression. Only maintainers receive the full patch and upstream PR draft; they decide what to publish and whether to file upstream. [Community record guide](skills/precision-compare/references/community-records.md) · [Publication guidelines](docs/publication.md)
 
 [Community acknowledgments](https://freedomintelligence.github.io/NumericBridge/#/acknowledgments) recognizes contributors to published cases.
 

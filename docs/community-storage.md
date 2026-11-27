@@ -32,6 +32,27 @@ catalog, follow its documented reload/health-check procedure after promotion or
 rollback. Readers handling multiple files should resolve `current` once per
 snapshot rather than open individual files across a pointer change.
 
+### Serve a frozen public snapshot for contribution preview
+
+Run `python -B -m community.catalog_snapshot_export --output DIRECTORY` as the
+catalog operator. Pre-create a separate operator-owned output directory, such
+as `/var/lib/numericbridge-catalog-snapshots`. The command resolves `current`
+under the store lock, verifies the release, packs only `site/data/` and
+`site/evidence/`, and atomically replaces `current.json` after its immutable
+`<sha256>.tar.gz` is available. It never promotes or edits the catalog. Run it
+initially and on changes to the catalog store directory (e.g. a systemd `PathChanged`
+unit) to follow promotions and rollbacks. An error leaves the last good manifest
+in place. Do not immediately
+delete old archives that an in-flight client may still need.
+
+At the official HTTPS origin, expose only `/catalog-snapshots/current.json`
+(`Cache-Control: no-cache`) and `/catalog-snapshots/<sha256>.tar.gz` (64 lowercase
+hex digits; immutable cache) from this output directory. Allow only reads. Do
+not expose the directory, temporary files, release store, review archives or
+intake. During setup and after promotions, confirm that the manifest reports
+the intended generation and the archive matches its SHA-256. This is a public
+GET, separate from consent-controlled contribution POSTs.
+
 ## Prepare a reviewed candidate
 
 Supply a complete, explicit `SITE` directory outside the store containing

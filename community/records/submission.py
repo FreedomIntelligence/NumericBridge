@@ -262,7 +262,7 @@ def _copy_catalog_tree(source, destination):
 
 class Submissions:
     def __init__(self, repo, drafts, *, destination=None, base_ref='refs/remotes/origin/main',
-                 catalog_site=None, trusted_repos=None):
+                 catalog_site=None, trusted_repos=None, catalog_provider=None):
         self.repo = Path(repo).resolve()
         self.drafts = Path(drafts).resolve()
         self.destination = destination
@@ -270,6 +270,7 @@ class Submissions:
         self.trusted_repos = {} if trusted_repos is None else trusted_repos
         source = catalog_site if catalog_site is not None else os.environ.get(CATALOG_SITE_ENV)
         self.catalog_site = Path(source).expanduser().absolute() if source else None
+        self.catalog_provider = catalog_provider
 
     def baseline(self):
         return git(self.repo, 'rev-parse', '--verify', self.base_ref + '^{commit}')
@@ -278,7 +279,10 @@ class Submissions:
         site = root / SITE
         if site.resolve() != site:
             raise ValueError('Expected a regular community/site directory in the baseline checkout')
-        if self.catalog_site is None:
+        source = self.catalog_site
+        if source is None and self.catalog_provider is not None:
+            source = self.catalog_provider()
+        if source is None:
             if not all((site / 'data' / name).is_file() for name in CATALOG_INPUTS):
                 raise ValueError('No catalog data is tracked at the code baseline. Set --catalog-site or '
                                  f'{CATALOG_SITE_ENV} to a validated local frozen catalog site directory '
@@ -287,7 +291,7 @@ class Submissions:
 
         # Resolve a generation pointer once, so data and evidence come from the same generation.
         try:
-            source = self.catalog_site.resolve(strict=True)
+            source = source.resolve(strict=True)
             site.mkdir(parents=True, exist_ok=True)
             for name in ('data', 'evidence'):
                 destination = site / name
@@ -305,7 +309,7 @@ class Submissions:
             if (site / 'data/upstream.json').is_file():
                 validate_upstream(site)
         except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
-            raise ValueError(f'Invalid local catalog site {self.catalog_site}: {error}') from error
+            raise ValueError(f'Invalid local catalog site {source}: {error}') from error
 
     @contextmanager
     def checkout(self, base):

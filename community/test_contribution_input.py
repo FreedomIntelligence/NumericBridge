@@ -2,12 +2,14 @@
 
 from copy import deepcopy
 from hashlib import sha256
+from io import BytesIO
 import json
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock
+from urllib.error import URLError
 
 import anyio
 from mcp import ClientSession
@@ -15,11 +17,13 @@ from mcp.shared.memory import create_client_server_memory_streams
 from pydantic import ValidationError
 from starlette.testclient import TestClient
 
+from community.catalog_snapshot import OfficialCatalog, parse_manifest
 from community.contribution_input import Contribution, compile_contribution
 from community.intake import Inbox, create_app
 from community.mcp_submission import create_server
 from community.records.catalog import Catalog
 from community.records.submission import Submissions, encode
+from community.test_catalog_snapshot import ENTRIES, bundle, manifest
 
 
 PUBLIC = 'https://numericbridge.com/v1/public-submissions'
@@ -185,6 +189,57 @@ class TypedContributionTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('| mismatch | 1 | 0 | slot&#124;lane |', body)
             self.assertIn('## Checklist\n\n- [ ] Human review\n\n---', body)
             self.assertIn('upstream_checklist', pr['pending_checks'])
+
+    async def test_automatic_catalog_recovers_and_prepares_without_sending(self):
+        with TemporaryDirectory(prefix='numericbridge-auto-catalog-') as directory:
+            root = Path(directory)
+            code = root / 'code'
+            commit = git_fixture(code)  # No remote-tracking branch and no catalog data in Git.
+            source = root / 'source'
+            snapshot(source)
+            archive = bundle([*ENTRIES, *[(f'data/{path.name}', path.read_bytes())
+                                          for path in sorted((source / 'data').iterdir())]])
+            meta = manifest(archive)
+            entry = parse_manifest(meta)
+            calls = []
+
+            def fetch(name):
+                calls.append(name)
+                if len(calls) <= 2:
+                    raise URLError('fixture network unavailable')
+                return BytesIO({'current.json': meta, entry.filename: archive}[name])
+
+            provider = OfficialCatalog(root, cache=root / 'cache', fetch=fetch)
+            intake = Mock(url=PUBLIC, token_file=None)
+            drafts = Submissions(code, root / 'drafts', destination=PUBLIC, base_ref='HEAD', catalog_provider=provider)
+            server = create_server(drafts, intake)._lowlevel_server
+            async with create_client_server_memory_streams() as (client_streams, server_streams):
+                async with anyio.create_task_group() as tasks:
+                    tasks.start_soon(server.run, *server_streams, server.create_initialization_options())
+                    async with ClientSession(*client_streams) as client:
+                        await client.initialize()
+
+                        async def call(name, args):
+                            result = await client.call_tool(name, args)
+                            self.assertFalse(result.is_error, result.content)
+                            return result.structured_content
+
+                        typed = packet(commit)
+                        typed.update(id='auto-catalog', title='Snapshot preview', items=typed['items'][:1])
+                        params = {'contribution': typed}
+                        check = 'check_contribution_catalog'
+                        prepare = 'prepare_contribution'
+                        self.assertEqual((await call(check, {}))['status'], 'catalog_unavailable')
+                        self.assertEqual((await call(prepare, params))['status'], 'catalog_unavailable')
+                        self.assertFalse(drafts.drafts.exists())
+                        prepared = await call(prepare, params)
+                        self.assertEqual(prepared['status'], 'ready', prepared)
+                        self.assertEqual(prepared['preview']['attribution'], {'mode': 'anonymous'})
+                        self.assertEqual(await call(check, {}), {'status': 'ready', 'generation': entry.generation,
+                                                                 'sha256': entry.sha256})
+                        self.assertEqual(calls, ['current.json'] * 3 + [entry.filename])
+                        intake.send.assert_not_called()
+                    tasks.cancel_scope.cancel()
 
     async def test_typed_mcp_roundtrip_revalidates_real_records_and_hides_private_material(self):
         with TemporaryDirectory(prefix='numericbridge-typed-') as root:

@@ -79,6 +79,7 @@ Method: [request confirmation](request.md).
   <route when="pinned version" to="environment">Keep the pin.</route>
   <route when="unpinned version" to="environment">Try a supported recommendation; verify locally.</route>
   <rule>Past PASS does not transfer. Use prior issues to prioritize checks.</rule>
+  <optional when="contribution allowed and local contribution MCP available">Call check_contribution_catalog early. It fetches only official public data. Do not block local evaluation on this check.</optional>
 </stage>
 ```
 
@@ -220,7 +221,9 @@ Methods: [submission guide](../../precision-compare/references/community-records
   <boundary>Give runners no upstream write credentials. Maintainers handle upstream filing.</boundary>
   <route when="declined or nothing shareable">Keep local. Do not ask again.</route>
   <check tool="community_contribution_capabilities">Public accepts new anonymous drafts. Named credit requires authenticated intake.</check>
+  <check tool="check_contribution_catalog">Use the official catalog resolved by the local contribution tool. Never ask the contributor for archives, paths or checksums. Do not use a search index or stale workspace as a validation baseline.</check>
   <prepare tool="prepare_contribution">Scan private identifiers. Review public and maintainer-only contents.</prepare>
+  <route when="catalog_unavailable">Preserve the local result and sanitized draft source, record the error and contribution resume action, and report the blocker. Do not ask the user to choose local-only just because the service is unavailable. Retry preparation on resume without rerunning evaluation.</route>
   <check when="patch">Verify the pinned target template and exact tested diff.</check>
   <record>Save community_draft_sha256 for the current preview. After edits, prepare and review a new draft.</record>
   <route when="intake or validation blocked">Keep the draft local. Report the blocker; do not bypass validation.</route>

@@ -18,8 +18,7 @@ For public intake, set `--intake` to the URL in the trusted site's
 `--token-file`. If that entry is absent and there is no separately verified
 public URL, keep drafts local or use authorized authenticated intake. Configure
 any authenticated upload credential outside prompts, tool arguments, and logs.
-For preview validation, [get a verified public snapshot](README.md#get-a-verified-catalog-snapshot)
-and set `--catalog-site` to its local site directory.
+The [local contribution MCP resolves the official catalog automatically](README.md#get-a-verified-catalog-snapshot). Call `check_contribution_catalog` early when contribution is allowed; a failed check does not block evaluation. At preparation, use the tool again (or let `prepare_contribution` retry). Preserve local results and the resume point on `catalog_unavailable`; do not ask contributors to bring a snapshot or checksum.
 Use a client with form elicitation unless consent was already recorded or the
 user confirms from their own terminal.
 The workflow never sends the HTTP request itself. The public HTTPS endpoints

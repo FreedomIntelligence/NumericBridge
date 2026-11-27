@@ -4,6 +4,7 @@ import argparse
 import asyncio
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 from typing import Annotated, Any, Literal
 
 from mcp import types
@@ -14,6 +15,7 @@ from pydantic import Field, StringConstraints, ValidationError
 from tools.contribution_contract import TARGET, candidate_versions, capabilities, receipt_binding, require_target
 from tools.strict_pr import inspect_template, load_registry
 
+from .catalog_snapshot import CatalogUnavailable, OfficialCatalog
 from .consent import recorded_consent, scan_draft
 from .contribution_input import Contribution, PatchTarget, compile_contribution
 from .intake import IntakeClient
@@ -74,6 +76,26 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
         return dict(configured, contribution_input_versions=[1], typed_draft_schema_version=5,
                     review_evidence_separate=True, trusted_upstream_templates_configured=bool(trusted_repos))
 
+    @server.tool(title='Check the NumericBridge contribution catalog',
+                 annotations=types.ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                                   idempotentHint=True, openWorldHint=True),
+                 structured_output=True)
+    async def check_contribution_catalog() -> dict[str, Any]:
+        """Fetch and validate the official baseline without reading or sending any case data."""
+        def check():
+            with submissions.checkout(submissions.baseline()):
+                pass
+            snapshot = getattr(submissions.catalog_provider, 'snapshot', None)
+            return (dict(status='ready', generation=snapshot.generation, sha256=snapshot.sha256)
+                    if snapshot else dict(status='ready', source='local'))
+
+        try:
+            return await asyncio.to_thread(check)
+        except CatalogUnavailable as error:
+            return dict(status='catalog_unavailable', message=str(error))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError):
+            return dict(status='catalog_unavailable', message='Could not validate the configured catalog baseline.')
+
     @server.tool(title='Inspect the pinned upstream PR template',
                  annotations=types.ToolAnnotations(readOnlyHint=True, destructiveHint=False,
                                                    idempotentHint=True, openWorldHint=False),
@@ -116,6 +138,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                 review_evidence=review, attribution_mode=attribution_mode, attribution_name=attribution_name,
                 replaces=supersedes or [])
             return dict(prepared, candidate_versions=versions)
+        except CatalogUnavailable as error:
+            return dict(status='catalog_unavailable', message=str(error))
         except ValidationError as error:
             return dict(status='invalid', findings=error.errors(include_input=False, include_url=False, include_context=False))
         except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
@@ -174,6 +198,8 @@ def create_server(submissions: Submissions, intake: IntakeClient | None = None) 
                 attribution_mode=attribution_mode, attribution_name=attribution_name,
                 replaces=supersedes or [])
             return dict(prepared, candidate_versions=versions)
+        except CatalogUnavailable as error:
+            return dict(status='catalog_unavailable', message=str(error))
         except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RecursionError) as error:
             return dict(status='invalid', findings=[str(error)])
 
@@ -315,14 +341,16 @@ def main():
     try:
         intake = IntakeClient(args.intake, args.token_file) if args.intake else None
         registry = args.upstream_registry.resolve() if args.upstream_registry is not None else None
-        submissions = Submissions(ROOT, args.drafts, destination=intake.url if intake else None,
-                                  catalog_site=args.catalog_site, trusted_repos=load_registry(registry))
-        server = create_server(submissions, intake)
-        if args.search_index is not None:
-            register_search(server, args.search_index, index_sha256=args.search_sha256)
+        with TemporaryDirectory(prefix='numericbridge-catalog-') as lifetime:
+            submissions = Submissions(ROOT, args.drafts, destination=intake.url if intake else None,
+                                      base_ref='HEAD', catalog_site=args.catalog_site,
+                                      catalog_provider=OfficialCatalog(lifetime), trusted_repos=load_registry(registry))
+            server = create_server(submissions, intake)
+            if args.search_index is not None:
+                register_search(server, args.search_index, index_sha256=args.search_sha256)
+            server.run('stdio')
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.error(str(error))
-    server.run('stdio')
 
 
 if __name__ == '__main__':

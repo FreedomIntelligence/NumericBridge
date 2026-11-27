@@ -103,24 +103,14 @@ Changing the content or inbox destination requires a new preview and consent.
 
 ### Get a verified catalog snapshot
 
-The workflow checkout and the standalone search index do not contain the
-records and evidence needed to validate a draft. Ask the catalog operator for
-an export of one published generation’s `site/data/` and `site/evidence/` and its
-expected SHA-256, obtained through a trusted channel. Operators can export these
-two trees from one pinned [catalog release](../docs/community-storage.md#store-layout-and-access);
-do not export the private inbox or archives. Compare the downloaded archive's
-SHA-256 (for example with `shasum -a 256 ARCHIVE`) with the operator's expected
-value before extracting it into a new local directory. Do not assemble a
-snapshot file by file across a live catalog update. Validate the extracted site:
+The contribution MCP automatically reads the [official HTTPS manifest](https://numericbridge.com/catalog-snapshots/current.json), validates the archive size and SHA-256, and pins one published generation’s `data/` and `evidence/` for the process. Separate invocations reuse the verified archive in the local cache. `check_contribution_catalog` fetches no case data and sends nothing for review. Preparation retries the fetch if an earlier check failed. The workflow checkout and the standalone search index are not validation baselines.
 
-```sh
-SITE=/path/to/frozen/site
-python -B -m community.records validate --site "$SITE"
-python -B -m scripts export-search --check --site "$SITE"
-```
-
-Point `--catalog-site` (or `NUMERICBRIDGE_CATALOG_SITE`) at the verified directory
-containing `data/` and `evidence/`. The local MCP does not fetch it automatically.
+For offline or managed environments only, configure an already verified local
+site with `--catalog-site` or `NUMERICBRIDGE_CATALOG_SITE`. Do not ask contributors
+for a snapshot, assemble the trees file by file, or bypass validation. If the
+official source and any configured local source are unavailable, finish the
+local result and keep a resume point for contribution. Catalog availability
+is unrelated to consent to send the exact draft.
 
 ### Typed contribution input
 
