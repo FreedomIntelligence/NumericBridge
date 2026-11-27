@@ -19,6 +19,14 @@ dependency or launch issues, with the launch interpreter.
 
 ## Native preflight
 
+Before launching a compiler or vLLM, verify the case work mount and an
+[authorized node-local scratch root](../precision-compare/references/automation.md#native-vllm-worker)
+independently. Prefer scheduler-provided local scratch; use a fresh `0700`
+child for compiler temp/cache and IPC, not for models, logs or evidence. Check
+free bytes, inodes and known quota limits. `ENOTEMPTY` during shared-directory
+cleanup is not proof of a full disk; reconcile the former run, then retry only
+the affected side on verified local scratch if the grant permits.
+
 Reuse valid evidence if the device binding still matches. Otherwise check the
 first formal batch: keep valid samples; stop on the wrong path or missing data.
 For costly or risky launches, run the smallest valid preflight instead. Keep the

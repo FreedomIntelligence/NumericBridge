@@ -1,12 +1,15 @@
 """Preflight tests with stub hardware inventory and no devices or model runtime."""
+import errno
 import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from tools.native_vllm import authorize, clean_environment, prepared, resolve_devices, verify_binding
+from tools.native_vllm import (authorize, block_reason, check_capacity, clean_environment, local_scratch_root,
+                               prepared, resolve_devices, verify_binding)
 
 GPU_A = 'a1111111-1111-1111-1111-111111111111'
 GPU_B = 'b2222222-2222-2222-2222-222222222222'
@@ -50,7 +53,7 @@ class VllmPreparationTests(unittest.TestCase):
             resolve_devices('b200', [2], 'index', query=busy)
 
     def test_pinned_candidate_fallback_and_private_short_environment(self):
-        with TemporaryDirectory() as folder:
+        with TemporaryDirectory() as folder, TemporaryDirectory(dir=Path('/tmp').resolve()) as scratch_parent:
             root = Path(folder).resolve()
             names = ('config.json', 'weights.safetensors')
             bad, good = root / 'bad', root / 'good'
@@ -60,6 +63,7 @@ class VllmPreparationTests(unittest.TestCase):
                 (good / name).write_bytes(b'pinned')
             profile = dict(schema_version=1, hardware='b200', approved_devices=[2], devices=[2],
                            vllm_version='0.18.0', model_candidates=[str(bad), str(good)], work_root=str(root),
+                           scratch_root=str(Path(scratch_parent).resolve()),
                            model_files={name: hashlib.sha256(b'pinned').hexdigest() for name in names},
                            extra_imports=['pybase64'])
             def query(argv, **kw):
@@ -69,18 +73,46 @@ class VllmPreparationTests(unittest.TestCase):
                 self.assertIn('pybase64', argv)
                 self.assertIn('0.18.0', argv[3])
                 return 'NB_BINDING=' + json.dumps({'uuids': [GPU_A]})
-            with patch('tools.native_vllm._fs_type', return_value='local'), patch.dict('os.environ', {'LOCAL_RANK': '1,2'}):
+            with patch('tools.native_vllm._fs_type', return_value='tmpfs'), patch.dict('os.environ', {'LOCAL_RANK': '1,2'}):
                 with prepared(profile, query=query) as (work, model, env):
                     self.assertEqual((work, model), (root, good))
                     scratch = Path(env['VLLM_RPC_BASE_PATH'])
                     self.assertTrue(scratch.is_dir())
+                    self.assertEqual(scratch.parent, Path(scratch_parent).resolve())
                     self.assertEqual(scratch.stat().st_mode & 0o777, 0o700)
+                    self.assertEqual(Path(env['TMPDIR']), scratch)
+                    self.assertEqual(Path(env['TRITON_CACHE_DIR']).parent, scratch)
                     self.assertEqual(env['HF_HUB_OFFLINE'], '1')
                 self.assertFalse(scratch.exists())
                 (good / 'weights.safetensors').write_bytes(b'changed')
                 with self.assertRaisesRegex(ValueError, 'fixed file manifest'):
                     with prepared(profile, query=query):
                         self.fail('altered weights cannot prepare')
+
+    def test_scratch_requires_an_explicit_local_root(self):
+        with self.assertRaisesRegex(ValueError, 'authorized node-local scratch_root'):
+            local_scratch_root({})
+        with TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            with patch('tools.native_vllm._fs_type', return_value='nfs4'):
+                with self.assertRaisesRegex(ValueError, 'do not use shared storage'):
+                    local_scratch_root({'scratch_root': str(root)})
+            self.assertEqual(list(root.iterdir()), [])
+
+    def test_zero_bytes_zero_inodes_and_quota_are_separate_blockers(self):
+        info = SimpleNamespace(f_frsize=4096, f_bsize=4096, f_bavail=0, f_files=100, f_favail=7)
+        with patch('tools.native_vllm.os.statvfs', return_value=info):
+            with self.assertRaisesRegex(ValueError, 'Case workspace free bytes: 0'):
+                check_capacity(Path('/irrelevant'), 'Case workspace')
+            info.f_bavail, info.f_favail = 1024, 0
+            with self.assertRaisesRegex(ValueError, 'Node-local scratch free inodes: 0'):
+                check_capacity(Path('/irrelevant'), 'Node-local scratch')
+            info.f_files = 0
+            with self.assertRaisesRegex(ValueError, 'inode budget cannot be verified'):
+                check_capacity(Path('/irrelevant'), 'Node-local scratch', min_inodes=1)
+        self.assertIn('quota', block_reason(OSError(errno.EDQUOT, 'quota exceeded')))
+        self.assertIn('free bytes and inodes', block_reason(OSError(errno.ENOSPC, 'out of space')))
+        self.assertIn('does not establish disk exhaustion', block_reason(OSError(errno.ENOTEMPTY, 'not empty')))
 
     def test_no_inherited_visibility_from_other_backend(self):
         env = clean_environment({'ASCEND_RT_VISIBLE_DEVICES': '0', 'WORLD_SIZE': '8', 'PATH': '/usr/bin'},

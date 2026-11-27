@@ -2,7 +2,8 @@
 
 Run in the provisioned worker with its actual Python: python -m tools.native_vllm
 --profile JSON [--run-dir DIR --execute]. Discovery stays within listed model
-candidates and work root. No install, network fetch, device-busy override, or
+candidates, work root and explicitly granted node-local scratch root. No
+install, network fetch, device-busy override, or
 fallback to another device/backend. The small runtime binding probe imports the
 framework but loads no weights. A successful environment check is not native
 readiness; only the task-owned collector can produce that evidence.
@@ -10,6 +11,7 @@ readiness; only the task-owned collector can produce that evidence.
 
 import argparse
 from contextlib import contextmanager
+import errno
 import hashlib
 import json
 import os
@@ -19,7 +21,9 @@ import subprocess
 import sys
 import tempfile
 
-from .preflight_env import SOCKET_LIMIT, NETWORK_FS, _fs_type
+from .preflight_env import SOCKET_LIMIT, _fs_type
+
+LOCAL_SCRATCH_FS = {'tmpfs', 'ramfs', 'ext2/ext3', 'ext2', 'ext3', 'ext4', 'xfs', 'btrfs', 'zfs', 'apfs'}
 
 RANK_KEYS = {'RANK', 'LOCAL_RANK', 'WORLD_SIZE', 'LOCAL_WORLD_SIZE', 'MASTER_ADDR', 'MASTER_PORT',
              'GROUP_RANK', 'ROLE_RANK', 'ROLE_WORLD_SIZE', 'NODE_RANK', 'RANK_TABLE_FILE'}
@@ -60,7 +64,8 @@ def absolute(path):
 
 def authorize(profile):
     required = {'schema_version', 'hardware', 'approved_devices', 'devices', 'model_candidates', 'model_files', 'work_root'}
-    optional = {'argv', 'extra_imports', 'device_mode', 'min_free_bytes', 'vllm_version'}
+    optional = {'argv', 'extra_imports', 'device_mode', 'min_free_bytes', 'vllm_version',
+                'scratch_root', 'scratch_min_free_bytes', 'scratch_min_free_inodes'}
     require(isinstance(profile, dict) and required <= profile.keys() <= required | optional and profile['schema_version'] == 1,
             'Invalid native launch profile')
     require(profile['hardware'] in ('910c', 'b200'), 'Unsupported hardware')
@@ -72,7 +77,9 @@ def authorize(profile):
                 else type(item) is int and item >= 0)
     require(all(isinstance(x, list) and x and all(valid_device(v) for v in x) and len(set(x)) == len(x)
                 for x in (allowed, selected)) and set(selected) <= set(allowed), 'Only explicitly granted devices may be used')
-    require(type(profile.get('min_free_bytes', 0)) is int and profile.get('min_free_bytes', 0) >= 0, 'Invalid space requirement')
+    for key in ('min_free_bytes', 'scratch_min_free_bytes', 'scratch_min_free_inodes'):
+        value = profile.get(key, 0)
+        require(type(value) is int and value >= 0, f'Invalid capacity requirement: {key}')
     extras = profile.get('extra_imports', [])
     require(isinstance(extras, list) and all(isinstance(x, str) and MODULE.fullmatch(x) for x in extras), 'Invalid import names')
     return mode
@@ -194,16 +201,48 @@ def verify_binding(profile, devices, env, *, query=_query):
                 'CUDA-visible UUIDs do not match granted B200s; do not launch')
 
 
+def check_capacity(path, label, *, min_bytes=0, min_inodes=0):
+    fs = os.statvfs(path)
+    available = (fs.f_frsize or fs.f_bsize) * fs.f_bavail
+    required = max(1, min_bytes)
+    require(available >= required, f'{label} free bytes: {available}; need at least {required}')
+    if fs.f_files > 0:
+        required = max(1, min_inodes)
+        require(fs.f_favail >= required, f'{label} free inodes: {fs.f_favail}; need at least {required}')
+    else:
+        require(not min_inodes, f'{label} inode budget cannot be verified')
+
+
+def local_scratch_root(profile):
+    require('scratch_root' in profile, 'Specify the authorized node-local scratch_root before starting vLLM')
+    root = checked_directory(profile['scratch_root'])
+    info = root.stat()
+    require(info.st_uid in (0, os.geteuid()) and
+            (not info.st_mode & 0o022 or info.st_mode & 0o1000) and os.access(root, os.W_OK | os.X_OK),
+            'Node-local scratch root is not safe and writable')
+    storage = _fs_type(root)
+    require(storage in LOCAL_SCRATCH_FS,
+            f'Node-local scratch filesystem not verified ({storage}); do not use shared storage for compiler/IPC')
+    check_capacity(root, 'Node-local scratch', min_bytes=profile.get('scratch_min_free_bytes', 0),
+                   min_inodes=profile.get('scratch_min_free_inodes', 0))
+    return root
+
+
+def block_reason(error):
+    suffix = {errno.ENOSPC: 'check free bytes and inodes on the affected mount',
+              errno.EDQUOT: 'filesystem quota denied the operation',
+              errno.ENOTEMPTY: 'directory not empty; this does not establish disk exhaustion'}
+    hint = suffix.get(getattr(error, 'errno', None))
+    return f'{error}; {hint}' if hint else str(error)
+
+
 @contextmanager
 def prepared(profile, *, query=_query):
     mode = authorize(profile)
     work = checked_directory(profile['work_root'], writable=True)
-    free = os.statvfs(work)
-    require(free.f_frsize * free.f_bavail >= profile.get('min_free_bytes', 0), 'Insufficient allowed workspace capacity')
+    check_capacity(work, 'Case workspace', min_bytes=profile.get('min_free_bytes', 0))
+    scratch_root = local_scratch_root(profile)
     model = model_directory(profile['model_candidates'], profile['model_files'])
-    scratch_root = Path('/tmp').resolve()
-    storage = _fs_type(scratch_root)
-    require(storage != 'unknown' and not any(label in storage for label in NETWORK_FS), 'Local IPC scratch not verified')
     with tempfile.TemporaryDirectory(prefix='nb-', dir=scratch_root) as directory:
         scratch = Path(directory)
         require(len(os.fsencode(scratch / 'ipc-0123456789abcdef.sock')) < SOCKET_LIMIT, 'IPC socket path is too long')
@@ -234,7 +273,7 @@ def main(argv=None):
             command = [v.replace('{python}', sys.executable).replace('{model}', str(model)).replace('{run}', str(run)) for v in command]
             return subprocess.run(command, cwd=run, env=env).returncode
     except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired) as error:
-        print(json.dumps({'status': 'preflight_blocked', 'reason': str(error)}), file=sys.stderr)
+        print(json.dumps({'status': 'preflight_blocked', 'reason': block_reason(error)}), file=sys.stderr)
         return 2
 
 

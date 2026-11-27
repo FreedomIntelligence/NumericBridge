@@ -94,9 +94,18 @@ of a remote stage or as a local adapter. Required profile settings:
   `min_free_bytes`, `vllm_version` and `extra_imports`. A failed cache match is
   for the authorized preparation stage to fix; this entrypoint installs and
   downloads nothing. Reverify remote resources in their own execution context.
+- `scratch_root` is the resolved absolute path of an existing node-local
+  directory covered by the current grant (prefer scheduler-provided scratch;
+  use `/tmp` only when allowed). Required before running this launcher: profiles
+  from older revisions must bind it explicitly. The launcher creates a short
+  `0700` per-run child for compiler temp/cache and IPC, not for weights, raw
+  evidence or receipts. It rejects unverified/shared mounts. It checks free
+  bytes and available inodes separately for workspace and scratch; optional
+  `scratch_min_free_bytes` and `scratch_min_free_inodes` reserve launch headroom.
+  Filesystem headroom does not prove per-user or scheduler quota.
 - `argv` starts with `{python}` and can use `{model}` and `{run}`. Isolated
-  rank/visibility variables and a short private node-local IPC/cache path are
-  set before the import probe and the collector. A successful environment check
+  rank/visibility variables and the temporary/cache/IPC paths are set before
+  the import probe and the collector. A successful environment check
   (`environment_checked`) is not a readiness receipt. The native collector must
   verify the backend, dtype, device binding, coverage, and capture semantics.
 
