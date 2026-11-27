@@ -93,7 +93,7 @@ Methods: [framework adaptation](../../framework-adapt/SKILL.md), [pinned public 
 ```xml
 <stage id="environment">
   <action>Prepare each side independently. Reuse valid readiness evidence.</action>
-  <fallback when="Hugging Face connectivity failure and public download authorized">If permitted by host policy, try https://hf-mirror.com for the exact pinned public revision without credentials. Verify required files against the official pinned manifest before loading. Do not prompt again for an in-scope fallback.</fallback>
+  <fallback when="Hugging Face connectivity failure and public download authorized">If permitted by host policy, try https://hf-mirror.com or ModelScope without credentials. Use the exact pinned revision on hf-mirror; on ModelScope use only a verified mapped snapshot. Verify all required files against the original official pinned manifest before loading. Do not prompt again for an in-scope fallback.</fallback>
   <check when="vLLM on 910C or B200">Use the shared native launcher for fixed model files, explicit device namespace, process occupancy, runtime imports and visibility, and clean private IPC. Environment success does not show native readiness.</check>
   <check when="not verified">Check device, native path and capture in the first formal batch. Retain valid samples.</check>
   <exception>Run separate preflight only before a costly or risky launch.</exception>
