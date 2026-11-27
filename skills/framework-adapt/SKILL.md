@@ -8,7 +8,9 @@ description: Establish native execution for the requested model, framework and h
 ## Execute
 
 Reuse matching environments and launch commands. Check missing pinned artifacts
-on the hosts that need them. If integration is missing, use the pinned revision's
+on the hosts that need them. For public Hugging Face weights, [fall back to the
+allowed mirror on connectivity failure](references/public-model-download.md), with
+the same revision and official artifact verification. If integration is missing, use the pinned revision's
 support notes and nearest native example. Adapt within the case, preserve native
 state transitions and record any checkpoint or layout conversion. Use
 [preflight_env.py](../precision-compare/scripts/preflight_env.py) only for suspected
