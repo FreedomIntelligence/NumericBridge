@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter
+from collections.abc import Sequence
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -19,6 +20,7 @@ from scripts.validate_immutability import COLLECTIONS, _same_json, compare_docum
 from .records.acknowledgments import validate as validate_acknowledgments
 from .records.catalog import Catalog
 from .records.differences import validate as validate_differences
+from .records.hardware import canonical_b200_case, canonical_b200_evaluation
 from .records.search import validate_snapshot
 from .records.validation import validate as validate_repairs, validate_evaluations, validate_upstream
 
@@ -275,8 +277,32 @@ def shape(document, field, expected_type):
     return value
 
 
-def preserve_document(filename, old, new):
+def corrected_b200_baseline(filename, label, old, selected):
+    if filename == 'evaluations.json':
+        field, kind, transform = 'evaluations', None, canonical_b200_evaluation
+    else:
+        require(filename == 'relations.json', 'B200 corrections are only for evaluations and case entities')
+        field, kind, transform = 'entities', 'case', canonical_b200_case
+    remaining = set(selected)
+    expected = []
+    for row in shape(old, field, list):
+        identity = row['id']
+        if identity in remaining and (kind is None or row.get('kind') == kind):
+            corrected = transform(row)
+            require(not _same_json(row, corrected), f'{label}: no B20Z display correction for {identity}')
+            row = corrected
+            remaining.remove(identity)
+        expected.append(row)
+    suffix = ' as a case' if kind else ''
+    require(not remaining, f'{label}: not published{suffix} in current generation: {", ".join(sorted(remaining))}')
+    return {**old, field: expected}
+
+
+def preserve_document(filename, old, new, *, b200_selected=()):
     label = 'community/site/data/' + filename
+    if b200_selected:
+        # Compare against a derived baseline without editing the prior release.
+        old = corrected_b200_baseline(filename, label, old, b200_selected)
     rows = list(COLLECTIONS.get(label, ()))
     extra_rows = {'acknowledgments.json': ('entries',), 'content.json': ('records',),
                   'differences.json': ('branches',), 'upstream.json': ('contributions',)}
@@ -319,15 +345,16 @@ APPENDABLE = {Path(path).name for path in COLLECTIONS} | {
 }
 
 
-def preserve(previous, before, after, documents):
+def preserve(previous, before, after, documents, *, b200_selections=None):
     for name, digest in before.items():
         require(name in after, f'Required historical file was removed: {name}')
-        if digest == after[name] or name in {'SOURCE_REVISION', 'site/data/search-index.json'}:
+        selected = (b200_selections or {}).get(name, ())
+        if (digest == after[name] and not selected) or name in {'SOURCE_REVISION', 'site/data/search-index.json'}:
             continue
         filename = Path(name).name
         require(name.startswith('site/data/') and filename in APPENDABLE,
                 f'Historical file must retain its original bytes: {name}')
-        preserve_document(filename, json_document(previous / name), documents[filename])
+        preserve_document(filename, json_document(previous / name), documents[filename], b200_selected=selected)
 
 
 def directory_path(value):
@@ -390,8 +417,26 @@ def build_stage(stage, source, reports, revision):
     return hashes
 
 
+def b200_selection(args, kind):
+    selected = getattr(args, f'b200_{kind}s', None)
+    if selected is None:
+        return ()
+    require(isinstance(selected, Sequence) and not isinstance(selected, (str, bytes)),
+            f'B200 corrections require a sequence of {kind} IDs')
+    selected = tuple(selected)
+    require(all(isinstance(identity, str) and identity for identity in selected),
+            f'B200 corrections require a sequence of {kind} IDs')
+    require(len(set(selected)) == len(selected), f'Duplicate B200 {kind} ID')
+    return selected
+
+
 def operate(args, root):
+    selections = {name: selected for name, kind in (('site/data/evaluations.json', 'evaluation'),
+                                                   ('site/data/relations.json', 'case'))
+                  if (selected := b200_selection(args, kind))}
+    require(not selections or args.command == 'promote', 'B200 corrections require an explicit promotion')
     current = read_current(root)
+    require(not selections or current is not None, 'B200 corrections require a current generation')
     releases = root / 'releases'
     transitions = root / '.promotions'
     if current is not None or os.path.lexists(releases):
@@ -444,7 +489,7 @@ def operate(args, root):
         hashes = build_stage(stage, source, reports, args.source_revision)
         documents = validate_site(stage, hashes)
         if previous is not None:
-            preserve(previous, before, hashes, documents)
+            preserve(previous, before, hashes, documents, b200_selections=selections)
         require(verify_release(stage) == hashes, 'Stage changed during validation')
         if not args.dry_run:
             os.rename(stage, final)
@@ -471,6 +516,10 @@ def main():
             operation.add_argument('--source-revision', required=True, help='full independently approved source revision')
         if command == 'promote':
             operation.add_argument('--expect-current', required=True, help='generation the operator expects to replace')
+            operation.add_argument('--b200-evaluation', dest='b200_evaluations', action='append', metavar='ID',
+                                   help='require the exact B20Z-to-B200 correction for this published evaluation (repeatable)')
+            operation.add_argument('--b200-case', dest='b200_cases', action='append', metavar='ID',
+                                   help='require the exact B20Z-to-B200 hardware correction for this published case (repeatable)')
     args = parser.parse_args()
     try:
         require(GENERATION.fullmatch(args.generation), 'Invalid generation name')

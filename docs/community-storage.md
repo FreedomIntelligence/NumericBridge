@@ -126,9 +126,32 @@ maps can grow without rewriting existing objects. Existing list rows must
 remain in order at the same indices; existing map entries remain unchanged.
 Only supported release date metadata can advance and checked derived survey
 counts and the search snapshot can be regenerated. Unrecognized metadata,
-live RSI snapshots and standalone historical data exports are frozen in a
-normal promotion; a change requires an explicitly reviewed policy/migration
-rather than a generic bypass. The Git history validator’s standalone hardware
-naming correction is **not** applied during server promotion: seed the already
-corrected published state or handle a discrepancy through a separately reviewed
-migration. The CLI has no throwaway-history, force or delete mode.
+live RSI snapshots and standalone historical data exports remain frozen. The
+Git history validator’s pinned H20Z-to-H200 exception does not apply to server
+promotion. The CLI has no throwaway-history, force or delete mode.
+
+### Correct reviewed B20Z evaluation and case labels
+
+For a reviewed correction of already-published B20Z labels, prepare the candidate
+as usual, updating the selected rows in `evaluations.json` and, if needed, case
+entities in `relations.json`. Refresh the candidate’s search index. The publisher
+verifies the candidate; it does not rewrite it. Select each reviewed ID
+explicitly on `promote`, repeating either flag for multiple IDs:
+
+```sh
+python3 -B -m community.catalog_store promote --generation release-3 \
+  --expect-current release-2 --site "$SITE" --source-revision "$REVISION" \
+  --b200-evaluation eval-one --b200-evaluation eval-two --b200-case case-one --dry-run
+```
+
+Each selected ID must already exist in the current generation and have at least
+one actual correction. The candidate must replace every standalone,
+case-insensitive `B20Z` token with `B200` in a selected evaluation’s `title`,
+`content.title` translations, `differences` text, and side `hardware` and `label`.
+For a selected case entity, only `details.request.hardware` is corrected. Case
+and evaluation selections are independent. Counts and separators are preserved
+(for example, `2xB20Z` becomes `2xB200`).
+Duplicate IDs, selecting a newly appended row, and any other changes to existing
+rows are rejected. IDs, order, settings, measurements, provenance and evidence
+are unchanged. The previous generation is not modified, and all other promotion
+checks still apply. Without explicit selection, existing rows remain unchanged.
