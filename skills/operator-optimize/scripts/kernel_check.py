@@ -14,8 +14,9 @@ spec: {"operator":TEXT, "dtype":"bf16|fp16|fp32|fp64", "reduction":K, optional "
   "cases":[{"id":TEXT, "shape_class":"captured|random|edge", "reference":P, optional "mask":P,
             "variants":{NAME: P | [P, P, ...]}}],
   optional "timing":{"unit":"ms", "conditions":{...}, "variants":{NAME:[samples]}}}
-P is a .npy path or "file.npz:array"; relative paths resolve from the spec. A list of paths is
-repeated runs on identical inputs; the first is scored, all are compared bitwise.
+P is a .npy path or "file.npz:array"; relative paths resolve from the spec. A list of
+outputs is scored run by run on identical inputs. Duplicate artifact references
+count once. Per-case error uses the worst repeat; repeated outputs are also compared.
 error = rmse(variant - ref) / rms(ref); max_error = max|variant - ref| / max|ref|.
 bound = spec bound, else c * u(dtype) * sqrt(K) (u = 2^-8 bf16, 2^-11 fp16, 2^-24 fp32, 2^-53 fp64).
 rounded_reference: ref rounded to the dtype (bf16 via fp32, round-to-nearest-even) and scored the same.
@@ -63,17 +64,48 @@ def round_to_dtype(values, dtype):
     return bits.view(np.float32).astype(np.float64)
 
 
-def _load(ref, base):
+def _source(ref, base):
     path, _, key = str(ref).partition(':')
-    path = Path(path)
-    if not path.is_absolute():
-        path = base / path
+    return (base / path).resolve(), key
+
+
+def _load(ref, base):
+    path, key = _source(ref, base)
     data = np.load(path, allow_pickle=False)
+    if not isinstance(data, np.ndarray):
+        with data:
+            if not key:
+                raise ValueError(f'{ref}: name the array as file.npz:array')
+            return np.asarray(data[key])
     if key:
-        return np.asarray(data[key])
-    if hasattr(data, 'files'):
-        raise ValueError(f'{ref}: name the array as file.npz:array')
+        raise ValueError(f'{ref}: array keys require an NPZ file')
     return np.asarray(data)
+
+
+def _measure_runs(runs, reference, mask, bound, floor, base):
+    seen, errors = set(), []
+    first, identical = None, True
+    for ref in runs:
+        path, key = _source(ref, base)
+        info = path.stat()
+        identity = (info.st_dev, info.st_ino, key)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        value = _load(ref, base)
+        error = _errors(value, reference, mask)
+        error['within_bound'] = math.isfinite(error['error']) and error['error'] <= bound
+        errors.append(error)
+        if first is None:
+            first = value
+        else:
+            identical &= np.array_equal(first, value, equal_nan=True)
+    worst = max(row['error'] for row in errors)
+    return dict(error=worst, max_error=max(row['max_error'] for row in errors),
+                nonfinite=max(row['nonfinite'] for row in errors), within_bound=all(row['within_bound'] for row in errors),
+                to_floor=worst / floor if floor > 0 else None,
+                reproducible=identical if len(errors) > 1 else 'not_measured', repeats=len(errors),
+                repeat_errors=errors, duplicate_outputs=len(runs) - len(errors))
 
 
 def _errors(value, reference, mask):
@@ -82,6 +114,8 @@ def _errors(value, reference, mask):
         raise ValueError(f'shape {value.shape} differs from reference {reference.shape}')
     if mask is not None:
         value, reference = value[mask], reference[mask]
+    if not value.size:
+        raise ValueError('at least one unmasked reference element is required')
     if not np.all(np.isfinite(value)):
         return dict(error=math.inf, max_error=math.inf, nonfinite=int(value.size - np.isfinite(value).sum()))
     diff = value - reference
@@ -118,6 +152,8 @@ def check(spec, base=Path('.')):
         bound = float(spec.get('c', 1.0)) * UNIT_ROUNDOFF[dtype] * math.sqrt(int(spec['reduction']))
         basis = f"c*u({dtype})*sqrt({int(spec['reduction'])})"
     tolerance = float(spec.get('tolerance', 0.05))
+    if not all(math.isfinite(x) and x >= 0 for x in (bound, tolerance)):
+        raise ValueError('bound and tolerance must be finite and nonnegative')
     baseline, slow_fix = spec.get('baseline', 'baseline'), spec.get('slow_fix', 'slow_fix')
     cases = spec.get('cases')
     if not isinstance(cases, list) or not cases:
@@ -128,6 +164,8 @@ def check(spec, base=Path('.')):
     rows, floors = {name: {} for name in names}, {}
     for case in cases:
         cid = case['id']
+        if cid in floors:
+            raise ValueError(f'duplicate kernel case {cid!r}')
         reference = np.asarray(_load(case['reference'], base), dtype=np.float64)
         if not np.all(np.isfinite(reference)):
             raise ValueError(f'{cid}: the FP64 reference has non-finite values')
@@ -141,31 +179,25 @@ def check(spec, base=Path('.')):
             runs = refs if isinstance(refs, list) else [refs]
             if not runs:
                 raise ValueError(f'{cid}/{name}: no output')
-            first = _load(runs[0], base)
-            row = _errors(first, reference, mask)
-            row['within_bound'] = row['error'] <= bound
-            row['to_floor'] = row['error'] / floor['error'] if floor['error'] > 0 else None
-            if len(runs) > 1:
-                row['reproducible'] = all(np.array_equal(first, _load(r, base), equal_nan=True) for r in runs[1:])
-                row['repeats'] = len(runs)
-            else:
-                row['reproducible'] = 'not_measured'
-            rows[name][cid] = row
+            rows[name][cid] = dict(_measure_runs(runs, reference, mask, bound, floor['error'], base),
+                                   shape_class=case.get('shape_class'))
     variants = {}
     for name in names:
         per_case = rows[name]
         result = dict(cases=per_case, missing_cases=[c['id'] for c in cases if c['id'] not in per_case])
         result['within_bound'] = not result['missing_cases'] and all(r['within_bound'] for r in per_case.values())
         flags = [r['reproducible'] for r in per_case.values()]
-        result['reproducible'] = ('not_measured' if all(f == 'not_measured' for f in flags)
-                                  else all(f is True for f in flags if f != 'not_measured'))
+        result['reproducible'] = (False if any(f is False for f in flags)
+                                  else True if not result['missing_cases'] and all(f is True for f in flags)
+                                  else 'not_measured')
         if name != baseline:
             result['vs_baseline'] = {cid: _change(r['error'], rows[baseline][cid]['error'], tolerance)
                                      for cid, r in per_case.items() if cid in rows[baseline]}
         if slow_fix in rows and name != slow_fix:
-            shared = [cid for cid in per_case if cid in rows[slow_fix]]
-            result['vs_slow_fix'] = ('not_measured' if not shared else all(
-                per_case[cid]['error'] <= (1 + tolerance) * rows[slow_fix][cid]['error'] for cid in shared))
+            result['missing_slow_fix_cases'] = sorted(set(per_case) - set(rows[slow_fix]))
+            result['vs_slow_fix'] = ('not_measured' if result['missing_slow_fix_cases'] else all(
+                math.isfinite(per_case[cid]['error']) and
+                per_case[cid]['error'] <= (1 + tolerance) * rows[slow_fix][cid]['error'] for cid in per_case))
         variants[name] = result
     timing = spec.get('timing')
     performance = dict(status='not_measured', reason='no timing samples in the spec')
@@ -177,6 +209,14 @@ def check(spec, base=Path('.')):
         if baseline in measured:
             for name, row in measured.items():
                 row['median_ratio_to_baseline'] = row['median'] / measured[baseline]['median']
+    # Nonfinite outputs are observed failures, represented as null errors in JSON.
+    result_rows = [*floors.values(), *(row for cases in rows.values() for row in cases.values())]
+    runs = [run for row in result_rows for run in row.get('repeat_errors', [])]
+    for row in result_rows + runs:
+        if row['nonfinite']:
+            for key in ('error', 'max_error', 'to_floor'):
+                if row.get(key) == math.inf:
+                    row[key] = None
     return dict(kind='kernel-check', schema_version=1, operator=spec.get('operator'), dtype=dtype,
                 reduction=spec.get('reduction'), reference_semantics=spec.get('reference_semantics'),
                 bound=bound, bound_basis=basis, tolerance=tolerance, baseline=baseline,
@@ -194,7 +234,7 @@ def main(argv=None):
     try:
         spec = json.loads(args.spec.read_text())
         result = check(spec, args.spec.resolve().parent)
-        text = json.dumps(result, indent=2, ensure_ascii=False, allow_nan=True) + '\n'
+        text = json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False) + '\n'
         if args.output:
             with args.output.open('x') as stream:
                 stream.write(text)

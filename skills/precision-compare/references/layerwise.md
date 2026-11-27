@@ -31,9 +31,12 @@ module path, invocation, direction, rank and token selection (the inventory does
 Intermediate differences include upstream propagation; only same-input replay
 isolates a module. For backward boundaries capture with `directions=('backward',)`;
 `output` is the incoming gradient. `first_nonfinite` in the inventory names the
-first boundary with NaN/Inf. Capture with the KV cache disabled unless the cache is
-under test, and compare model outputs with capture on and off once to confirm the
-hooks do not change execution.
+first boundary with NaN/Inf. Disabling the KV cache can simplify a diagnostic
+capture; it does not represent an original path that uses the cache. Before
+attributing a native-path difference from hooks, compare a
+same-side untapped/tapped pilot under the [exact probe gate](../../precision-repair/references/diagnostic-round.md#exact-same-side-probe-control).
+Keep the actual scheduling and endpoint coordinates, not just intended batch
+settings; an unverified pilot is diagnostic-only.
 
 ## Graph execution and msProbe
 

@@ -21,8 +21,9 @@ Observation-stage tensor reports are diagnostic and not judged. Adapter-produced
   {"kind":"scalar-metrics","metrics":{CHECK:value},"objective_pairs":{NAME:[a,b]}}
     CHECK is a profile check (e.g. advantage_max_abs, optimizer_recompute_rel);
     each objective pair adds objective_rel = |a-b|/max(|a|,|b|).
-  {"kind":"exact-checks","checks":{NAME:true|false}}  token IDs, masks, rewards,
-    valid counts, inventories and other semantics that must match exactly.
+  {"kind":"exact-checks","checks":{NAME:true|false},"missing":[NAME,...]}
+    Compare required exact values and list required observations not captured.
+    Formal plans pass this report with --exact-report (requires missing, even []).
 
 Checks (BF16 accept / optimize): target_logprob_mae 0.1/0.02, target_logprob_p99
 0.5/0.1, target_nll_rel 0.01/0.002, js_mean 1e-3/1e-4, js_p99 1e-2/1e-3,
@@ -37,26 +38,35 @@ optimizer_recompute_rel <=1e-3/1e-5), advantage_max_abs 1e-3/1e-5. dtype=fp32
 selects tighter limits (FP32_LIMITS); fp16 uses BF16 limits. Calibrated on 419
 cross-hardware community comparisons: 308 pass, 99 gap, 12 fail.
 
-Noise: --noise reports are same-side repeats of the same kind. A failing check
-whose noise value also fails is noise_limited. Each check reports exceedance =
-observed error / noise error (1-cosine for cosines) when noise is available.
+Noise: --noise-for PRIMARY REPEAT binds a same-side repeat to one --report or
+--array-report path. Match kind, stage, metric and logical objective or tensor.
+A failing check whose own repeat also fails is noise_limited. A/B inputs may
+not be self-comparisons. --sides LEFT RIGHT checks observed capture side IDs.
+Exceedance is observed error / repeat error (1-cosine for cosines).
 
 User profile JSON: {"id":str, "limits":{CHECK:{"accept":X,"optimize":Y}}, optional
 "min_top1_positions", "decisive_margin", "tensor_norm_floor"}. Limits are numbers
 for max/min checks and [low, high] for ratio checks.
-CLI: --report R (repeatable) [--array-report STAGE R ...] [--noise R ...] [--profile P.json] [--dtype bf16|fp16|fp32]
-     [--optimizer adaptive|sgd] [--exit-zero] --output NEW.json
+CLI: --report R (repeatable) [--array-report STAGE R ...] [--noise-for R REPEAT ...]
+     [--sides LEFT RIGHT] [--profile P.json] [--dtype bf16|fp16|fp32]
+     [--optimizer adaptive|sgd] [--tested-identity RUN-IDENTITY.json] [--exit-zero] --output NEW.json
+Use --criterion-only with the planned --dtype and --optimizer to print the
+formal criterion SHA-256 before observing results; it assumes --exact-report.
+For repair closure, --tested-identity embeds the measured capture's workload_sha256,
+base_sha256 and change_sha256 (null if unchanged). It does not judge provenance.
 Exit: 0=passed (pass/gap), 1=fail/noise_limited/incomplete, 2=CLI/input error.
 --exit-zero returns 0 whenever the report is written, so a workflow check on
 /passed can route a failure to precision-repair.
 """
 
-__all__ = ['evaluate']
+__all__ = ['evaluate', 'criterion_sha256']
 import argparse
 import copy
+import hashlib
 import json
 import math
 from pathlib import Path
+import re
 import statistics
 import sys
 
@@ -145,7 +155,7 @@ def _metrics(report, profile, optimizer, label):
     status = report.get('status')
     if kind == 'target-scores':
         if status != 'no_thresholds':
-            unavailable = report.get('reason', status)
+            unavailable = report.get('reason') or status or 'missing score status'
         else:
             m = report['metrics']
             nll = max(abs(m['side_a_nll_nat_per_token']), abs(m['side_b_nll_nat_per_token']))
@@ -154,7 +164,7 @@ def _metrics(report, profile, optimizer, label):
     elif kind == 'distributions':
         agg = report.get('aggregate') or {}
         if status != 'no_thresholds' or 'tail_merged_js' not in agg:
-            unavailable = agg.get('reason') or report.get('reason', status)
+            unavailable = agg.get('reason') or report.get('reason') or status or 'missing distribution status'
         else:
             js = agg['tail_merged_js']
             values += [('js_mean', js['mean'], None), ('js_p99', js['p99'], None)]
@@ -168,7 +178,9 @@ def _metrics(report, profile, optimizer, label):
                 values.append(('top1_agreement', top1['fraction'], None))
             else:
                 values.append(('top1_agreement', None, f"{top1['count']}/{top1['total']} positions; fraction judged only with >= {profile['min_top1_positions']}"))
-    elif kind is None and 'stage' in report and ('global' in report or 'exact_equal' in report):
+    elif kind == 'tensors' and status != 'no_thresholds':
+        unavailable = report.get('reason') or (report.get('global') or {}).get('reason') or status or 'missing tensor status'
+    elif kind == 'tensors' or (kind is None and 'stage' in report and 'exact_equal' in report):
         stage = report['stage']
         array_report = 'global' not in report
         g = (report.get('metrics') or {}) if array_report else report['global']
@@ -216,32 +228,128 @@ def _metrics(report, profile, optimizer, label):
             scale = max(abs(a), abs(b))
             values.append(('objective_rel', abs(a - b) / scale if scale else 0.0, dict(objective=name)))
     elif kind == 'exact-checks':
-        for name, ok in (report.get('checks') or {}).items():
+        findings, missing = report.get('checks'), report.get('missing', [])
+        if (not isinstance(findings, dict) or not isinstance(missing, list)
+                or any(not isinstance(name, str) or not name.strip() for name in missing)):
+            raise ValueError(f'{label}: exact checks require a checks object and a list of missing check names')
+        for name, ok in findings.items():
             if type(ok) is not bool:
                 raise ValueError(f'{label}: exact check {name} must be boolean')
             exact.append((name, ok, None))
+        if missing:
+            unavailable = 'missing required observations: ' + ', '.join(missing)
+        elif not findings:
+            unavailable = 'no exact checks reported'
     else:
         raise ValueError(f'{label}: unsupported report kind')
     return values, exact, unavailable
 
 
-def evaluate(reports, profile=None, dtype='bf16', optimizer='adaptive', noise=()):
-    """reports/noise: iterables of (label, report_dict). Returns the acceptance report."""
+_NATIVE_PAIRS = ('target-scores', 'distributions', 'tensors')
+_SIDE_KEYS = ('side_a', 'side_b')
+
+
+def _pair(report):
+    sides = report.get('sides')
+    if isinstance(sides, dict):
+        values = tuple(sides.get(key) for key in _SIDE_KEYS)
+        if all(isinstance(side, str) and side.strip() for side in values):
+            return values
+    return None
+
+
+def _pair_problem(report, expected_sides=None):
+    pair = _pair(report)
+    sources = report.get('sources')
+    same_source = (isinstance(sources, dict) and sources.get('side_a') is not None
+                   and sources.get('side_a') == sources.get('side_b'))
+    if report.get('self_comparison') is True or same_source or (pair and pair[0] == pair[1]):
+        return 'self-comparison is not independent paired evidence'
+    if 'sides' in report and pair is None:
+        return 'invalid side IDs in comparison report'
+    if expected_sides and pair is not None and pair != expected_sides:
+        return 'observed side IDs do not match the requested A/B pair'
+    if expected_sides and pair is None and report.get('kind') in _NATIVE_PAIRS and report.get('status') == 'no_thresholds':
+        return 'comparison report has no observed side IDs'
+    return None
+
+
+def _repeat_problem(primary, repeat):
+    if (primary.get('kind'), primary.get('stage')) != (repeat.get('kind'), repeat.get('stage')):
+        return 'repeat and primary comparison have different kinds or stages'
+    if reason := _pair_problem(repeat):
+        return reason
+    left, right = _pair(primary), _pair(repeat)
+    if left is None and right is None:
+        return None  # Adapter-supplied metrics use the caller's explicit pairing.
+    if left is None or right is None or len(set(left) & set(right)) != 1:
+        return 'repeat must share one observed side with the primary comparison'
+    shared = next(iter(set(left) & set(right)))
+    anchor, repeat_anchor = left.index(shared), right.index(shared)
+    primary_sources, repeat_sources = primary.get('sources'), repeat.get('sources')
+    if isinstance(primary_sources, dict) and isinstance(repeat_sources, dict):
+        contract, repeat_contract = primary_sources.get('contract'), repeat_sources.get('contract')
+        if contract is not None and repeat_contract is not None and contract != repeat_contract:
+            return 'repeat uses a different comparison contract'
+        begin = primary_sources.get(_SIDE_KEYS[anchor])
+        repeated_from = repeat_sources.get(_SIDE_KEYS[repeat_anchor])
+        if begin is not None and repeated_from is not None and begin != repeated_from:
+            return 'repeat does not use the matching primary capture'
+    conditions = repeat.get('conditions')
+    if isinstance(conditions, dict):
+        same_side = [conditions.get(key) for key in _SIDE_KEYS]
+        if all(isinstance(row, dict) for row in same_side) and same_side[0] != same_side[1]:
+            return 'repeat changes the measured side conditions or rank coverage'
+    return None
+
+
+def _noise_key(label, name, detail):
+    coordinates = tuple((key, detail[key]) for key in ('objective', 'tensor') if isinstance(detail, dict) and key in detail)
+    return label, name, coordinates
+
+
+def evaluate(reports, profile=None, dtype='bf16', optimizer='adaptive', noise=(), *,
+             require_numeric=False, expected_sides=None):
+    """reports: (label, document); noise: (primary_label, repeat_label, document)."""
     if dtype not in ('bf16', 'fp16', 'fp32') or optimizer not in ('adaptive', 'sgd'):
         raise ValueError('dtype must be bf16|fp16|fp32 and optimizer adaptive|sgd')
+    if expected_sides is not None:
+        expected_sides = tuple(expected_sides)
+        if len(expected_sides) != 2 or any(not isinstance(side, str) or not side.strip() for side in expected_sides) or expected_sides[0] == expected_sides[1]:
+            raise ValueError('expected_sides needs two distinct side IDs')
     source = 'user' if profile else 'default'
     profile = {**DEFAULT_PROFILE, **(profile or {})}
     limits = _limits(profile, dtype)
-    noise_values = {}
-    for label, report in noise:
-        for name, value, _ in _metrics(report, profile, optimizer, label)[0]:
-            if name in KINDS and value is not None:
-                noise_values[name] = max(noise_values.get(name, value), value, key=lambda v: _error(name, v))
-    checks, exact_rows, gaps = [], [], []
+    reports = list(reports)
+    by_label = dict(reports)
+    if len(reports) != len(by_label):
+        raise ValueError('comparison report labels must be unique')
+    noise_values, checks, exact_rows, gaps = {}, [], [], []
+    for target, label, report in noise:
+        if target not in by_label or label in by_label:
+            raise ValueError('each repeat needs a primary report and a separate repeat report')
+        if reason := _repeat_problem(by_label[target], report):
+            gaps.append(dict(report=label, reason=reason))
+            continue
+        values, _, unavailable = _metrics(report, profile, optimizer, label)
+        comparable = [(name, value, note) for name, value, note in values if name in KINDS and value is not None]
+        if require_numeric and (unavailable or not comparable):
+            gaps.append(dict(report=label, reason=unavailable or 'no comparable repeat metrics'))
+        for name, value, note in comparable:
+            key = _noise_key(target, name, note)
+            noise_values[key] = max(noise_values.get(key, value), value, key=lambda v: _error(name, v))
+    invalid_pair = False
     for label, report in reports:
+        if reason := _pair_problem(report, expected_sides):
+            invalid_pair = True
+            gaps.append(dict(report=label, reason=reason))
+            continue
         values, exact, unavailable = _metrics(report, profile, optimizer, label)
         if unavailable:
             gaps.append(dict(report=label, reason=unavailable))
+        elif require_numeric and report.get('kind') != 'exact-checks' and not any(
+                name in KINDS and value is not None for name, value, _ in values):
+            gaps.append(dict(report=label, reason='no comparable numerical metrics'))
         for name, ok, detail in exact:
             exact_rows.append(dict(report=label, name=name, result='pass' if ok else 'fail', **({'detail': detail} if detail else {})))
         for name, value, note in values:
@@ -255,16 +363,22 @@ def evaluate(reports, profile=None, dtype='bf16', optimizer='adaptive', noise=()
             accept, optimize = limits[name]
             row.update(kind=KINDS[name], accept=accept, optimize=optimize)
             row['result'] = 'pass' if _within(KINDS[name], value, optimize) else 'gap' if _within(KINDS[name], value, accept) else 'fail'
-            if name in noise_values:
-                n = noise_values[name]
+            if (key := _noise_key(label, name, note)) in noise_values:
+                n = noise_values[key]
                 row['noise'] = n
                 err, nerr = _error(name, value), _error(name, n)
                 row['exceedance'] = err / nerr if nerr else (None if err else 1.0)
                 if row['result'] == 'fail' and not _within(KINDS[name], n, accept):
                     row['result'] = 'noise_limited'
             checks.append(row)
+    if require_numeric and not any(row['result'] != 'not_applicable' for row in checks):
+        gaps.append(dict(reason='no comparable numerical evidence'))
     results = {r['result'] for r in checks} | {r['result'] for r in exact_rows}
-    if gaps:
+    if invalid_pair:
+        verdict = 'incomplete'
+    elif any(row['result'] == 'fail' for row in exact_rows):
+        verdict = 'fail'
+    elif gaps:
         verdict = 'incomplete'
     elif 'fail' in results:
         verdict = 'fail'
@@ -284,25 +398,76 @@ def evaluate(reports, profile=None, dtype='bf16', optimizer='adaptive', noise=()
                 checks=checks, exact=exact_rows, unavailable=gaps)
 
 
+def criterion_sha256(profile=None, dtype='bf16', optimizer='adaptive', *, require_numeric=True):
+    """Hash the chosen acceptance criterion before the first observation."""
+    settings = {**DEFAULT_PROFILE, **(profile or {})}
+    criterion = dict(profile=settings, limits=_limits(settings, dtype), source='user' if profile else 'default',
+                     dtype=dtype, optimizer=optimizer, require_numeric=require_numeric)
+    return hashlib.sha256(json.dumps(criterion, sort_keys=True, separators=(',', ':'),
+                                    allow_nan=False).encode('utf-8')).hexdigest()
+
+
+def _tested_identity(value):
+    fields = ('workload_sha256', 'base_sha256', 'change_sha256')
+    if not isinstance(value, dict) or set(value) != set(fields):
+        raise ValueError('tested identity requires workload_sha256, base_sha256 and change_sha256')
+    for key in fields:
+        digest = value[key]
+        if key == 'change_sha256' and digest is None:
+            continue
+        if not isinstance(digest, str) or re.fullmatch(r'[0-9a-f]{64}', digest) is None:
+            raise ValueError(f'invalid tested identity {key}')
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:\n')[0],
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--report', action='append', default=[])
     parser.add_argument('--array-report', action='append', nargs=2, default=[], metavar=('STAGE', 'PATH'))
-    parser.add_argument('--noise', action='append', default=[])
+    parser.add_argument('--exact-report', help='required exact checks and missing coverage for a formal plan')
+    parser.add_argument('--noise-for', action='append', nargs=2, default=[], metavar=('PRIMARY', 'REPEAT'))
+    parser.add_argument('--sides', nargs=2, metavar=('LEFT', 'RIGHT'))
     parser.add_argument('--profile')
     parser.add_argument('--dtype', default='bf16', choices=('bf16', 'fp16', 'fp32'))
     parser.add_argument('--optimizer', default='adaptive', choices=('adaptive', 'sgd'))
+    parser.add_argument('--tested-identity', type=Path, help='capture identity JSON to embed in the report')
     parser.add_argument('--exit-zero', action='store_true')
-    parser.add_argument('--output', required=True)
+    parser.add_argument('--criterion-only', action='store_true', help='print the formal criterion digest without judging results')
+    parser.add_argument('--output')
     args = parser.parse_args(argv)
     try:
+        profile = _load(args.profile) if args.profile else None
+        if args.criterion_only:
+            if any((args.report, args.array_report, args.exact_report, args.noise_for, args.tested_identity, args.output)):
+                raise ValueError('--criterion-only does not take reports or an output path')
+            print(json.dumps(dict(criterion_sha256=criterion_sha256(profile, args.dtype, args.optimizer))))
+            return 0
+        if not args.output:
+            raise ValueError('supply --output when judging reports')
         if not args.report and not args.array_report:
             raise ValueError('supply --report or --array-report')
-        reports = [(p, _load(p)) for p in args.report]
-        reports += [(p, {**_load(p), 'stage': stage}) for stage, p in args.array_report]
-        result = evaluate(reports, _load(args.profile) if args.profile else None,
-                          args.dtype, args.optimizer, [(p, _load(p)) for p in args.noise])
+        reports = [(str(Path(p).resolve()), _load(p)) for p in args.report]
+        reports += [(str(Path(p).resolve()), {**_load(p), 'stage': stage}) for stage, p in args.array_report]
+        stages = {str(Path(p).resolve()): stage for stage, p in args.array_report}
+        repeats = []
+        for target, path in args.noise_for:
+            label = str(Path(target).resolve())
+            repeat = _load(path)
+            if label in stages and 'stage' not in repeat:
+                repeat = {**repeat, 'stage': stages[label]}
+            repeats.append((label, str(Path(path).resolve()), repeat))
+        if args.exact_report:
+            exact = _load(args.exact_report)
+            if not isinstance(exact, dict) or exact.get('kind') != 'exact-checks' or 'missing' not in exact:
+                raise ValueError('--exact-report needs an exact-checks object with explicit missing coverage')
+            reports.append((str(Path(args.exact_report).resolve()), exact))
+        result = evaluate(reports, profile, args.dtype, args.optimizer, repeats,
+                          require_numeric=bool(args.exact_report), expected_sides=args.sides)
+        if args.tested_identity:
+            result['tested_identity'] = _tested_identity(_load(args.tested_identity))
+            result['criterion_sha256'] = criterion_sha256(profile, args.dtype, args.optimizer,
+                                                          require_numeric=bool(args.exact_report))
         with Path(args.output).open('x') as stream:
             json.dump(result, stream, indent=2, allow_nan=False)
             stream.write('\n')

@@ -1,12 +1,12 @@
 # Acceptance
 
-Judge every formal comparison with [acceptance.py](../scripts/acceptance.py).
-Without user criteria, use the default profile `nb-default-v1` and record it in
-the delivery; user limits replace selected checks and are labeled `source=user`.
+Use [acceptance.py](../scripts/acceptance.py) with `nb-default-v1`. Fix the
+profile before running and record it in the report. Users do not set thresholds.
 
 ```sh
-python scripts/acceptance.py --report scores.json --report gradients.json \
-  [--noise repeat-a.json] [--dtype bf16|fp16|fp32] [--optimizer adaptive|sgd] --output acceptance.json
+python scripts/acceptance.py --report scores.json --exact-report exact.json \
+  --noise-for scores.json repeat-scores.json --sides A B \
+  --dtype bf16 --output acceptance.json
 ```
 
 | Verdict | Meaning | Route |
@@ -15,7 +15,44 @@ python scripts/acceptance.py --report scores.json --report gradients.json \
 | `gap` | Within acceptance, outside an optimize target | Deliver; report the optimize-target gap, or enter [precision optimization](../../operator-optimize/SKILL.md) once an operator is localized and `operator_optimize.enabled` |
 | `fail` | An acceptance or exact check failed | [Diagnose](../../precision-repair/SKILL.md#diagnose) |
 | `noise_limited` | Each failing check also fails on a same-side repeat | Fix nondeterminism or compare against repeat noise |
-| `incomplete` | A required report is unavailable or not covered | Recover the capture |
+| `incomplete` | A required report is unavailable or the observed sides are not the requested pair | Recover the capture |
+
+A same-capture comparison is useful as a self-check, not as A/B evidence. Bind
+repeat noise to the corresponding comparison report with `--noise-for`; it applies
+only to the same check and logical objective or tensor. Use unchanged execution
+conditions for the repeat.
+
+## Repair completion evidence
+
+Save a `tested-identity.json` with the supported native capture, based on what
+actually ran:
+
+- `workload_sha256`: hash the original workload declaration, including the case's
+  model, input, starting-state and observation identities.
+- `base_sha256`: hash the pinned runtime/base identity for the comparison, before
+  any candidate changes.
+- `change_sha256`: hash the exact patch bytes, or the immutable change manifest
+  for a settings change, upgrade or combination. Use `null` for an unchanged run.
+
+Use stable serialized manifests or pinned files so the same workload and base
+have the same digests across attempts. Pass `--tested-identity tested-identity.json`
+when judging that capture. In a workflow plan, declare the capture's identity as
+an output and pass it by artifact reference from a declared dependency. Produce
+new evidence for a changed version. Do not attach a new identity to old metrics.
+
+For a requested repair, freeze `request.json`'s `original_contract` before formal
+capture. Use the workload and base digests above and `criterion_sha256` from
+`acceptance.py --criterion-only --dtype DTYPE --optimizer OPTIMIZER`. Use those
+same settings and `--exact-report` for the formal verdict. Do not copy settings
+or digests back from a successful candidate to change the original target.
+
+In the final candidate entry, record `base_sha256` and `patch_sha256` (or
+`change_sha256`). Cite the same acceptance JSON in `original.evidence` and
+`original_workload.evidence`. Keep the unchanged baseline report, or record an
+original execution failure as `baseline.native_failure` with `verdict: not_run`
+and links to the initial failure and its reproduction. Paths are relative to the
+case directory unless absolute. The validator checks identity and evidence links;
+it does not attest runners or rerun the workload.
 
 ## Default limits (BF16, same checkpoint)
 
@@ -36,17 +73,25 @@ python scripts/acceptance.py --report scores.json --report gradients.json \
 Pass `--dtype` as the lower-precision compute dtype of the two sides. FP32 paths
 use the tighter `FP32_LIMITS` in the tool; FP16 uses BF16 limits. Give
 `compare_arrays`/`compare_trees` reports as `--array-report STAGE PATH`.
-Quantized paths (FP8, INT8, weight-only) need user limits. Norm ratios catch
+The profile does not cover quantized paths (FP8, INT8, weight-only). Report
+measured metrics and coverage without claiming a formal pass. Norm ratios catch
 scaling and denominator errors that leave cosine near 1. Adam-family updates
 amplify sign flips of near-zero gradients, so pair their loose update cosine
 with each side's optimizer recomputation from its own gradient and state.
 
 ## Exact checks
 
-Token IDs, positions, masks, rule-based rewards, valid target/action/group
-counts, parameter inventory and gradient presence, optimizer events and required
-observation coverage must match exactly. Pass them as an `exact-checks` report;
-any mismatch fails before numerical limits apply.
+Check task-required exact values: tokens, positions, masks, rule-based rewards,
+valid counts, inventory, gradient presence and optimizer events as applicable.
+Build the report from the same captures and pass it with `--exact-report`:
+
+```json
+{"kind":"exact-checks","checks":{"token-ids":true,"loss-mask":false},"missing":[]}
+```
+
+List required observations not captured in `missing`; do not mark them `false`.
+An observed exact mismatch fails even with noise or missing data. Otherwise
+missing coverage is `incomplete`. The report does not replace numerical metrics.
 
 Limits judge agreement between the two sides. A semantic defect can stay within
 them (for example a disabled attention window measured 0.007 logprob MAE), so

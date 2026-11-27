@@ -2,416 +2,236 @@
 
 ## Stages and handoffs
 
-Run dependent commands through a [workflow plan](../../precision-compare/references/comparison.md#shared-tasks)
-(`workflow.py init` creates one per task); it reuses verified stages, runs
-independent sides in parallel and returns the next skill on failure.
+Tools: [workflow plan](../../precision-compare/references/comparison.md#shared-tasks), [checkpoint](../../precision-compare/scripts/case_state.py), [upstream status](../../precision-compare/scripts/upstream_status.py).
 
 ```xml
-<handoff>
-  Carry the request, plan, workspace, runtime and workload identities, native
-  job/process IDs, evidence, diagnosis.json, remaining budget and next action.
-  Continue authorized work without pausing at progress updates; advance
-  independent work when one path blocks. In a batch, prioritize actionable open
-  issues over new cases within budget.
-</handoff>
+<workflow_rules>
+  <plan>Use workflow.py init per task. Reuse verified stages and run independent sides in parallel.</plan>
+  <handoff>Carry request, plan, workspace, tested identities, job records, evidence, diagnosis, budget and next_action.</handoff>
+  <scope>Continue through delivery and eligible contribution under the same grant.</scope>
+  <priority>Advance independent work while blocked. Prioritize actionable open cases over new cases.</priority>
+  <jobs>Track each job to terminal status. Record host, ID or PID, and status command.</jobs>
+  <failure>Read failure_class and logs. Retry only in scope; record unverified branches and reproducers.</failure>
 
-<continuous_run>
-  Run the case in one continuous session until local delivery or an access
-  blocker (request.md). Waiting is not a reason to end the turn: after launching
-  a native job, follow it to its terminal status with a bounded blocking wait or
-  by checking every few minutes, and advance independent work meanwhile. On a
-  failure, read failure_class and the log tail, correct it within the grant and
-  retry; route only unsupported or reproducible failures onward. An execution
-  error in an optional or diagnostic branch (a crash, an out-of-range index, an
-  ignored setting) is a finding, not a skipped branch: open a hypothesis with its
-  minimal reproducer. A user follow-up within the case (a new question, check or
-  draft) is continuous-run work under the same grant. Write the case state and
-  handoff at each stage change as a checkpoint, validate the state with
-  `case_state.py check`, then continue. Set needs_human only for an access
-  blocker, after retrying with backoff (about every 10 minutes for up to 2 hours)
-  and finishing independent work.
-</continuous_run>
+  <checkpoint file="case-state.json">
+    <save at="stage change, job launch or exit, new evidence, before reply"/>
+    <require when="in_progress">Set a concrete next_action.</require>
+    <validate>Run case_state.py check --state case-state.json --request request.json.</validate>
+    <rule>Do not weaken the confirmed goal to close the case.</rule>
+  </checkpoint>
 
-<delegation when="a case is delegated">
-  One owner per case covers both sides from comparison through
-  diagnosis and original-workload verification; split independent cases for
-  parallel work. Give the owner the request, grant, budget and checkpoint. The
-  coordinator checks owner state on progress requests and worker returns,
-  reconciles native runs before replacing a worker, and asks the user only for a
-  missing decision or grant.
-</delegation>
+  <resume>
+    <action>Validate the checkpoint first. Reconcile jobs, reuse evidence, and load only the current method.</action>
+    <rule>A reply ends a turn. Any authorized caller can resume the same case.</rule>
+    <route when="missing or invalid checkpoint">Recover from verified evidence and job records. Do not start over.</route>
+    <route when="in_progress and runnable">Start one turn with the same grant and next_action.</route>
+    <route when="job still running">Wait for a signal or bounded check. Do not relaunch or loop on unchanged state.</route>
+    <route when="transient access failure">Retry within the grant.</route>
+    <route when="user action needed">Set needs_human and name the blocker.</route>
+    <route when="needs_human or partial">Wait for the named access or resume condition to change.</route>
+    <route when="validated done">Stop.</route>
+    <route when="no automatic caller">Leave the checkpoint for manual continuation.</route>
+  </resume>
 
-<issue_record>
-  Record every finding that affects execution or results, including setup
-  blockers, in the case's diagnosis.json (precision-repair diagnosis_state.py);
-  render issues.md from it. Distinguish workarounds from fixes on the original path.
-</issue_record>
+  <delegation>
+    <owner>One owner handles both sides through verification. Split only independent cases.</owner>
+    <coordinator>Check state on progress or return. Reconcile jobs before replacing an owner.</coordinator>
+    <ask>Ask the user only for a missing decision or grant.</ask>
+  </delegation>
 
-<upstream_status when="a defect or policy difference is confirmed in a library">
-  Check the owning repository's current main and latest release, including its
-  pull requests, but count only merged code: treat open issues and unmerged PRs
-  as absent: do not skip, narrow or reshape a draft to avoid overlap with them.
-  They may be cited as related work. Check
-  three refs from a local clone with `upstream_status.py`: current main, the
-  latest release and the user's pinned version or distribution branch. Prefer
-  full authoritative refs (for example `refs/remotes/origin/main`) and pass the
-  resolved target commit to PR template inspection; a local checkout or PR ref
-  is not an upstream version for build or adoption. Where a
-  defect was found (the tested version) is not where it is
-  delivered: fixed on main but present on the pinned ref → upgrade plus a
-  backport draft against the distribution the user installs (for example a
-  plugin release branch), verified on that version; present on main → a PR draft
-  against main. Name the first fixed release and merge commit, and record why an
-  upgrade is not possible when a dependency pins the version.
-</upstream_status>
+  <issues>
+    <record>Use diagnosis.json for findings affecting execution or results, including setup blockers.</record>
+    <render>Generate issues.md. Distinguish workarounds from fixes on the original path.</render>
+  </issues>
+
+  <upstream_status when="confirmed library defect or policy difference">
+    <check>Use upstream_status.py in a local clone. Check merged main, latest release and the pinned ref.</check>
+    <check>Inspect the template at the resolved target commit, not at a PR ref.</check>
+    <rule>Open PRs are related work, not merged fixes. Do not change draft scope to avoid them.</rule>
+    <route when="fixed on main but present on pin">Prefer upgrade; verify a backport draft for the installed version.</route>
+    <route when="present on main">Draft against main.</route>
+    <output>First fixed release, merge commit and upgrade blocker.</output>
+  </upstream_status>
+</workflow_rules>
 ```
-
-Case tools in Compare: [case_state.py](../../precision-compare/scripts/case_state.py)
-(checkpoint fields and statuses) and [upstream_status.py](../../precision-compare/scripts/upstream_status.py)
-(per-ref present/fixed state from merged code).
 
 ## Request
 
-Start from the [confirmed request](request.md); resolve routine setup, retries
-and the listed autonomous decisions within its grant.
+Method: [request confirmation](request.md).
+
+```xml
+<stage id="request">
+  <action>Confirm only missing scope or permission. Reuse the current grant.</action>
+  <output file="request.json">Scope, resource limits and open items.</output>
+  <checkpoint when="new case">Run case_state.py template --state case-state.json.</checkpoint>
+  <route to="community_lookup"/>
+</stage>
+```
 
 ## Route community results
 
-Community lookup is optional. Use the configured public search MCP at
-`https://numericbridge.com/mcp` (Streamable HTTP; no credential required), or
-query an explicitly provided snapshot with the bundled CLI. No records or index
-are bundled, and the workflow does not fetch an index automatically.
-
 ```xml
-<entry>The target and task are confirmed.</entry>
-
-<action>
-  If community lookup is available, call search_community with hardware,
-  model, library and task (inference, sft or rl); add version only when pinned
-  and model_size when needed. If MCP is unavailable, use the bundled CLI only
-  with a supplied index. Otherwise record lookup as unavailable and continue.
-</action>
-
-<output>
-  When a lookup succeeds, save its status, source and index identity. A
-  successful empty lookup is not the same as unavailable lookup. Matching
-  issues and solutions become the first candidates when triage receives the
-  result (--community); omit that input when lookup was unavailable.
-</output>
-
-<next>Prepare the environment with or without a match; keep pinned versions.</next>
+<stage id="community_lookup">
+  <action tool="search_community" endpoint="https://numericbridge.com/mcp"/>
+  <input>Public hardware, model, library and task per stack. Add pinned version or model_size when relevant.</input>
+  <output>Ranked results and index ID.</output>
+  <route when="no match or unavailable" to="environment">Record which. Do not use a fallback.</route>
+  <route when="pinned version" to="environment">Keep the pin.</route>
+  <route when="unpinned version" to="environment">Try a supported recommendation; verify locally.</route>
+  <rule>Past PASS does not transfer. Use prior issues to prioritize checks.</rule>
+</stage>
 ```
-
-Bundled CLI: [community_search.py](../../precision-compare/scripts/community_search.py)
-(required `--index`: local snapshot or explicitly selected HTTPS URL; optional
-`--sha256`: expected digest; `--model-size` for `model_size`).
 
 ## Prepare and compare
 
 ### Prepare the environment
 
-Use [framework-adapt](../../framework-adapt/SKILL.md#execute) and its
-[native preflight](../../framework-adapt/SKILL.md#native-preflight).
+Method: [framework-adapt](../../framework-adapt/SKILL.md#native-preflight).
 
 ```xml
-<entry>Community lookup finished or was unavailable.</entry>
-
-<action>
-  Prepare both sides independently, reusing matching environments and
-  receipts. Confirm device binding and preflight each unverified native path with
-  its collectors. In each preflight worker, collect the environment receipt
-  (`precision-compare/scripts/environment_receipt.py` or `tools.environment_receipt`) after the workload reaches its runtime path:
-  framework, backend plugin, runtime, driver and launch image, keeping unknown
-  distinct from not applicable.
-</action>
-
-<output>
-  Side labels, execution JSON, runtime and resource receipts, workload,
-  readiness, diagnosis-readiness fields and uncovered paths.
-</output>
-
-<next>
-  Compare ready paths. On a failed preflight, recover an interrupted run first,
-  then act on the receipt's failure category: correct setup_or_resource within
-  scope, report unsupported capabilities, and send reproducible failures of a
-  supported path to diagnosis with the native reproducer.
-</next>
+<stage id="environment">
+  <action>Prepare each side independently. Reuse valid readiness evidence.</action>
+  <check when="not verified">Check device, native path and capture in the first formal batch. Retain valid samples.</check>
+  <exception>Run separate preflight only before a costly or risky launch.</exception>
+  <output>Launch command, execution profile, runtime receipt and gaps.</output>
+  <route to="comparison">Advance each ready side.</route>
+</stage>
 ```
 
 ### Run the comparison
 
-Use [precision-compare](../../precision-compare/SKILL.md#collect) and its task
-recipe. Without a specified dataset, use the
-[fixed 100-example batch](../../precision-compare/examples/precision-batch-v1.json)
-in order on both sides ([task views](../../precision-compare/examples/minimal-precision-batch.md)).
+Methods: [capture](../../precision-compare/SKILL.md#collect), [default batch](../../precision-compare/examples/minimal-precision-batch.md), [acceptance](../../precision-compare/references/acceptance.md).
 
 ```xml
-<entry>
-  Native capture is ready. With only one executable side, run only standalone checks
-  and state their limits.
-</entry>
-
-<action>
-  Align inputs, initial state and coordinates; declare intended differences. For
-  online RL, sample natively and pair only matching histories. Judge the reports
-  with acceptance.py, passing exact checks and same-side repeat noise.
-</action>
-
-<output>
-  Workload and side identities, paired observations by stage, coverage gaps,
-  metrics with coordinates, and the acceptance verdict with its profile.
-</output>
-
-<next>
-  Follow the verdict's route: pass → deliver; gap → deliver, or diagnose toward
-  precision optimization when operator_optimize.enabled; fail → diagnosis with
-  the acceptance report;
-  noise_limited → stabilize the runs; incomplete → recover the capture.
-</next>
-```
-
-### Sides and ground truth
-
-```xml
-<sides>
-  Label the two stacks A and B. Neither is assumed correct and either can be
-  repaired. The end-to-end comparison measures agreement only and does not
-  decide which side deviates. Attribute a deviation only against a ground truth:
-  an analytic result, an invariant, or an operator recomputed in FP64 on CPU
-  from the captured operands (cheap and needs no third device; see
-  acceptance.md#agreement-and-accuracy). A whole-model higher-precision or
-  third-stack reference is optional and must not share kernels with either side.
-  When a cross-side fail persists, run one same-hardware stack control (one side
-  with another engine or toolkit version) and report its difference beside the
-  cross-side verdict; it shows how much the software stack alone moves the
-  result. When the stack control also fails, mark the issue stack-sensitive: the
-  difference is not tied to the hardware, so the goal is an operator-level fix
-  (closer to FP64 on the captured operands) with no regression of the original
-  case, not closing the A/B gap. With only one executable side, recompute
-  suitable checkpoints on CPU and report their coverage.
-</sides>
+<stage id="comparison">
+  <capture>Align inputs, start state and capture points. Record intended differences.</capture>
+  <capture>Reuse valid records. If no dataset is supplied, use the same default batch and order.</capture>
+  <rule>Pair online RL at matching histories. Disagreement does not identify the wrong side.</rule>
+  <check>Use independent A/B captures, observed dtype, nb-default-v1 and exact checks.</check>
+  <check>Bind same-side repeats to their primary reports with --noise-for.</check>
+  <check when="completion_goal set">Use request.original_contract. Embed tested_identity from the unchanged baseline onward.</check>
+  <output>Workload, stack versions, coverage, metrics and verdict.</output>
+  <route when="one side only">Report standalone checks, not A/B acceptance. Stay partial if A/B was required.</route>
+  <route when="pass or gap without repair goal" to="delivery">Consider optional optimization for a gap only if enabled.</route>
+  <route when="pass or gap with repair goal" to="repair">Apply the completion gate; do not skip a named defect.</route>
+  <route when="fail and measurement only" to="delivery">Report the observed failure.</route>
+  <route when="fail otherwise" to="diagnosis"/>
+  <route when="noise_limited">Stabilize the run.</route>
+  <route when="incomplete">Fill missing coverage.</route>
+</stage>
 ```
 
 ## Diagnose a difference
 
-Use the [diagnosis loop](../../precision-repair/SKILL.md#diagnose).
+Methods: [triage](../../precision-repair/SKILL.md#diagnose), [diagnostic rounds](../../precision-repair/references/diagnostic-round.md).
 
 ```xml
-<entry>
-  A failed acceptance or a reproducible failure of a supported native path, with
-  its evidence recorded.
-</entry>
-
-<action>
-  Run triage with the acceptance report, comparator reports and the community
-  result; start diagnosis.json. Run the reproduction checks triage lists for
-  matching and related NumericBridge community issues first, then the remaining
-  checks cheapest first. At each localized operator, judge both sides against
-  FP64 on the captured operands with operator_verdict.py.
-</action>
-
-<output>diagnosis.json with labels, checked boundaries, ruled-out causes and evidence.</output>
-
-<next>
-  On config_mismatch, correct setup and rerun the comparison. Route a supported
-  defect to repair and a localized operator to precision optimization by its
-  FP64 reading. Diagnosis ends in one of three ways: acceptance restored; an
-  inherent difference (each localized operator within its FP64 bound and no
-  actionable check left); or optimization entered for a localized operator,
-  after which diagnosis continues for the remaining unexplained difference.
-  "Blocked" is a stop reason only with a recorded blocker (access, budget or
-  no_actionable_check). A hypothesis whose finding names a next check is not
-  no_actionable_check: run that check, or open it as a child hypothesis.
-  Diagnosis stays open while any hypothesis has an actionable check, including
-  issues found after delivery. Setup, dependency and adapter fixes go in the
-  case log, not in diagnosis hypotheses, unless they affect results.
-</next>
+<stage id="diagnosis">
+  <entry>Numerical failure, reproduced native failure or unverified requested defect.</entry>
+  <action>Check setup and the first observed difference. Reconcile jobs and budget before launching a check.</action>
+  <check>Only valid, decisive results unlock depends_on. Verify probes against native controls.</check>
+  <rule>Use after for probe troubleshooting. Local findings do not change original acceptance.</rule>
+  <output file="diagnosis.json">Findings and evidence. Read diagnosis_state.py next.</output>
+  <route when="recompare" to="comparison">Correct the setup mismatch first.</route>
+  <route when="check or refine">Run the cheapest remaining check that can change the decision.</route>
+  <route when="repair" to="repair">Hand off the confirmed cause under existing authorization.</route>
+  <route when="localized operator" to="operator_optimization">Check against FP64 on captured operands.</route>
+  <route when="stop" to="delivery">Record findings and gaps. Apply the delivery gate.</route>
+</stage>
 ```
 
 ## Repair and verify
 
-Use the [repair method](../../precision-repair/SKILL.md#patch-and-verify).
+Method: [repair and verification](../../precision-repair/SKILL.md#patch-and-verify).
 
 ```xml
-<entry>
-  Repair is authorized and the defect has evidence, a reproducer and a baseline.
-</entry>
-
-<action>
-  Test one candidate at a time on the original small native case; extend only for
-  missing coverage or an agreed requirement.
-</action>
-
-<output>
-  Record each candidate in diagnosis.json and keep two results separate: a
-  focused regression can verify an independent defect without restoring the
-  original acceptance. Mark a candidate as a verified fix for the original case
-  only after both its focused regression and independent supported-native
-  acceptance on the original workload pass.
-</output>
-
-<next>
-  After fixing a preflight blocker, re-enter comparison. Otherwise deliver; on
-  failure, return to diagnosis or try the next candidate within budget.
-</next>
+<stage id="repair">
+  <entry>Authorized change and comparable reproducer.</entry>
+  <action>Verify the smallest focused fix. Reuse single-change results before testing a combination.</action>
+  <check when="original metric worsens">Check for regressions and remaining defects. Keep verified local findings.</check>
+  <route when="execution restored" to="comparison">Collect the original workload again.</route>
+  <output>Separate focused results from original-workload acceptance.</output>
+  <completion>
+    <changed>Keep the baseline. Verify focused fail-before/pass-after and match request.defect_id if specified.</changed>
+    <changed>Require pass or gap on the exact final change. Set delivery.candidate_id and validate against the request.</changed>
+    <unchanged when="restore_original_acceptance">Allow unchanged pass or gap. After a failure, retain both reports and use acceptance_retested.</unchanged>
+    <route when="required work remains runnable">Keep in_progress and record next_action.</route>
+    <route when="required work blocked and jobs settled" to="delivery">Deliver partial.</route>
+  </completion>
+</stage>
 ```
 
 ## Precision optimization
 
-Use [operator-optimize](../../operator-optimize/SKILL.md#optimize).
+Methods: [operator optimization](../../operator-optimize/SKILL.md), [handoff](../../operator-optimize/references/handoff.md), [shareable evidence](../../precision-compare/references/community-records.md#operator-variants).
 
 ```xml
-<tracks>
-  Two tracks with different ends. Diagnosis and repair is a deliverable task:
-  it ends at local delivery (acceptance restored, an inherent difference shown,
-  or bounded attribution of a non-passing original). An independently verified
-  operator fix can be delivered alongside that outcome without changing it.
-  Any community submission and PR drafts follow the evidence and consent. Precision optimization is a
-  continuing task: each round delivers the variants measured so far with their
-  precision and speed, records what remains open, and can be resumed in a later
-  session or by another contributor. An optimization round never holds back
-  the diagnosis delivery.
-</tracks>
-```
-
-```xml
-<entry>
-  Diagnosis localized an operator, judged both sides against FP64 on the captured
-  operands with `operator_verdict.py`, and wrote `result/optimize/<operator>/handoff.json`.
-  `entry` in `handoff.json` comes solely from that FP64 reading: a reading
-  outside the bound (`a_deviates`, `b_deviates`, `shared_policy`) sets
-  `entry="required"` whatever `request.json`'s `operator_optimize.enabled` says;
-  a reading within the bound (`not_the_source`) sets `entry="optional"` and enters
-  only when `operator_optimize.enabled` is true (if the user requests optional
-  optimization during follow-up, record `operator_optimize.enabled: true` in
-  `request.json`; otherwise diagnosis delivers an inherent difference).
-  A `gap` verdict enters the same way once an operator is localized, and is
-  otherwise delivered with the remaining distance to the optimize target.
-</entry>
-
-<action>
-  Try configuration, backend and upstream variants and the slow fix first, then
-  write a kernel. Measure every variant against FP64 and the dtype floor with
-  `kernel_check.py`, collect paired timing on one host in one session, and rerun
-  the original workload with each kept variant.
-
-  Case generation and measurement rules:
-  - Test `captured`, `random`, and `edge` shape classes using genuinely constructed
-    inputs and real kernel/reference outputs on the target path; never slice
-    `captured` arrays to fabricate `random`/`edge` cases, and never duplicate a
-    single run's array to fabricate repeat runs (`repeats >= 2` must come from
-    actual repeated executions on identical inputs).
-  - Do not hardcode an approximate or custom `bound` in `kernel-spec.json` unless
-    explicitly justified; omit `bound` so `kernel_check.py` computes
-    `c*u(dtype)*sqrt(reduction)` consistently with `operator_verdict.py`.
-  - Distinguish a full optimization round from a partial/pre-benchmark handoff:
-    every variant run so far must be measured with `kernel_check.py` (producing
-    `kernel-report.json`), and any unmeasured cases (`random`/`edge` on target
-    hardware, paired `timing`, or un-run variants) must stay explicitly absent or
-    `not_measured` rather than filled with offline proxies.
-</action>
-
-<output>
-  `result/optimize/<operator>/` with the input `handoff.json`, each tried
-  variant's source, `kernel-spec.json`, `kernel-report.json`, timing conditions,
-  end-to-end precision and speed, and `open.json`; each kept or tested variant
-  recorded in `diagnosis.json`.
-
-  Round state (`open.json`) and handoff link:
-  - `open.json` tracks `round_status` (`"handoff_open"` when work remains for a
-    later round), `entry` (`"required"` or `"optional"`), `remaining_distance`
-    (`relative_rmse`, `bound`, `excess`), `variants_not_yet_tried`, and
-    `next_step` so another session can resume cleanly.
-  - When `slow_fix` has a `kernel_check.py` report, reference it via
-    `slow_fix.report` in `handoff.json` and add the `kernel_check` command under
-    `reproduce`.
-</output>
-
-<next>
-  Submit the round with all kept variants (all variants within the bound plus
-  baseline), their precision/speed tradeoffs, and the open items in `open.json`.
-  Only a kept variant that improves toward the reference semantics, applies to
-  the target upstream repository, and has verified source evidence gets a PR
-  draft (marking any unverified `repo_style_test` / `native_on_target` /
-  `performance` items in `pending_checks` so the draft is explicitly flagged
-  `incomplete`). A variant that still fails the bound or has unmeasured
-  shapes/timing does not block round delivery: record its `kernel-report.json`
-  distance and mark the operator `round_status: "handoff_open"` in `open.json`
-  with `variants_not_yet_tried` and `next_step` for the next session.
-
-  Community record boundary: an operator that has completed an optimization
-  round (paired timing and end-to-end checks on kept variants) adds one
-  `candidate` entity per kept variant as described in
-  [community-records.md](../../precision-compare/references/community-records.md#operator-variants);
-  an operator with only a pre-round `handoff_open` (or captured-only
-  `kernel_check` awaiting target random/edge/timing) records its handoff and
-  `open.json` state without fabricating full-round `candidate` benchmark
-  claims. Package either state using `operator_optimization.py` (`handoff_open`
-  or `round_delivered`) under `evidence/submissions/*.json`; keep server-side
-  tiers and recommendations out of client payloads. Return to diagnosis for the next localized operator while the
-  acceptance failure remains unexplained.
-</next>
+<stage id="operator_optimization">
+  <entry>Localized operator with an FP64 check on captured operands.</entry>
+  <route when="outside bound">Open the required round. It does not grant resources.</route>
+  <route when="within bound and enabled">Try optional optimization. Record opt-in in request.json.</route>
+  <route when="within bound and disabled">Skip. Continue diagnosis if acceptance fails.</route>
+  <route when="gap without localized operator">Report the gap. Do not start kernel work.</route>
+  <action>Reuse measurements. Try settings, backend or upstream variants and the slow fix before a new kernel.</action>
+  <check>Run independent repeats on all required shapes. Score each against FP64.</check>
+  <check>Pair timing on one host and session. Record native workload results per kept change.</check>
+  <output>Keep measurements, missing checks and next_step under the operator directory.</output>
+  <route when="missing measurements">Use handoff_open. Report measured results without a recommendation.</route>
+  <route when="measurements complete">Use round_delivered. Report failures as failures.</route>
+  <rule>Keep standalone rounds local. Eligible issues, evaluations and patches use typed intake.</rule>
+  <rule>Optional work does not delay local delivery or change original acceptance.</rule>
+</stage>
 ```
 
 ## Local delivery
 
+Methods: [checkpoint validator](../../precision-compare/scripts/case_state.py), [contribution decisions](../../precision-repair/SKILL.md#declare-contribution-decisions).
+
 ```xml
-<entry>
-  No required check remains actionable within authorization and budget; finish
-  active in-scope runs first. `diagnosis_state.py audit` returns ok: every
-  confirmed or blocked hypothesis has a contribution decision and every blocked
-  one a blocker. Drafts with missing checks do not block delivery; they are
-  listed in incomplete_drafts and submitted marked incomplete.
-</entry>
-
-<action>
-  Reconcile execution, comparison, diagnosis and repair against the request and
-  evidence (workflow state.json, acceptance report, diagnosis.json). Declare one
-  contribution decision per issue with `diagnosis_state.py decide` (ownership,
-  upstream state at main, latest release and pinned ref, decision, reason, and
-  draft checks), then write `result/contribution-decisions.json` with
-  `diagnosis_state.py decisions`; the report, community record and PR drafts
-  follow it. In case-state.json, fill and validate the v1 delivery_summary with
-  the original verdict, local outcome and each candidate's focused regression
-  and relationship to the original. Use case_state.py check; a new checkpoint
-  can start from template --with-delivery-summary.
-</action>
-
-<output>
-  Report: stage status (complete/partial/blocked/N/A) and blockers; original
-  verdict and criterion; versions, coverage and key stats; each fix's scoped
-  red/green result and before/after metrics. Link setup, issues and requested evidence.
-  Missing required inputs stay partial and named. CPU is not dual-native proof.
-  Say “NumericBridge 链路已完成” only with evidence for every required stage.
-</output>
-
-<next>
-  After a shareable delivery, follow Community contribution even for a PASS
-  with no issue or patch. A scoped fix or receipt never changes acceptance.
-</next>
+<stage id="delivery">
+  <entry>Reconcile jobs and evidence against the request. Keep in_progress while required work can run or jobs remain.</entry>
+  <audit when="diagnosis entered">Record decisions and blockers. Run diagnosis_state.py audit.</audit>
+  <output when="diagnosis entered" file="result/contribution-decisions.json">Contribution decisions.</output>
+  <audit when="no diagnosis">Report N/A. Do not create an empty diagnosis.</audit>
+  <outcome when="pass or gap after numerical failure">
+    <changed>acceptance_restored</changed>
+    <unchanged when="restore_original_acceptance">acceptance_retested</unchanged>
+  </outcome>
+  <outcome when="other pass or gap">acceptance_passed</outcome>
+  <outcome when="observed failure satisfies request">bounded_attribution with evidence</outcome>
+  <outcome when="reproduced native failure without numerical acceptance">Use original.native_failure and verdict not_run.</outcome>
+  <route when="required work blocked and jobs settled">Deliver partial with open_items and resume_when. Do not submit.</route>
+  <output>Write the local report: versions, coverage, criterion, verdict, blockers, focused results and paired metrics.</output>
+  <output>Link saved evidence. List optional work and incomplete_drafts separately.</output>
+  <check>Apply any repair completion gate. Validate case-state.json against request.json.</check>
+  <route when="local result complete and sharing agreed or pending" to="community_contribution">Keep in_progress and save next_action.</route>
+  <route when="local result complete and no contribution pending">Set done and next_action=null.</route>
+</stage>
 ```
 
 ## Community contribution
 
-**Only submit to NumericBridge.** Upstream is read-only: never open or update
-PRs/MRs, fork publicly, or push for submission by any means. Do not give runners
-upstream write credentials. Maintainers handle upstream filing; an existing PR
-is not a community receipt.
+Methods: [submission guide](../../precision-compare/references/community-records.md), [privacy scan](../../precision-compare/scripts/anonymize_scan.py).
 
-1. **Check route and consent.** Use `community_contribution_capabilities`.
-   Honor declines. Public intake is new anonymous drafts only; named credit and
-   `supersedes` require authenticated intake. Keep unsupported submissions local.
-2. **Prepare.** Scan with [anonymize_scan.py](../../precision-compare/scripts/anonymize_scan.py)
-   using local aliases. Follow the [archive checklist](../../precision-compare/references/community-records.md)
-   and use `prepare_contribution`. For patches, inspect the pinned merged template
-   and confirm the exact tested diff binding. On a template blocker, don't bypass
-   validation. Review both visibility lanes and the consented attribution.
-3. **Send only the reviewed draft.** Pass ID and digest to `submit_community`.
-   Use `consent_record` for recorded `share`; otherwise offer once through client
-   confirmation. If blocked, keep and report the draft. Changes require a new
-   preview; retry an unchanged draft with its original ID and digest.
-4. **Record the result.** Save `receipt_binding` and `review_state` in
-   `delivery_summary.community`; run `case_state.py check`. Report the receipt
-   and preview path. Status proof uses receipt ID **and** draft SHA. Received
-   means pending review, not published; verify discoverability in the deployed
-   index. Preserve old receipts; never bind a changed patch to an old receipt.
+```xml
+<stage id="community_contribution">
+  <entry>Local delivery complete. A PASS can be shared without an issue or patch.</entry>
+  <boundary>Only submit to NumericBridge. Never open or update upstream PRs/MRs, fork publicly or push.</boundary>
+  <boundary>Give runners no upstream write credentials. Maintainers handle upstream filing.</boundary>
+  <route when="declined or nothing shareable">Keep local. Do not ask again.</route>
+  <check tool="community_contribution_capabilities">Public accepts new anonymous drafts. Named credit requires authenticated intake.</check>
+  <prepare tool="prepare_contribution">Scan private identifiers. Review public and maintainer-only contents.</prepare>
+  <check when="patch">Verify the pinned target template and exact tested diff.</check>
+  <record>Save community_draft_sha256 for the current preview. After edits, prepare and review a new draft.</record>
+  <route when="intake or validation blocked">Keep the draft local. Report the blocker; do not bypass validation.</route>
+  <send tool="submit_community">Use the reviewed draft ID and SHA. Pass consent_record or offer client confirmation once.</send>
+  <route when="confirmation declined or cancelled">Keep local. Do not retry.</route>
+  <resume when="known receipt">Check status by receipt ID and draft SHA.</resume>
+  <resume when="uncertain send">Retry only the same reviewed draft with unchanged consent. Keep the case open.</resume>
+  <record when="received" in="delivery_summary.community">Save matching receipt_binding and review_state.</record>
+  <record when="local-only" in="delivery_summary.community_local_only">Save draft_sha256 (null if none) and reason.</record>
+  <output>Report receipt and preview path, or why it stayed local. An upstream PR is not a receipt.</output>
+  <rule>Claim public visibility only after a deployed index match.</rule>
+  <route when="received or resolved locally">Set done and next_action=null. Validate; do not wait for review or publication.</route>
+</stage>
+```

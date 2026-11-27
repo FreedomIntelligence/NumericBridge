@@ -95,6 +95,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:\n')[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     for name in ('contract','side-a','side-b','output'):
         parser.add_argument('--'+name, required=True)
+    parser.add_argument('--exit-zero', action='store_true', help='return zero after writing a comparison report')
     args = parser.parse_args()
     try:
         report = compare(args.contract, args.side_a, args.side_b)
@@ -104,7 +105,7 @@ def main():
     except (ValueError, OSError, TypeError) as exc:
         print(str(exc),file=sys.stderr)
         return 2
-    return 0 if report['status']=='no_thresholds' else 1
+    return 0 if args.exit_zero or report['status'] == 'no_thresholds' else 1
 
 
 if __name__=='__main__':

@@ -6,11 +6,12 @@ description: Run the NumericBridge precision workflow for an inference, SFT or R
 # NumericBridge
 
 - Users can describe the goal in plain language or use the [request template](references/prompt-template.md). For a new request, follow [request confirmation](references/request.md).
-- For an authorized request, follow the [workflow](references/workflow.md) from
-  optional community lookup, or resume at the recorded stage: `workflow.py status` for
-  the plan and `diagnosis_state.py next` for an open diagnosis.
+- For an existing case, read and validate its checkpoint first, then use the
+  [resume protocol](references/workflow.md#stages-and-handoffs) to choose the next
+  action. Consult the plan or diagnosis only when the recorded stage needs it.
+- For a new case, follow the [workflow](references/workflow.md) at request confirmation.
 
-Read the method linked for the current stage as needed.
+Read only the current method. A reply ends a turn, not a case.
 
 Upstream contribution means preparing a local PR/MR draft and sending it to
 [NumericBridge community intake](references/workflow.md#community-contribution).

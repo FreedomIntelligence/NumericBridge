@@ -40,7 +40,7 @@ On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256
 
 **Develop from source.** Use `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` for a clean current checkout without the historical catalog objects. Full Git history still contains independently published older revisions.
 
-**Community lookup is optional.** Use the [case library](https://freedomintelligence.github.io/NumericBridge/index.html#/cases) or connect your agent to the [managed search MCP](community/README.md#mcp-search). If you have a separate snapshot, [pass it explicitly to the search tool](tools/README.md#optional-community-lookup). You can continue offline without community context; installation and the local workflow do not fetch a snapshot.
+**Community lookup does not block a run.** The workflow searches only the [official NumericBridge MCP](community/README.md#mcp-search). If it is unavailable or returns no match, continue without community results.
 
 **Run a first comparison.** With PyTorch and NumPy installed, run this CPU example. It uses the same classifier, weights and batch for two backward passes, one in FP32 and one in BF16. The output gives the gradient differences and the path to both captures and `report.json`.
 

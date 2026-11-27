@@ -210,6 +210,7 @@ def cli(compare, description, options=None, argv=None):
     parser.add_argument('--side-a', required=True)
     parser.add_argument('--side-b', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--exit-zero', action='store_true', help='return zero after writing a comparison report')
     for name, settings in (options or {}).items():
         parser.add_argument('--' + name.replace('_', '-'), **settings)
     args = parser.parse_args(argv)
@@ -222,4 +223,4 @@ def cli(compare, description, options=None, argv=None):
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    return 0 if report['status'] == 'no_thresholds' else 1
+    return 0 if args.exit_zero or report['status'] == 'no_thresholds' else 1

@@ -1,28 +1,34 @@
 #!/usr/bin/env python3
 """Track diagnosis hypotheses, checks and stop conditions in diagnosis.json; render issues.md.
 Call: python scripts/diagnosis_state.py init|add|next|record|conclude|decide|audit|decisions|render --state diagnosis.json ...
-Input: acceptance/triage reports, hypotheses and check results (label, finding, evidence).
-Output: Durable state, the next open check or a stop decision, and an issues.md rendering.
+Input: acceptance or native-failure evidence, triage reports, hypotheses and check results.
+Output: Durable state, the next diagnosis action, and an issues.md rendering.
 Requires: Standard library; atomic rewrites; ruled-out hypotheses are never proposed again.
 
 Details:
-init --state S --acceptance A.json [--triage T.json] [--case NAME] [--max-checks N]
+init --state S (--acceptance A.json | --native-failure N.json) [--triage T.json] [--case NAME] [--max-checks N]
+  Native trigger: {"kind":"native_failure", "evidence":REF, "reproduction":REF}.
   Creates S (refuses to overwrite). Triage candidates become hypotheses H1..Hn in
   triage order with their check, cost and evidence.
 add --state S --statement TEXT --check TEXT [--cost cpu|replay|native]
   [--source manual|community|localize|replay] [--parent H]  -> prints the new ID.
-next --state S -> {"action":"check",hypothesis} for the first open hypothesis;
-  {"action":"refine",supported:[...]} when only supported-unconfirmed hypotheses
-  without open children remain (add a narrower child or run interventions);
-  {"action":"stop",reason} when a primary cause is confirmed, a config mismatch
-  was found (rerun comparison after correcting setup), max checks are spent, or
-  nothing actionable remains.
+next --state S -> {"action":"recompare",hypotheses:[IDs]} for an active supported
+  or confirmed config mismatch. Correct setup and rerun a comparable comparison.
+  Otherwise return {"action":"check",hypothesis} for the first actionable hypothesis,
+  or {"action":"refine",supported:[...]} for supported hypotheses without registered
+  children. These actions can include confirmed_primary IDs alongside residual work.
+  With no eligible diagnostic check, return {"action":"repair",hypotheses:[IDs]}
+  for confirmed primary causes (handoff only if authorized), or {"action":"stop",reason}.
+  None of these actions changes acceptance or grants resources.
 record --state S --hypothesis H --label LABEL --finding TEXT [--evidence P ...]
   [--control TEXT] [--run-command TEXT] [--status STATUS] [--blocker access|budget|no_actionable_check]
   Label -> status: not_reproduced/ruled_out -> ruled_out; primary_cause_confirmed,
-  secondary_factor_confirmed -> confirmed; unresolved -> blocked; replay_invalid ->
-  open; other labels -> supported. --status overrides. A blocked hypothesis needs
-  --blocker; until one is recorded, next keeps returning it as a check.
+  secondary_factor_confirmed/config_corrected -> confirmed; unresolved -> blocked;
+  replay_invalid -> open; other labels -> supported. --status overrides except for
+  config_corrected: record it against the active config_mismatch with evidence of
+  a comparable rerun (which can still fail); the original finding stays in checks.
+  A blocked hypothesis needs --blocker; next still reports one without a blocker
+  as a check when within the check budget.
 conclude --state S --classification setup_capture|unsupported|expected_policy|
   inherent_difference|supported_defect|unresolved --summary TEXT [--next-check TEXT]
 decide --state S --hypothesis H --ownership OWNER --decision DECISION --reason REASON
@@ -45,7 +51,7 @@ audit --state S -> {"status":"ok"|"incomplete", problems:[...], drafts:"complete
   the audit: it is listed in incomplete_drafts and submitted marked incomplete.
 decisions --state S --output result/contribution-decisions.json  (derived; overwritten)
 render --state S [--output issues.md]  (derived file; overwritten)
-Labels: config_mismatch, replay_invalid, local_source_candidate, propagation_candidate,
+Labels: config_mismatch, config_corrected, replay_invalid, local_source_candidate, propagation_candidate,
 amplification_supported, local_source_confirmed, primary_cause_confirmed,
 secondary_factor_confirmed, not_reproduced, ruled_out, unresolved.
 Exit: 0=ok (including next returning stop; read "action"), 1=audit found problems, 2=input error.
@@ -58,11 +64,12 @@ import json
 from pathlib import Path
 import sys
 
-LABELS = ('config_mismatch', 'replay_invalid', 'local_source_candidate', 'propagation_candidate',
-          'amplification_supported', 'local_source_confirmed', 'primary_cause_confirmed',
+LABELS = ('config_mismatch', 'config_corrected', 'replay_invalid', 'local_source_candidate',
+          'propagation_candidate', 'amplification_supported', 'local_source_confirmed', 'primary_cause_confirmed',
           'secondary_factor_confirmed', 'not_reproduced', 'ruled_out', 'unresolved')
 STATUS = {'not_reproduced': 'ruled_out', 'ruled_out': 'ruled_out', 'primary_cause_confirmed': 'confirmed',
-          'secondary_factor_confirmed': 'confirmed', 'unresolved': 'blocked', 'replay_invalid': 'open'}
+          'secondary_factor_confirmed': 'confirmed', 'config_corrected': 'confirmed', 'unresolved': 'blocked',
+          'replay_invalid': 'open'}
 STATUSES = ('open', 'supported', 'confirmed', 'ruled_out', 'blocked')
 CLASSES = ('setup_capture', 'unsupported', 'expected_policy', 'inherent_difference', 'supported_defect', 'unresolved')
 COSTS = ('cpu', 'replay', 'native')
@@ -103,13 +110,25 @@ def _hypothesis(state, hid):
     raise ValueError('unknown hypothesis: ' + hid)
 
 
-def init(path, acceptance, triage=None, case=None, max_checks=None):
+def init(path, acceptance=None, triage=None, case=None, max_checks=None, *, native_failure=None):
     if Path(path).exists():
         raise ValueError('state exists: ' + str(path))
+    if (acceptance is None) == (native_failure is None):
+        raise ValueError('provide exactly one of acceptance or native_failure')
+    if native_failure is not None:
+        if not isinstance(native_failure, dict) or native_failure.get('kind') != 'native_failure':
+            raise ValueError('expected a native_failure trigger')
+        evidence, reproduction = (native_failure.get(key) for key in ('evidence', 'reproduction'))
+        if ('verdict' in native_failure or not all(isinstance(ref, str) and ref.strip()
+                                                   for ref in (evidence, reproduction))
+                or evidence.strip() == reproduction.strip()):
+            raise ValueError('native_failure needs original and separate reproduction evidence, with no acceptance verdict')
+        trigger = dict(kind='native_failure', evidence=evidence, reproduction=reproduction)
+    else:
+        trigger = dict(verdict=acceptance.get('verdict'), profile=acceptance.get('profile'),
+                       failing=acceptance.get('failing', []), route=acceptance.get('route'))
     state = dict(kind='diagnosis', schema_version=1, case=case, created=_now(), max_checks=max_checks,
-                 trigger=dict(verdict=acceptance.get('verdict'), profile=acceptance.get('profile'),
-                              failing=acceptance.get('failing', []), route=acceptance.get('route')),
-                 hypotheses=[], checks=[], conclusion=None)
+                 trigger=trigger, hypotheses=[], checks=[], conclusion=None)
     for c in (triage or {}).get('candidates', []):
         add(state, c['cause'], c['check'], c.get('cost', 'native'), 'triage', evidence=c.get('evidence'))
     _write(path, state)
@@ -128,39 +147,59 @@ def add(state, statement, check, cost='native', source='manual', parent=None, ev
     return hid
 
 
+def _active_config(hypothesis):
+    return hypothesis['label'] == 'config_mismatch' and hypothesis['status'] in ('supported', 'confirmed')
+
+
 def next_action(state):
     hyps = state['hypotheses']
-    if any(h['label'] == 'config_mismatch' for h in hyps):
-        return dict(action='stop', reason='config_mismatch: correct setup or capture, then rerun the comparison')
-    primary = [h['id'] for h in hyps if h['label'] == 'primary_cause_confirmed']
+    config = [h['id'] for h in hyps if _active_config(h)]
+    if config:
+        return dict(action='recompare', reason='correct setup or capture, then rerun the comparison', hypotheses=config)
+    primary = [h['id'] for h in hyps if h['status'] == 'confirmed' and h['label'] == 'primary_cause_confirmed']
+    residual_context = dict(confirmed_primary=primary) if primary else {}
+    limit = state.get('max_checks')
+    budget_spent = limit is not None and len(state['checks']) >= limit
+    if not budget_spent:
+        open_ = [h for h in hyps if h['status'] == 'open']
+        if open_:
+            return dict(action='check', hypothesis=open_[0], **residual_context)
+        unblocked = [h for h in hyps if h['status'] == 'blocked' and not h.get('blocker')]
+        if unblocked:
+            return dict(action='check', hypothesis=unblocked[0],
+                        reason='blocked without a recorded blocker: run its next check, or record access, budget '
+                               'or no_actionable_check', **residual_context)
+        children = {h['parent'] for h in hyps if h['parent']}
+        supported = [h for h in hyps if h['status'] == 'supported' and h['id'] not in children]
+        if supported:
+            return dict(action='refine', supported=supported,
+                        reason='add a narrower child hypothesis or run interventions for a supported hypothesis',
+                        **residual_context)
     if primary:
-        return dict(action='stop', reason='primary cause confirmed', hypotheses=primary)
-    if state.get('max_checks') and len(state['checks']) >= state['max_checks']:
+        reason = 'primary cause confirmed; hand off within grant and verify the original workload'
+        if budget_spent:
+            reason = 'diagnostic check budget spent; ' + reason
+        return dict(action='repair', reason=reason, hypotheses=primary)
+    if budget_spent:
         return dict(action='stop', reason='check budget spent')
-    open_ = [h for h in hyps if h['status'] == 'open']
-    if open_:
-        return dict(action='check', hypothesis=open_[0])
-    unblocked = [h for h in hyps if h['status'] == 'blocked' and not h.get('blocker')]
-    if unblocked:
-        return dict(action='check', hypothesis=unblocked[0],
-                    reason='blocked without a recorded blocker: run its next check, or record access, budget '
-                           'or no_actionable_check')
-    children = {h['parent'] for h in hyps if h['parent']}
-    supported = [h for h in hyps if h['status'] == 'supported' and h['id'] not in children]
-    if supported:
-        return dict(action='refine', supported=supported,
-                    reason='add a narrower child hypothesis or run interventions for a supported hypothesis')
-    secondary = [h['id'] for h in hyps if h['status'] == 'confirmed']
+    secondary = [h['id'] for h in hyps if h['status'] == 'confirmed' and h['label'] == 'secondary_factor_confirmed']
     return dict(action='stop', reason=('secondary factors confirmed; unless acceptance is restored, open a child '
                                        'hypothesis for the remaining difference before delivering')
-                if secondary else 'no actionable hypothesis remains',
-                hypotheses=secondary)
+                if secondary else 'no actionable hypothesis remains', hypotheses=secondary)
 
 
 def record(state, hid, label, finding, evidence=(), control=None, command=None, status=None, blocker=None):
     if label not in LABELS:
         raise ValueError('unknown label: ' + label)
     h = _hypothesis(state, hid)
+    evidence = list(evidence)
+    if label == 'config_corrected':
+        if not _active_config(h):
+            raise ValueError('config_corrected requires an active config_mismatch hypothesis')
+        if status not in (None, 'confirmed') or blocker is not None:
+            raise ValueError('config_corrected must be confirmed and unblocked')
+        if not evidence or not all(isinstance(ref, str) and ref.strip() for ref in evidence):
+            raise ValueError('config_corrected requires comparable rerun evidence')
     status = status or STATUS.get(label, 'supported')
     if status not in STATUSES:
         raise ValueError('unknown status: ' + status)
@@ -172,7 +211,7 @@ def record(state, hid, label, finding, evidence=(), control=None, command=None, 
         h.pop('blocker', None)
     cid = f"C{len(state['checks']) + 1}"
     state['checks'].append(dict(id=cid, hypothesis=hid, at=_now(), label=label, finding=finding,
-                                evidence=list(evidence), control=control, command=command))
+                                evidence=evidence, control=control, command=command))
     h.update(status=status, label=label)
     return cid
 
@@ -246,8 +285,13 @@ def export_decisions(state):
 
 def render(state):
     t = state['trigger']
-    lines = [f"# Issue: {state.get('case') or 'diagnosis'}", '',
-             f"- Trigger: acceptance `{t.get('verdict')}` ({t.get('profile')}), failing: {', '.join(t.get('failing') or []) or 'none'}"]
+    lines = [f"# Issue: {state.get('case') or 'diagnosis'}", '']
+    if t.get('kind') == 'native_failure':
+        lines.append(f"- Trigger: native failure (not an acceptance verdict). "
+                     f"[Original evidence]({t['evidence']}), [reproduction]({t['reproduction']}).")
+    else:
+        lines.append(f"- Trigger: acceptance `{t.get('verdict')}` ({t.get('profile')}), "
+                     f"failing: {', '.join(t.get('failing') or []) or 'none'}")
     c = state.get('conclusion')
     if c:
         lines += [f"- Conclusion: **{c['classification']}** — {c['summary']}"]
@@ -285,7 +329,10 @@ def main(argv=None):
     parser.add_argument('command', choices=('init', 'add', 'next', 'record', 'conclude', 'decide', 'audit',
                                              'decisions', 'render'))
     parser.add_argument('--state', required=True)
-    for name in ('acceptance', 'triage', 'case', 'statement', 'check', 'source', 'parent', 'hypothesis',
+    entry = parser.add_mutually_exclusive_group()
+    entry.add_argument('--acceptance')
+    entry.add_argument('--native-failure')
+    for name in ('triage', 'case', 'statement', 'check', 'source', 'parent', 'hypothesis',
                  'label', 'finding', 'control', 'status', 'classification', 'summary', 'next-check', 'output',
                  'blocker', 'ownership', 'decision', 'reason', 'repository', 'component', 'target-branch',
                  'upstream-main', 'upstream-release', 'upstream-pinned', 'pinned-ref', 'fixed-in', 'fixed-commit',
@@ -301,7 +348,9 @@ def main(argv=None):
     try:
         if args.command == 'init':
             load = lambda p: json.loads(Path(p).read_text())
-            init(args.state, load(args.acceptance), load(args.triage) if args.triage else None, args.case, args.max_checks)
+            init(args.state, load(args.acceptance) if args.acceptance else None,
+                 load(args.triage) if args.triage else None, args.case, args.max_checks,
+                 native_failure=load(args.native_failure) if args.native_failure else None)
             print(json.dumps(next_action(_read(args.state)), ensure_ascii=False))
             return 0
         state = _read(args.state)

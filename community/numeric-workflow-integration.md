@@ -20,10 +20,8 @@ public URL, keep drafts local or use authorized authenticated intake. Configure
 any authenticated upload credential outside prompts, tool arguments, and logs.
 For preview validation, [get a verified public snapshot](README.md#get-a-verified-catalog-snapshot)
 and set `--catalog-site` to its local site directory.
-Append `--search-index /path/to/reviewed/catalog/site/data/search-index.json`
-if you want local search in the same MCP entry; use the remote search MCP for
-the server-managed index. Use a client with form elicitation unless consent was
-explicitly recorded at intake or the user confirms from their own terminal.
+Use a client with form elicitation unless consent was already recorded or the
+user confirms from their own terminal.
 The workflow never sends the HTTP request itself. The public HTTPS endpoints
 require no SSH tunnel. For private tunneling on port 8788, use authenticated
 intake or configure the public server and client with the same loopback URL.
@@ -32,16 +30,10 @@ new preview and confirmation.
 
 ## Lookup after request confirmation
 
-Call `search_community` with `hardware`, `model`, `library`, and `task`
-(`inference`, `sft`, or `rl`). Optional: `version`, `model_size`, `limit`, `offset`.
-Omit `version` unless the user pinned it. Use `matches`, `recommendation`,
-`alternatives`, and `retrieval.index_sha256` from the structured response.
-`no-records` is a normal result; continue with the evaluation. A null
-recommendation means there is no supported stack recommendation. Do not
-silently replace a pinned version. If the server-managed MCP is unavailable,
-try the public index at `https://freedomintelligence.github.io/NumericBridge/data/search-index.json` via
-the bundled search CLI before falling back to a local snapshot. Record the
-source, index SHA and available snapshot date for either route.
+Call the official [`search_community` MCP](README.md#mcp-search) and read its
+structured response. Keep `retrieval.index_sha256` with the result. See the
+[workflow](../skills/numericbridge/references/workflow.md#route-community-results)
+for how to use matches and when to skip lookup.
 
 ## Offer contribution after local delivery
 

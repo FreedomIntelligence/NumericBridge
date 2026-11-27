@@ -40,7 +40,7 @@ shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$s
 
 **需要源码时**，用 `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` 获取干净的当前版本；完整 Git 历史仍保留以前公开发布过的记录。
 
-**社区检索是可选步骤。** 可以浏览[社区案例库](https://freedomintelligence.github.io/NumericBridge/index.html#/cases)，或让 Agent 连接[托管的检索 MCP](community/README.md#mcp-search)。如果另有检索快照，可以[显式传给检索工具](tools/README.md#optional-community-lookup)。离线时可以跳过社区检索；安装和本地工作流都不会自行下载快照。
+**社区检索不阻塞检测。** 工作流只查 [NumericBridge 官方 MCP](community/README.md#mcp-search)。接口不可用或没有匹配时，跳过检索，继续准备环境。
 
 **跑一次梯度比较。** 安装 PyTorch 和 NumPy 后，运行下面的 CPU 示例。它使用相同的分类器、初始权重和同一批输入，分别用 FP32 和 BF16 做反向传播。输出会列出梯度差异，并给出两份采集结果及 `report.json` 的保存路径。
 

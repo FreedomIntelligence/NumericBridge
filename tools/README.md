@@ -38,11 +38,11 @@ Checkout installs and new ZIP builds bundle this package once inside Compare's
 require a checkout, the RSI package or `PYTHONPATH`. Installation and local
 workflow execution do not fetch the community index.
 
-### Optional community lookup
+### Test a catalog index locally
 
-Use the [managed search MCP](../community/README.md#mcp-search) if your client
-has it configured. For offline lookup with a separately obtained snapshot, pass
-its local path (and optionally its expected SHA-256 digest):
+The workflow uses only the [official search MCP](../community/README.md#mcp-search).
+For maintenance and local index tests, pass a snapshot path and optionally its
+expected SHA-256 digest:
 
 ```sh
 python -B /path/to/skills/precision-compare/scripts/community_search.py \
@@ -51,9 +51,7 @@ python -B /path/to/skills/precision-compare/scripts/community_search.py \
 ```
 
 From a checkout, use `python -B -m tools.community_search` with the same flags.
-An explicitly supplied HTTPS URL in `--index` fetches that index; without
-`--index` the CLI does not read or fetch anything. If neither the MCP nor a
-snapshot is available, continue without community context.
+The CLI requires an explicit index. It is not a fallback for the workflow.
 
 ### Build a skills release
 

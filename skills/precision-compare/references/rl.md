@@ -2,11 +2,10 @@
 
 ## Native preflight
 
-Apply the [native preflight](../../framework-adapt/SKILL.md#native-preflight) to the
-RL path in scope. Find the minimum valid sample count, complete group size,
-microbatch and accumulation window, with prompts and responses that yield valid,
-unmasked actions and the workers and topology the path needs. One sample can
-bypass or invalidate the computation, for example group-based advantages.
+Check [capture readiness](../../framework-adapt/SKILL.md#native-preflight) on the
+first valid batch or in a small preflight if needed. Keep complete groups,
+valid unmasked actions, the accumulation window and the required topology. One
+sample can skip group-based advantages or make the update invalid.
 
 | Requested path | Evidence in the reduced run |
 |---|---|

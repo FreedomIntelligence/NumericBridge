@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scaffold and validate the decoupled operator_optimization wire payload for evidence/submissions/*.json.
 Call: scaffold(handoff, open_state=None, kernel_report=None, end_to_end=None, variants=()),
-      check(document, *, entities=());
+      check(document, *, entities=None, historical=False);
 CLI: python scripts/operator_optimization.py scaffold --handoff HANDOFF.json [--open OPEN.json]
        [--kernel-report REPORT.json] [--end-to-end E2E.json] [--variants VARIANTS.json] --output NEW.json
      python scripts/operator_optimization.py check --payload PAYLOAD.json
@@ -19,10 +19,13 @@ Client/server decoupling:
   - `"handoff_open"`: optimization entered or handed off, full round not yet finished; allows
     missing `kernel_report` or missing `random`/`edge` shapes or `timing` without full-round
     `variants` claims.
-  - `"round_delivered"`: full round measurements delivered; requires `kernel_report` (`kind ==
-    "kernel-check"`), `variants` matching the kept variants (including baseline), and explicit
-    end-to-end measurements or `{status: "not_measured", reason: ...}`. When `entities` are
-    supplied to `check()`, every `candidate_id` in `variants` must match a `candidate` entity.
+  - `"round_delivered"`: kept variants include the baseline and at least one change.
+    Each has matched captured/random/edge cases with real repeats and paired timing;
+    each change has end-to-end `{status: "measured", evidence: REF, metrics: {...}}`
+    in its variant row. The top-level end_to_end describes the round. A measured
+    failure is valid evidence; missing checks keep the round open. If entities
+    are supplied, candidate_id references must match them. Historical v1
+    evidence is readable without promoting incomplete rounds or rewriting bytes.
 CLI exit: 0=written or check ok, 1=check found problems, 2=input error.
 """
 
@@ -51,7 +54,7 @@ def _require_text(value, field, problems):
 
 
 def _check_finite(value, field, problems):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    if not _finite(value):
         problems.append(f'{field} must be a finite number')
 
 
@@ -113,6 +116,122 @@ def _check_variant(item, index, round_status, candidate_ids, problems):
             problems.append(f'{prefix}.end_to_end must not be empty')
 
 
+def _object(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _text(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _finite(value):
+    return type(value) is int or (type(value) is float and math.isfinite(value))
+
+
+def _measured_error(case):
+    case = _object(case)
+    error = case.get('error')
+    count = case.get('nonfinite', 0)
+    if _finite(error) and error >= 0:
+        return type(count) is int and count == 0
+    return (error in (None, math.inf) and type(count) is int and count > 0
+            and case.get('within_bound') is False)
+
+
+def _wire_report(report):
+    """Retain observed nonfinite outputs without non-JSON Infinity sentinels."""
+    from copy import deepcopy
+
+    report = deepcopy(report)
+    cases = [*_object(_object(report).get('rounded_reference')).values()]
+    for row in _object(_object(report).get('variants')).values():
+        cases.extend(_object(_object(row).get('cases')).values())
+    runs = [run for case in cases if isinstance(case, dict) and isinstance(case.get('repeat_errors'), list)
+            for run in case['repeat_errors']]
+    for case in cases + runs:
+        if isinstance(case, dict) and type(case.get('nonfinite')) is int and case['nonfinite'] > 0:
+            for key in ('error', 'max_error', 'to_floor'):
+                if case.get(key) == math.inf:
+                    case[key] = None
+    return report
+
+
+def _measured_repeats(case, bound):
+    runs = _object(case).get('repeat_errors')
+    count = _object(case).get('repeats')
+    if (type(count) is not int or count < 2 or not isinstance(runs, list) or len(runs) != count
+            or type(case.get('reproducible')) is not bool or not _finite(bound) or bound < 0
+            or not all(_measured_error(run) for run in runs)):
+        return False
+    errors = [run['error'] if _finite(run.get('error')) else math.inf for run in runs]
+    worst = max(errors)
+    return (case.get('error') in (None, math.inf) if worst == math.inf else case.get('error') == worst) and (
+        case.get('within_bound') is (worst <= bound)
+        and all(run.get('within_bound') is (error <= bound) for run, error in zip(runs, errors)))
+
+
+def _round_gaps(document):
+    """Describe unmeasured checks without claiming evidence bytes were verified."""
+    report = _object(document.get('kernel_check'))
+    if not report:
+        return ['kernel_check report']
+    measured = _object(report.get('variants'))
+    baseline = report.get('baseline')
+    variant_rows = document.get('variants')
+    kept = {row['name']: row for row in (variant_rows if isinstance(variant_rows, list) else [])
+            if isinstance(row, dict) and _text(row.get('name'))}
+    gaps = []
+    if not isinstance(baseline, str) or baseline not in kept:
+        gaps.append('kept baseline')
+    if not any(name != baseline for name in kept):
+        gaps.append('kept non-baseline variant')
+    if not _object(document.get('end_to_end')) or document['end_to_end'].get('status') == 'not_measured':
+        gaps.append('original-workload round summary')
+    floors = _object(report.get('rounded_reference'))
+    classes = {row.get('shape_class') for row in floors.values()
+               if isinstance(row, dict) and isinstance(row.get('shape_class'), str)}
+    absent = {'captured', 'random', 'edge'} - classes
+    if absent:
+        gaps.append('target shape classes: ' + ', '.join(sorted(absent)))
+    perf = _object(report.get('performance'))
+    timings = _object(perf.get('variants')) if perf.get('status') == 'measured' else {}
+    conditions = _object(perf.get('conditions'))
+    if not all(_text(conditions.get(field)) for field in ('host', 'session')):
+        gaps.append('paired timing host and session')
+    warmup = conditions.get('warmup')
+    if type(warmup) is not int or warmup < 0:
+        gaps.append('paired timing warmup count')
+    slow_fix = report.get('slow_fix')
+    slow_cases = _object(_object(measured.get(slow_fix)).get('cases')) if _text(slow_fix) else {}
+    for name, variant in kept.items():
+        row = _object(measured.get(name))
+        cases = _object(row.get('cases'))
+        if (not cases or set(cases) != set(floors) or row.get('missing_cases') != []
+                or not all(_measured_error(case) for case in cases.values())):
+            gaps.append(f'{name}: matched kernel cases with FP64 error')
+        if not cases or not all(_measured_repeats(case, report.get('bound')) for case in cases.values()):
+            gaps.append(f'{name}: repeated kernel executions')
+        if name not in (baseline, slow_fix) and (_text(slow_fix) or document.get('slow_fix')):
+            if (type(row.get('vs_slow_fix')) is not bool or row.get('missing_slow_fix_cases') != []
+                    or not cases or not all(_measured_error(slow_cases.get(key)) for key in cases)):
+                gaps.append(f'{name}: matched slow-fix cases')
+        timing = _object(timings.get(name))
+        base_timing = _object(timings.get(baseline)) if isinstance(baseline, str) else {}
+        median = timing.get('median')
+        if (type(timing.get('samples')) is not int or timing['samples'] < 1
+                or timing['samples'] != base_timing.get('samples')
+                or not _finite(median) or median <= 0):
+            gaps.append(f'{name}: paired timing samples')
+        if name != baseline:
+            e2e = _object(variant.get('end_to_end'))
+            metrics = _object(e2e.get('metrics'))
+            if (e2e.get('status') != 'measured' or not _text(e2e.get('evidence'))
+                    or e2e.get('verdict') not in ('pass', 'gap', 'fail', 'noise_limited', 'incomplete')
+                    or not metrics or not all(_finite(value) for value in metrics.values())):
+                gaps.append(f'{name}: measured original-workload result')
+    return gaps
+
+
 def scaffold(handoff, open_state=None, kernel_report=None, end_to_end=None, variants=()):
     """Build an operator_optimization wire document from local operator-optimize artifacts."""
     if not isinstance(handoff, dict):
@@ -120,19 +239,20 @@ def scaffold(handoff, open_state=None, kernel_report=None, end_to_end=None, vari
     for key in ('issue', 'operator', 'entry', 'reading'):
         if not handoff.get(key):
             raise ValueError(f'handoff missing {key}')
+    if open_state is not None and not isinstance(open_state, dict):
+        raise ValueError('open state must be an object')
     round_status = (open_state or {}).get('round_status')
-    if not round_status:
-        round_status = 'round_delivered' if (kernel_report is not None and variants) else 'handoff_open'
-    if round_status not in ROUND_STATUSES:
+    if round_status is not None and round_status not in ROUND_STATUSES:
         raise ValueError('round_status must be handoff_open or round_delivered')
+    if not isinstance(variants, (list, tuple)):
+        raise ValueError('variants must be a list')
     payload = {
         'kind': 'operator-optimization',
         'schema_version': 1,
         'issue': handoff['issue'],
         'operator': handoff['operator'],
-        'entry': (open_state or {}).get('entry') or handoff['entry'],
+        'entry': handoff['entry'],
         'reading': handoff['reading'],
-        'round_status': round_status,
     }
     if handoff.get('shapes') is not None:
         payload['shapes'] = handoff['shapes']
@@ -141,7 +261,7 @@ def scaffold(handoff, open_state=None, kernel_report=None, end_to_end=None, vari
     if 'slow_fix' in handoff:
         payload['slow_fix'] = handoff['slow_fix']
     if kernel_report is not None:
-        payload['kernel_check'] = kernel_report
+        payload['kernel_check'] = _wire_report(kernel_report)
     e2e_value = end_to_end if end_to_end is not None else handoff.get('end_to_end')
     if e2e_value is not None:
         if e2e_value == 'not_measured':
@@ -149,19 +269,22 @@ def scaffold(handoff, open_state=None, kernel_report=None, end_to_end=None, vari
         payload['end_to_end'] = e2e_value
     if variants:
         payload['variants'] = list(variants)
-    if open_state is not None:
-        payload['open_items'] = {
-            k: open_state[k] for k in ('remaining_distance', 'variants_not_yet_tried', 'next_step')
-            if k in open_state
-        }
-    elif round_status == 'handoff_open':
-        payload['open_items'] = {'variants_not_yet_tried': [], 'next_step': None}
+    gaps = _round_gaps(payload)
+    payload['round_status'] = 'handoff_open' if gaps or round_status == 'handoff_open' else 'round_delivered'
+    if open_state is not None or payload['round_status'] == 'handoff_open':
+        source = open_state or {}
+        items = {k: source[k] for k in ('remaining_distance', 'variants_not_yet_tried', 'next_step') if k in source}
+        if gaps:
+            items['missing_checks'] = gaps
+            if not _text(items.get('next_step')):
+                items['next_step'] = 'Collect missing evidence: ' + gaps[0]
+        payload['open_items'] = items
     if handoff.get('reproduce') is not None:
         payload['reproduce'] = handoff['reproduce']
     return payload
 
 
-def check(document, *, entities=()):
+def check(document, *, entities=None, historical=False):
     """Validate an operator_optimization wire document without computing tiers or recommendations."""
     problems = []
     if not isinstance(document, dict):
@@ -187,6 +310,8 @@ def check(document, *, entities=()):
         problems.append('entry must be "required" or "optional"')
     if document.get('reading') not in READINGS:
         problems.append('reading must be one of ' + ', '.join(READINGS))
+    elif not historical and document.get('entry') != ('optional' if document['reading'] == 'not_the_source' else 'required'):
+        problems.append('entry must match the local FP64 reading')
     round_status = document.get('round_status')
     if round_status not in ROUND_STATUSES:
         problems.append('round_status must be "handoff_open" or "round_delivered"')
@@ -212,10 +337,10 @@ def check(document, *, entities=()):
         elif not e2e:
             problems.append('end_to_end must not be empty')
     elif round_status == 'round_delivered':
-        problems.append('round_delivered requires end_to_end (or explicit not_measured with reason)')
+        problems.append('round_delivered requires an end_to_end summary')
 
     candidate_ids = None
-    if entities:
+    if entities is not None:
         candidate_ids = {
             e.get('id') for e in entities
             if isinstance(e, dict) and e.get('kind') == 'candidate' and isinstance(e.get('id'), str)
@@ -243,10 +368,21 @@ def check(document, *, entities=()):
     elif round_status == 'handoff_open':
         problems.append('handoff_open requires open_items')
 
+    gaps = _round_gaps(document)
+    if round_status == 'round_delivered' and not historical:
+        problems.extend('round_delivered missing: ' + gap for gap in gaps)
+    if round_status == 'handoff_open' and not historical:
+        _require_text(_object(document.get('open_items')).get('next_step'), 'open_items.next_step', problems)
+    if isinstance(variants, list):
+        names = [row['name'] for row in variants if isinstance(row, dict) and _text(row.get('name'))]
+        if not historical and len(names) != len(set(names)):
+            problems.append('kept variant names must be unique')
+
     return {
         'status': 'ok' if not problems else 'problems',
         'problems': problems,
         'round_status': round_status,
+        'missing_checks': gaps,
     }
 
 
@@ -276,12 +412,16 @@ def main(argv=None):
         variants = json.loads(args.variants.read_text(encoding='utf-8')) if args.variants else ()
         document = scaffold(handoff, open_state=open_state, kernel_report=kernel_report,
                             end_to_end=end_to_end, variants=variants)
+        result = check(document)
+        if result['status'] != 'ok':
+            print(json.dumps(result, ensure_ascii=False))
+            return 1
+        encoded = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + '\n'
         with args.output.open('x', encoding='utf-8') as stream:
-            json.dump(document, stream, indent=2, ensure_ascii=False)
-            stream.write('\n')
+            stream.write(encoded)
         print(json.dumps({'status': 'written', 'output': str(args.output),
-                          'round_status': document['round_status'],
-                          'review': check(document)['status']}, ensure_ascii=False))
+                          'round_status': document['round_status'], 'review': result['status'],
+                          'missing_checks': result['missing_checks']}, ensure_ascii=False))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({'status': 'error', 'reason': str(exc)}))
         return 2

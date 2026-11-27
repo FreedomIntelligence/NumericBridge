@@ -37,10 +37,18 @@ def normalize_acceptance(value):
     return None, False
 
 
-def _grade_variant(variant_report, performance_variants=None, name=None):
+def _grade_variant(variant_report, performance_variants=None, name=None, *, bound=None):
     cases = variant_report.get('cases') or {}
-    within_bound = bool(variant_report.get('within_bound'))
+    measured_failure = any(isinstance(row, dict) and (row.get('within_bound') is False
+                           or (_finite(row.get('error')) and _finite(bound) and row['error'] > bound))
+                           for row in cases.values())
+    within_bound = (bool(cases) and variant_report.get('within_bound') is True and _finite(bound)
+                    and not measured_failure
+                    and all(isinstance(row, dict) and _finite(row.get('error')) and 0 <= row['error'] <= bound
+                            for row in cases.values()))
     reproducible = variant_report.get('reproducible')
+    repeated = bool(cases) and all(isinstance(row, dict) and type(row.get('repeats')) is int and row['repeats'] >= 2
+                                   and row.get('reproducible') is True for row in cases.values())
     ratios = [c.get('to_floor') for c in cases.values() if isinstance(c, dict) and _finite(c.get('to_floor'))]
     max_to_floor = max(ratios) if ratios else None
     errors = [c.get('error') for c in cases.values() if isinstance(c, dict) and _finite(c.get('error'))]
@@ -53,20 +61,22 @@ def _grade_variant(variant_report, performance_variants=None, name=None):
     has_timing = bool(isinstance(performance_variants, dict) and name and isinstance(performance_variants.get(name), dict))
     timing = performance_variants.get(name) if has_timing else None
 
-    if not within_bound:
+    if measured_failure:
         tier = 'out_of_bound'
+    elif not within_bound:
+        tier = 'unmeasured'
     elif reproducible is False:
         tier = 'unstable'
-    elif max_to_floor is not None and max_to_floor <= 1.05 and not missing_cases and has_timing:
+    elif repeated and max_to_floor is not None and max_to_floor <= 1.05 and not missing_cases and has_timing:
         tier = 'floor_matched'
-    elif not missing_cases and has_timing:
+    elif repeated and not missing_cases and has_timing:
         tier = 'within_bound_verified'
     else:
         tier = 'within_bound_partial'
 
     return {
         'tier': tier,
-        'within_bound': within_bound,
+        'within_bound': False if measured_failure else True if within_bound else None,
         'reproducible': reproducible,
         'max_to_floor': max_to_floor,
         'max_error': max_error,
@@ -78,17 +88,19 @@ def _grade_variant(variant_report, performance_variants=None, name=None):
     }
 
 
-def _recommend_variant(variant_rows):
-    eligible = [v for v in variant_rows if v['within_bound'] and v['reproducible'] is not False]
+def _recommend_variant(variant_rows, baseline):
+    eligible = [v for v in variant_rows if v['tier'] in ('floor_matched', 'within_bound_verified')
+                and v['reproducible'] is True and v.get('candidate_id')
+                and (v['name'] == baseline or (v.get('end_to_end') or {}).get('verdict') in ('pass', 'gap'))]
     if not eligible:
         return {
             'status': 'no_within_bound_variant',
             'recommended_variant': None,
-            'reason': 'No variant is reproducible and within the operator FP64 bound.',
+            'reason': 'No verified, reproducible variant meets the FP64 and original-workload checks.',
         }
 
     def rank(row):
-        tier_rank = {'floor_matched': 0, 'within_bound_verified': 1, 'within_bound_partial': 2}.get(row['tier'], 3)
+        tier_rank = 0 if row['tier'] == 'floor_matched' else 1
         ratio = row['median_ratio_to_baseline']
         speed_key = ratio if _finite(ratio) else math.inf
         floor_key = row['max_to_floor'] if _finite(row['max_to_floor']) else math.inf
@@ -109,10 +121,14 @@ def _recommend_variant(variant_rows):
 
 def assess_operator_optimization(payload, *, receipt_id=None):
     """Compute server-side tiers and recommendations for one operator_optimization payload."""
-    check = check_operator_optimization(payload)
+    check = check_operator_optimization(payload, historical=True)
     if check['status'] != 'ok':
         raise ValueError('Invalid operator_optimization payload: ' + '; '.join(check['problems']))
-    round_status = payload['round_status']
+    missing = check['missing_checks']
+    round_status = 'handoff_open' if missing else payload['round_status']
+    open_items = payload.get('open_items')
+    if missing:
+        open_items = {**(open_items or {}), 'missing_checks': missing}
     kernel_check = payload.get('kernel_check') or {}
     perf = kernel_check.get('performance') or {}
     perf_variants = perf.get('variants') if perf.get('status') == 'measured' else None
@@ -124,11 +140,11 @@ def assess_operator_optimization(payload, *, receipt_id=None):
         report = kc_variants.get(name)
         meta = declared.get(name, {})
         if report is not None:
-            graded = _grade_variant(report, perf_variants, name=name)
+            graded = _grade_variant(report, perf_variants, name=name, bound=kernel_check.get('bound'))
         else:
             graded = {
                 'tier': 'unmeasured',
-                'within_bound': bool(meta.get('within_bound')),
+                'within_bound': None,
                 'reproducible': None,
                 'max_to_floor': None,
                 'max_error': None,
@@ -145,9 +161,9 @@ def assess_operator_optimization(payload, *, receipt_id=None):
             **graded,
         })
 
-    recommendation = (_recommend_variant(variant_rows) if kc_variants
+    recommendation = (_recommend_variant(variant_rows, kernel_check.get('baseline')) if round_status == 'round_delivered'
                       else {'status': 'handoff_open', 'recommended_variant': None,
-                            'reason': 'No kernel_check measurements attached yet.'})
+                            'reason': 'Complete the optimization measurements before recommending a variant.'})
     return {
         'schema_version': 1,
         'receipt_id': receipt_id,
@@ -160,7 +176,7 @@ def assess_operator_optimization(payload, *, receipt_id=None):
         'dtype': kernel_check.get('dtype'),
         'baseline': kernel_check.get('baseline'),
         'end_to_end': payload.get('end_to_end'),
-        'open_items': payload.get('open_items'),
+        'open_items': open_items,
         'variants': variant_rows,
         'recommendation': recommendation,
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run and resume dependency-linked adaptation/comparison/repair commands (POSIX, stdlib).
-Call: run_workflow(plan_path, workspace, refresh=(), time_budget_seconds=None, jobs=1); inspect_workflow(plan_path, workspace); init_plan(task, sides)
+Call: run_workflow(plan_path, workspace, refresh=(), time_budget_seconds=None, jobs=1); inspect_workflow(plan_path, workspace); init_plan(task, sides, preflight_sides=(), dtype=None)
 Input: Dependency plan with source/runtime inputs, outputs, checks and cumulative budget.
 Output: Verified receipts, next_action, runnable_actions and blocked_actions.
 Requires: Standard library/POSIX; status launches nothing; unchanged failures are retained; --refresh reruns selected stages and descendants.
@@ -8,7 +8,9 @@ Requires: Standard library/POSIX; status launches nothing; unchanged failures ar
 Details:
 CLI: workflow.py run|status --plan P --workspace W [--refresh STAGE ...]
      [--time-budget-seconds S] [--jobs N];  workflow.py init --task inference|sft|rl
-     --sides A,B --output NEW.json [--id ID]. Exit 0=all stages completed,
+     --sides A,B --output NEW.json [--id ID] [--preflight SIDE ...] [--dtype DTYPE].
+Capture writes readiness unless a side needs --preflight. Fill the task's exact
+check command and observed comparison dtype before running. Exit 0=all stages completed,
 1=next action/budget required, 2=invalid plan or concurrent runner.
 
 Plan JSON: schema_version=1, id, root (relative to plan, default '.'), workload
@@ -18,13 +20,16 @@ argv:[literal,...], inputs:[path,...], outputs:{name:relative_path},
 depends_on:[stage,...], timeout, side (default 'compare'), cache (default true),
 execution (record_run profile path or {artifact:STAGE:NAME}), env_keys:[name,...],
 checks:[{output, pointer:'/JSON/pointer', equals:V | min:X | max:Y | min+max}],
-on_check_failure:skill}]. argv substitutes {run} (fresh stage directory), {root} and
+on_check_failure:skill, acceptance_output:output_name}]. A named acceptance output
+routes by verdict; other stages use their declared checks. argv substitutes {run} (fresh stage directory), {root} and
 {artifact:STAGE:NAME} from a direct dependency, without a shell. Arguments starting
 with TODO are rejected so templates must be completed.
 
 Reuse identity covers declared inputs, dependency outputs, executables, the
 execution profile, selected environment variables, the workload and these engine
-files; undeclared changes on remote hosts or in installed packages are not seen.
+files. The default plan declares built-in comparison and acceptance scripts;
+declare adapter scripts, configs and runtime identities in inputs. Changes on
+remote hosts or in installed packages need an explicit local identity input.
 Successful unchanged stages are reused after their output hashes match; cache:false
 stages always run. A matching failure returns its continuation without rerunning;
 change its inputs or pass --refresh. Missing outputs, failed checks, changing inputs
@@ -81,6 +86,11 @@ from .conditions import canonical, load_json
 from .record_run import load_execution, record_run, summarize_run
 
 SKILLS = {'framework-adapt', 'precision-compare', 'precision-repair', 'operator-optimize'}
+ACCEPTANCE_ROUTES = {
+    'pass': ('deliver', None), 'gap': ('optimize_optional', None),
+    'fail': ('diagnose', 'precision-repair'), 'noise_limited': ('stabilize', 'precision-compare'),
+    'incomplete': ('recover_capture', 'precision-compare'),
+}
 ID = re.compile(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\Z')
 TOKEN = re.compile(r'\{artifact:([^:{}]+):([^:{}]+)\}')
 ENGINE_FILES = tuple(Path(__file__).with_name(name) for name in ('workflow.py', 'record_run.py', 'conditions.py'))
@@ -172,6 +182,9 @@ def _plan(path):
             _require(isinstance(value, str) and value and not Path(value).is_absolute()
                      and '..' not in Path(value).parts and value != '.', 'output must be a relative run path')
         _require(len(set(outputs.values())) == len(outputs), 'output paths must be distinct')
+        if 'acceptance_output' in stage:
+            _require(isinstance(stage['acceptance_output'], str) and stage['acceptance_output'] in outputs,
+                     'acceptance_output must name a declared output')
         stage.setdefault('checks', [])
         _require(isinstance(stage['checks'], list), 'checks must be a list')
         for check in stage['checks']:
@@ -282,7 +295,7 @@ def _latest(state, name):
 
 
 def _alive(pid):
-    if not pid:
+    if type(pid) is not int or pid <= 0:
         return False
     try:
         os.kill(pid, 0)
@@ -293,7 +306,7 @@ def _alive(pid):
         return True
 
 
-def _recover(workspace, state, *, inspect=False):
+def _recover(workspace, state):
     for receipt in state['history']:
         if receipt['status'] != 'running':
             continue
@@ -301,11 +314,15 @@ def _recover(workspace, state, *, inspect=False):
         _require(len(folders) <= 1, 'ambiguous interrupted run: ' + receipt['run_prefix'])
         if folders and (command := folders[0] / 'command.json').is_file():
             metadata = load_json(command)
+            receipt['run'] = str(folders[0])
             if metadata['status'] == 'running' and _alive(metadata.get('child_pid')):
-                _require(inspect, 'previous native child may still be running: ' + str(command))
+                receipt.update(child_pid=metadata['child_pid'],
+                               reason='previous native child may still be running: ' + str(command))
                 continue
+            receipt.pop('child_pid', None)
             wall = metadata.get('wall_seconds')
-            receipt.update(run=str(folders[0]), wall_seconds=wall if _positive(wall) else receipt['timeout'])
+            receipt['wall_seconds'] = wall if _positive(wall) else receipt['timeout']
+            receipt.pop('reason', None)
             if (metadata['status'] == 'completed' and metadata.get('returncode') == 0
                     and metadata.get('end') and _positive(wall)):
                 receipt.update(status='pending_validation', returncode=0)
@@ -377,9 +394,21 @@ def _report(spec, state, entries, actions):
                 runnable_actions=ready, blocked_actions=blocked)
 
 
+def _entry(receipt, *, reused):
+    result = dict(id=receipt['stage'], skill=receipt['skill'], reused=reused,
+                  run=receipt['run'], outputs=receipt['outputs'])
+    if 'verdict' in receipt:
+        result.update(verdict=receipt['verdict'], route=receipt['route'])
+    return result
+
+
 def _action(stage, reason, receipt=None, *, state="action_required"):
     result = dict(stage=stage['id'], skill=(receipt or {}).get('next_skill', stage['skill']),
                   reason=reason, inputs=stage['inputs'], depends_on=stage['depends_on'], state=state)
+    if receipt and 'verdict' in receipt:
+        result.update(verdict=receipt['verdict'], route=receipt['route'])
+    if state == 'observe' and receipt and receipt.get('child_pid'):
+        result['child_pid'] = receipt['child_pid']
     if receipt and receipt.get('run'):
         result.update(run=receipt['run'], stdout=str(Path(receipt['run']) / 'stdout.bin'),
                       stderr=str(Path(receipt['run']) / 'stderr.bin'),
@@ -408,6 +437,19 @@ def _validate_outputs(receipt, stage, folder, key, root, completed, workload):
         receipt['outputs'] = _outputs(stage, folder)
         _require(_digest(_signature(stage, root, completed, workload)) == key,
                  'declared inputs changed during execution')
+        if 'acceptance_output' in stage:
+            report = load_json(receipt['outputs'][stage['acceptance_output']]['path'])
+            _require(isinstance(report, dict), 'invalid acceptance report')
+            verdict = report.get('verdict')
+            _require(report.get('kind') == 'acceptance' and report.get('schema_version') == 1
+                     and isinstance(verdict, str) and verdict in ACCEPTANCE_ROUTES, 'invalid acceptance report')
+            route, next_skill = ACCEPTANCE_ROUTES[verdict]
+            _require(report.get('route') == route and report.get('passed') is (next_skill is None),
+                     'inconsistent acceptance verdict, passed flag or route')
+            receipt.update(verdict=verdict, route=route)
+            if next_skill is not None:
+                receipt.update(status='needs_action', next_skill=next_skill, reason=f'acceptance: {verdict}')
+                return
         try:
             _checks(stage, receipt['outputs'])
         except CheckFailed as exc:
@@ -426,13 +468,13 @@ def _finish(root, stage, receipt, key, completed, folder, command, workload):
         receipt['reason'] = 'native command ' + command['status']
 
 
-def _prepare(spec, root, stage, workspace, state, completed, entries, execute, forced, reserved, deadline):
+def _prepare(spec, root, stage, workspace, state, completed, entries, execute, forced, reserved, deadline,
+             live_dependents):
     """Reuse or recover a ready stage, or return an action dict or a launch (key, identity, timeout)."""
     name, workload = stage['id'], spec.get('workload', {})
     latest = _latest(state, name)
-    if latest and name not in forced and latest['status'] in ('running', 'interrupted'):
-        return _action(stage, latest.get('reason', latest['status']), latest,
-                       state='observe' if latest['status'] == 'running' else 'interrupted')
+    if latest and name not in forced and latest['status'] == 'interrupted':
+        return _action(stage, latest['reason'], latest, state='interrupted')
     try:
         identity = _signature(stage, root, completed, workload)
         key = _digest(identity)
@@ -457,10 +499,13 @@ def _prepare(spec, root, stage, workspace, state, completed, entries, execute, f
         recovered = True
     if (stage['cache'] or recovered or not execute) and name not in forced and same and _valid(latest):
         completed[name] = latest
-        entries.append(dict(id=name, skill=stage['skill'], reused=True, run=latest['run'], outputs=latest['outputs']))
+        entries.append(_entry(latest, reused=True))
         return None
     if same and name not in forced and latest['status'] != 'completed':
         return _action(stage, latest.get('reason', latest['status']), latest)
+    if live_dependents:
+        return _action(stage, 'waiting for live dependents: ' + ', '.join(sorted(live_dependents)),
+                       latest, state='dependency')
     spent = sum(x.get('wall_seconds', 0) for x in state['history'])
     remaining = spec['budget_seconds'] - spent - reserved
     if deadline is not None:
@@ -481,7 +526,27 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
     for stage in stages:
         if any(dep in forced for dep in stage['depends_on']):
             forced.add(stage['id'])
-    pending, running = list(stages), {}
+    live = {r['stage']: r for r in state['history'] if r['status'] == 'running'}
+    refreshing_live = sorted(forced & live.keys())
+    _require(not refreshing_live, 'cannot refresh stages while their recorded children may be running: '
+             + ', '.join(refreshing_live))
+    observed_budget = sum(r['timeout'] for r in live.values())
+    live_dependents = {}
+    for stage in reversed(stages):
+        name = stage['id']
+        waiting = live_dependents.get(name, set())
+        if name in live:
+            waiting = waiting | {name}
+        if waiting:
+            for dep in stage['depends_on']:
+                live_dependents.setdefault(dep, set()).update(waiting)
+    pending, running = [], {}
+    for stage in stages:
+        if stage['id'] in live:
+            receipt = live[stage['id']]
+            actions.append(_action(stage, receipt['reason'], receipt, state='observe'))
+        else:
+            pending.append(stage)
     pool = ThreadPoolExecutor(max_workers=jobs) if execute and jobs > 1 else None
     try:
         while True:
@@ -493,9 +558,9 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
                         break
                     if not all(dep in completed for dep in stage['depends_on']):
                         continue
-                    reserved = sum(r['timeout'] for _, r, _ in running.values())
+                    reserved = observed_budget + sum(r['timeout'] for _, r, _ in running.values())
                     outcome = _prepare(spec, root, stage, workspace, state, completed, entries,
-                                       execute, forced, reserved, deadline)
+                                       execute, forced, reserved, deadline, live_dependents.get(stage['id']))
                     if isinstance(outcome, dict) and outcome['state'] == 'budget' and running:
                         break  # wait for running stages to release their reserved budget
                     pending.remove(stage)
@@ -529,8 +594,7 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
                     actions.append(_action(stage, receipt.get('reason', receipt['status']), receipt))
                 else:
                     completed[stage['id']] = receipt
-                    entries.append(dict(id=stage['id'], skill=stage['skill'], reused=False, run=receipt['run'],
-                                        outputs=receipt['outputs']))
+                    entries.append(_entry(receipt, reused=False))
     finally:
         if pool:
             pool.shutdown(wait=True)
@@ -562,8 +626,8 @@ def inspect_workflow(plan_path, workspace):
     spec, root, stages = _plan(plan_path)
     workspace = Path(workspace).resolve()
     state = _state(workspace, spec, root)
-    # Inspect terminal receipts without rewriting state or claiming an active child.
-    _recover(workspace, state, inspect=True)
+    # Inspect receipts without rewriting state or claiming an active child.
+    _recover(workspace, state)
     return _walk(spec, root, stages, workspace, state, False, ())
 
 
@@ -575,36 +639,68 @@ def _compare_scripts():
     return Path('PRECISION_COMPARE_SCRIPTS')
 
 
-def init_plan(task, sides, plan_id=None):
-    """Return a plan skeleton: per-side preflight and capture, a same-side repeat of the
-    first side, task comparisons with repeat-noise comparisons, and acceptance.
+def init_plan(task, sides, plan_id=None, *, preflight_sides=(), dtype=None):
+    """Build a capture/comparison/acceptance skeleton with readiness checked in capture
+    unless the corresponding side needs a separate preflight.
 
-    TODO arguments mark case-specific commands; the plan is rejected until they are replaced.
-    The repeat capture must label its manifests with its own side ID (e.g. A-repeat).
+    Replace case-specific TODO commands and declare their inputs before execution.
+    The repeat capture labels its manifests with a separate side ID (e.g. A-repeat).
+    Each comparison contract declares that side with the original side's ranks and
+    per-side conditions.
     """
     _require(task in ('inference', 'sft', 'rl'), 'task must be inference|sft|rl')
+    _require(dtype is None or dtype in ('bf16', 'fp16', 'fp32'), 'formal acceptance dtype must be bf16|fp16|fp32')
     _require(len(sides) == 2 and len(set(sides)) == 2 and all(ID.fullmatch(s) for s in sides), 'two distinct side IDs required')
+    _require(len(set(preflight_sides)) == len(preflight_sides) and all(s in sides for s in preflight_sides),
+             'preflight sides must be distinct members of --sides')
     scripts = _compare_scripts()
     py = lambda name: [sys.executable, str(scripts / name)]
-    stages = []
+    stages, captures = [], {}
+    readiness_check = dict(output='receipt', pointer='/ready', equals=True)
     for side in sides:
-        stages.append(dict(id=f'preflight-{side}', skill='framework-adapt', side=side,
-                           argv=['TODO-preflight-command', '--receipt', '{run}/receipt.json'],
-                           execution=f'environments/{side}.json', inputs=[], outputs=dict(receipt='receipt.json'),
-                           checks=[dict(output='receipt', pointer='/ready', equals=True)], timeout=1800))
-        stages.append(dict(id=f'capture-{side}', skill='precision-compare', side=side, depends_on=[f'preflight-{side}'],
-                           argv=['TODO-capture-command', '--output', '{run}/capture'],
-                           execution=f'environments/{side}.json', inputs=['inputs'],
-                           outputs=dict(scores='capture/scores.json', tensors='capture/tensors.json'), timeout=3600))
+        preflight = f'preflight-{side}'
+        execution = f'environments/{side}.json'
+        capture = dict(id=f'capture-{side}', skill='precision-compare', side=side, depends_on=[],
+                       argv=['TODO-capture-command', '--output', '{run}/capture'], execution=execution,
+                       inputs=['inputs'], outputs=dict(packet='capture', scores='capture/scores.json', tensors='capture/tensors.json'),
+                       timeout=3600)
+        if side in preflight_sides:
+            stages.append(dict(id=preflight, skill='framework-adapt', side=side,
+                               argv=['TODO-preflight-command', '--receipt', '{run}/receipt.json'],
+                               execution=execution, inputs=[], outputs=dict(receipt='receipt.json'),
+                               checks=[dict(readiness_check)], timeout=1800))
+            capture['depends_on'] = [preflight]
+        else:
+            capture['argv'] += ['--receipt', '{run}/receipt.json']
+            capture['outputs']['receipt'] = 'receipt.json'
+            capture['checks'] = [dict(readiness_check)]
+            capture['on_check_failure'] = 'framework-adapt'
+        captures[side] = capture
+        stages.append(capture)
     a, b = sides
-    repeat = dict(stages[1], id=f'capture-{a}-repeat', cache=False,
-                  argv=['TODO-capture-command', '--side-id', f'{a}-repeat', '--output', '{run}/capture'])
+    first = captures[a]
+    repeat = dict(first, id=f'capture-{a}-repeat', cache=False, depends_on=[first['id']],
+                  argv=[*first['argv'], '--side-id', f'{a}-repeat'])
     stages.append(repeat)
-    def compare(name, tool, contract, output, left=f'capture-{a}', right=f'capture-{b}'):
+    left, right = captures[a]['id'], captures[b]['id']
+    exact_contract = 'contracts/exact-checks.json'
+    exact_args = ['TODO-exact-check-command', '--contract', '{root}/' + exact_contract]
+    for flag, stage_id in (('side-a', left), ('side-b', right)):
+        for output in ('scores', 'tensors'):
+            exact_args += [f'--{flag}-{output}', f'{{artifact:{stage_id}:{output}}}']
+    exact = dict(id='check-exact', skill='precision-compare', depends_on=[left, right],
+                 argv=exact_args + ['--output', '{run}/report.json'], inputs=[exact_contract],
+                 outputs=dict(report='report.json'), timeout=600)
+    stages.append(exact)
+
+    def compare(name, tool, contract, output, left=left, right=right):
+        # The Python executable's hash does not identify the scripts it interprets.
+        helper = 'score_metrics.py' if tool == 'compare_target_scores.py' else 'artifact_io.py'
         return dict(id=f'compare-{name}', skill='precision-compare', depends_on=[left, right],
                     argv=py(tool) + ['--contract', '{root}/' + contract, '--side-a', f'{{artifact:{left}:{output}}}',
-                                     '--side-b', f'{{artifact:{right}:{output}}}', '--output', '{run}/report.json'],
-                    inputs=[contract], outputs=dict(report='report.json'), timeout=1800)
+                                     '--side-b', f'{{artifact:{right}:{output}}}', '--exit-zero', '--output', '{run}/report.json'],
+                    inputs=[contract, *(str(scripts / file) for file in (tool, helper, 'conditions.py', '_core.py'))],
+                    outputs=dict(report='report.json'), timeout=1800)
     kinds = [('scores', 'compare_target_scores.py', 'contracts/scores.json', 'scores')]
     if task == 'inference':
         kinds.append(('distributions', 'compare_distributions.py', 'contracts/distributions.json', 'tensors'))
@@ -616,13 +712,14 @@ def init_plan(task, sides, plan_id=None):
     reports = []
     for c in comparisons:
         reports += ['--report', f"{{artifact:{c['id']}:report}}"]
-    for c in noise:
-        reports += ['--noise', f"{{artifact:{c['id']}:report}}"]
-    stages.append(dict(id='acceptance', skill='precision-compare', depends_on=[c['id'] for c in comparisons + noise],
-                       argv=py('acceptance.py') + reports + ['--dtype', 'bf16', '--exit-zero', '--output', '{run}/acceptance.json'],
-                       outputs=dict(acceptance='acceptance.json'), timeout=600,
-                       checks=[dict(output='acceptance', pointer='/passed', equals=True)],
-                       on_check_failure='precision-repair'))
+    for primary, repeat_comparison in zip(comparisons, noise):
+        reports += ['--noise-for', f"{{artifact:{primary['id']}:report}}",
+                    f"{{artifact:{repeat_comparison['id']}:report}}"]
+    stages.append(dict(id='acceptance', skill='precision-compare', depends_on=[exact['id'], *(c['id'] for c in comparisons + noise)],
+                       argv=py('acceptance.py') + reports + ['--exact-report', '{artifact:check-exact:report}',
+                            '--sides', a, b, '--dtype', dtype or 'TODO-comparison-dtype', '--exit-zero',
+                             '--output', '{run}/acceptance.json'], inputs=[str(scripts / 'acceptance.py')],
+                       outputs=dict(acceptance='acceptance.json'), timeout=600, acceptance_output='acceptance'))
     return dict(schema_version=1, id=plan_id or f'{task}-{a}-{b}', root='.', budget_seconds=4 * 3600,
                 workload=dict(task=task, sides=list(sides)), stages=stages)
 
@@ -637,19 +734,23 @@ def main(argv=None):
     parser.add_argument('--jobs', type=int, default=1)
     parser.add_argument('--task')
     parser.add_argument('--sides')
+    parser.add_argument('--dtype', choices=('bf16', 'fp16', 'fp32'), help='observed comparison dtype (init only)')
+    parser.add_argument('--preflight', action='append', default=[], metavar='SIDE',
+                        help='add a separate preflight for this side (init only; repeatable)')
     parser.add_argument('--id')
     parser.add_argument('--output')
     args = parser.parse_args(argv)
     try:
         if args.command == 'init':
             _require(args.task and args.sides and args.output, 'init requires --task, --sides A,B and --output')
-            plan = init_plan(args.task, args.sides.split(','), args.id)
+            plan = init_plan(args.task, args.sides.split(','), args.id, preflight_sides=args.preflight, dtype=args.dtype)
             with Path(args.output).open('x') as stream:
                 json.dump(plan, stream, indent=2)
                 stream.write('\n')
             print(json.dumps(dict(plan=str(Path(args.output).resolve()), todo=[s['id'] for s in plan['stages']
                                   if any(x.startswith('TODO') for x in s['argv'])])))
             return 0
+        _require(not args.preflight and args.dtype is None, '--preflight and --dtype apply to init')
         _require(args.plan and args.workspace, 'run/status require --plan and --workspace')
         _require(args.command == 'run' or not (args.refresh or args.time_budget_seconds is not None or args.jobs != 1),
                  '--refresh, --time-budget-seconds and --jobs apply to run')

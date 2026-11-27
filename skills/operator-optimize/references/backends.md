@@ -34,7 +34,14 @@ workload can run with it and without it.
 Time on the original hardware with the case's shapes. Synchronize the device
 before reading the clock, discard warmup iterations, interleave the variants in
 one session and give `kernel_check.py` the raw per-iteration samples. Record the
-device, driver, toolkit and framework versions, warmup and sample counts in
-`timing.conditions`. End-to-end speed (tokens/s or step time, TTFT and TPOT for
-serving, peak memory) comes from the original workload run with each variant,
-paired with a baseline run on the same host.
+host and session IDs (`host`, `session`), device, driver, toolkit and framework
+versions, and the iteration count as `timing.conditions.warmup`. Use shareable
+IDs, not connection details, in public evidence.
+
+Save each independent kernel execution to its own output. The checker scores
+all repeats and uses the worst error. Reusing one output path or an alias does
+not measure a repeat. If a slow fix exists, measure it on every shape being
+compared; an overlap is not full coverage.
+
+Measure end-to-end speed (tokens/s or step time, TTFT/TPOT for serving) and peak
+memory on the original workload, paired with a baseline on the same host.

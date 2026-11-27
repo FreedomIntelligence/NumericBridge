@@ -1,74 +1,41 @@
 ---
 name: framework-adapt
-description: Establish native execution when a requested model, framework or hardware target needs deployment or backend adaptation.
+description: Establish native execution for the requested model, framework and hardware.
 ---
 
 # Framework adaptation
 
 ## Execute
 
-Use the [shared execution tools](../precision-compare/references/comparison.md#wait-for-native-execution) for waiting and receipts.
-
-- Reuse environments, adapters and receipts that match source, dependencies and target.
-- For missing support, inspect the selected revision's support declarations and
-  closest native example, then implement the model/backend integration.
-- Run or reuse a [native preflight](#native-preflight) before capture. It checks
-  readiness only; numerical agreement comes from comparison.
-- Preserve native state transitions; record checkpoint conversions and tensor-layout changes.
-- Keep implementations and environment declarations with the case; verify patches
-  with [repair verification](../precision-repair/SKILL.md#patch-and-verify).
+Reuse matching environments and launch commands. Check missing pinned artifacts
+on the hosts that need them. If integration is missing, use the pinned revision's
+support notes and nearest native example. Adapt within the case, preserve native
+state transitions and record any checkpoint or layout conversion. Use
+[preflight_env.py](../precision-compare/scripts/preflight_env.py) only for suspected
+dependency or launch issues, with the launch interpreter.
 
 ## Native preflight
 
-Run the **smallest valid workload that reaches the declared native path and
-produces its required evidence**. Fix the path and completion checks first, then
-shrink; there is no fixed batch, sequence length or step count.
+Reuse valid evidence if the device binding still matches. Otherwise check the
+first formal batch: keep valid samples; stop on the wrong path or missing data.
+For costly or risky launches, run the smallest valid preflight instead. Keep the
+checkpoint, dtype, device, backend and topology needed by the target path. Use the
+[inference](../precision-compare/references/inference.md),
+[SFT](../precision-compare/references/sft.md) or
+[RL](../precision-compare/references/rl.md#native-preflight) recipe as needed.
 
-- **Keep the path.** Use the planned device, checkpoint and revision, framework
-  and backend, dtype, launch environment, and the topology and settings that
-  exercise the claimed kernels or collectives. A substitute model, CPU fallback or
-  a topology that skips a required collective is a separate, narrower check.
-- **Shrink within it.** Reduce requests, examples, lengths or iterations only
-  while the workload stays valid and reaches the required boundaries. Read only
-  the task recipe: [inference](../precision-compare/references/inference.md),
-  [SFT](../precision-compare/references/sft.md) or [RL](../precision-compare/references/rl.md#native-preflight).
-- **Pass conditions** (written to the receipt; formal capture requires them):
-  native exit 0, the observed device and runtime path, and at each declared
-  boundary a representative record matching the expected keys, shapes and sample
-  mapping. Reuse a receipt only for its recorded scope, after checking the
-  current device binding.
-- **Diagnosis readiness** (same run, recorded in the receipt): for eager PyTorch
-  paths, a [capture_boundaries](../precision-compare/scripts/capture_boundaries.py)
-  run with `inventory=True` (module order, output shapes and bytes, hooks attach);
-  whether the path runs under graph capture (hooks then need eager or msProbe);
-  determinism settings; and one same-side repeat of the smallest capture so
-  comparison has repeat noise.
-- **Environment hazards and dependency audit.** Before the first preflight in an
-  environment, and after any `import_error`, run
-  [preflight_env.py](../precision-compare/scripts/preflight_env.py) in the worker
-  with the launch interpreter: `--distribution` for each framework and plugin,
-  `--run-dir` and `--temp-dir` for the launch directories. It reports inherited
-  non-integer rank variables, IPC socket paths over the Unix limit, compiler
-  caches on network filesystems, fork with thread pools (advisory) and every
-  missing or conflicting declared requirement at once. Fix all of them in the
-  launcher or a case-private environment or overlay, import the native entry
-  modules, then preflight. Record each hazard's ownership: `environment` unless
-  the failure reproduces in a clean, documented environment.
-- **Failures.** `record_run` and `workflow.py` report `failure_class` and
-  `category`: correct `setup_or_resource` within scope and retry, report
-  `unsupported`, and route `reproducible_failure` of a supported path to
-  diagnosis.
+Set `ready: true` only if the native run succeeds on the target path and produces
+the required keys, shapes and sample mapping. No CPU fallback. Debug hooks are
+optional; measure repeat noise during formal capture.
+
+[Recover interrupted jobs](../precision-compare/references/comparison.md#recover-an-interrupted-stage)
+before retrying. Failure labels are clues: fix setup issues in scope, report
+unsupported paths, and send reproducible failures on supported paths to diagnosis.
 
 ## Return
 
-Hand the runnable command, execution JSON, inputs/state, readiness and gaps, and
-the receipt to the next stage. In the actual worker, record device binding,
-imported framework and backend versions/revisions, driver, runtime/toolkit (CANN
-or CUDA) and the loaded collective library (HCCL or NCCL) with the
-[runtime probe](../precision-compare/scripts/runtime_probe.py); keep unconfirmed
-versions unknown. Record the launch image name and digest (or the install
-source when no image is used) in the receipt's `container`. When a reported
-version does not identify a release (a local
-build such as `0.18.0+empty`), record the source commit of each key repository
-in the image or install tree and map it to the nearest release tag; the commit,
-not the version string, is the pinned ref for upstream status.
+Hand off the launch command, execution profile, inputs/state, readiness and gaps.
+Use the [runtime probe](../precision-compare/scripts/runtime_probe.py) in the worker
+to record the device, loaded framework/backend, driver, toolkit, collective
+library and image digest or install source. Distinguish unknown from not applicable;
+use the actual source commit when the release version is ambiguous.

@@ -2,7 +2,7 @@
 """Classify a boundary by cross replay, input perturbation and intervention results.
 Call: cross_replay(spec), perturbation(spec), interventions(spec); CLI: python scripts/replay.py cross|perturb|interventions --spec S.json --output NEW.json
 Input: Output arrays of both implementations on both captured inputs (+ self-replay, optional FP64 reference), alpha sweeps, or endpoint metrics per intervention run.
-Output: Directional metrics, a diagnosis label with the next check, amplification gains, or per-factor verdicts.
+Output: Directional metrics, a replay label with the next check, amplification gains, or measured intervention effects.
 Requires: NumPy for cross/perturb (NPY/NPZ arrays); interventions uses the standard library.
 
 Details:
@@ -32,11 +32,12 @@ the input direction triggers it; the P_alpha slope gives the amplification gain.
 
 interventions spec: {"metric":str, "lower_is_better":true, "baseline":x, "target":x,
   "noise":sigma, "runs":{"A":x, "revert:A":x, "extra:A":x, "B":x, "A+B":x}}
-effect(F) = improvement over baseline. A factor is confirmed when effect > 3*noise,
-"revert:F" (if given) is within 3*noise of baseline and "extra:F" (if given) also
-improves by > 3*noise. share = effect / |baseline - target|: primary >= 0.5,
-secondary otherwise. For "A+B": interaction = effect(A+B) - effect(A) - effect(B),
-significant when |interaction| > 3*noise.
+Effect is signed: positive means better, negative means worse. Direction uses
+3*noise as a descriptive band, not a significance test. `revert:F` checks return
+to baseline; `extra:F` is recorded only (another sample needs its own baseline).
+For A+B, `interaction` is the combined effect minus the sum of single effects.
+Missing singles leave `interaction` unknown, not zero. The optional target is
+context only. Report v2 does not assign causality, local correctness or acceptance.
 CLI exit: 0=report written, 2=input error.
 """
 
@@ -149,41 +150,56 @@ def perturbation(spec, base='.'):
 
 
 def interventions(spec):
+    """Summarize endpoint effects without deciding whether a fix or cause is verified."""
+    def number(value, name):
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise ValueError(f'{name} must be a finite number')
+        return float(value)
+
     lower = spec.get('lower_is_better', True)
-    base, noise = float(spec['baseline']), float(spec['noise'])
+    if type(lower) is not bool:
+        raise ValueError('lower_is_better must be boolean')
+    base, noise = (number(spec[key], key) for key in ('baseline', 'noise'))
+    if noise < 0:
+        raise ValueError('noise must be nonnegative')
+    band = number(3 * noise, 'repeat band')
     target = spec.get('target')
-    gap = abs(base - float(target)) if target is not None else None
-    runs = spec['runs']
-    effect = lambda value: (base - value) if lower else (value - base)
-    factors = {}
-    for name, value in runs.items():
-        if ':' in name or '+' in name:
-            continue
-        eff = effect(float(value))
-        row = dict(value=value, effect=eff, significant=eff > 3 * noise)
-        if f'revert:{name}' in runs:
-            row['revert_reproduces'] = abs(float(runs[f'revert:{name}']) - base) <= 3 * noise
+    if target is not None:
+        target = number(target, 'target')
+    supplied = spec['runs']
+    if not isinstance(supplied, dict) or any(not isinstance(k, str) or not k.strip() for k in supplied):
+        raise ValueError('runs must be an object keyed by change name')
+    runs = {k: number(v, k) for k, v in supplied.items()}
+
+    def measure(name):
+        value = runs[name]
+        effect = number((base - value) if lower else (value - base), f'{name} effect')
+        direction = 'improved' if effect > band else 'worsened' if effect < -band else 'within_repeat_band'
+        row = dict(value=value, effect=effect, direction=direction, revert_status='not_run')
+        revert = runs.get(f'revert:{name}')
+        if revert is not None:
+            row['revert_value'] = revert
+            row['revert_status'] = 'matches_baseline' if abs(revert - base) <= band else 'differs_from_baseline'
         if f'extra:{name}' in runs:
-            row['extra_improves'] = effect(float(runs[f'extra:{name}'])) > 3 * noise
-        row['confirmed'] = row['significant'] and row.get('revert_reproduces', True) and row.get('extra_improves', True)
-        if gap:
-            row['share'] = eff / gap
-        if row['confirmed']:
-            row['label'] = ('primary_cause_confirmed' if gap is None or row['share'] >= 0.5
-                            else 'secondary_factor_confirmed')
-        else:
-            row['label'] = 'unresolved'
-        factors[name] = row
+            row['extra_value'] = runs[f'extra:{name}']
+        return row
+
+    factors = {name: measure(name) for name in runs if ':' not in name and '+' not in name}
     combos = {}
-    for name, value in runs.items():
-        if '+' in name and ':' not in name:
-            parts = name.split('+')
-            if all(p in factors for p in parts):
-                inter = effect(float(value)) - math.fsum(factors[p]['effect'] for p in parts)
-                combos[name] = dict(value=value, effect=effect(float(value)), interaction=inter,
-                                    significant=abs(inter) > 3 * noise)
-    return dict(kind='interventions', schema_version=1, metric=spec.get('metric'), baseline=base,
-                noise=noise, target=target, factors=factors, combinations=combos)
+    for name in runs:
+        if ':' in name or '+' not in name:
+            continue
+        parts = name.split('+')
+        if any(not part.strip() for part in parts) or len(set(parts)) != len(parts):
+            raise ValueError(f'{name}: combination must list distinct change names')
+        row = measure(name)
+        missing = [part for part in parts if part not in factors]
+        interaction = None if missing else number(
+            row['effect'] - math.fsum(factors[part]['effect'] for part in parts), f'{name} interaction')
+        combos[name] = dict(row, factors=parts, missing_factors=missing, interaction=interaction,
+                            interaction_beyond_repeat_band=None if missing else abs(interaction) > band)
+    return dict(kind='interventions', schema_version=2, metric=spec.get('metric'), baseline=base, noise=noise,
+                lower_is_better=lower, repeat_band=band, target=target, factors=factors, combinations=combos)
 
 
 def main(argv=None):
@@ -205,8 +221,12 @@ def main(argv=None):
     except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
         print(json.dumps(dict(status='error', reason=str(exc))))
         return 2
-    summary = {k: result[k] for k in ('label', 'labels', 'next', 'reading') if k in result}
-    print(json.dumps(summary or {'factors': {k: v['label'] for k, v in result['factors'].items()}}))
+    if args.command == 'interventions':
+        summary = {group: {name: row['direction'] for name, row in result[group].items()}
+                   for group in ('factors', 'combinations')}
+    else:
+        summary = {k: result[k] for k in ('label', 'labels', 'next', 'reading') if k in result}
+    print(json.dumps(summary))
     return 0
 
 

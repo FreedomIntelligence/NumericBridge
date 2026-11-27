@@ -11,13 +11,16 @@ Run tools from this skill directory. Each tool's `--help` gives its interface.
 |---|---|---|
 | Rank causes from the comparison | [triage](scripts/triage.py) | Ordered candidates with their cheapest check |
 | Find where the difference appears | [localize](scripts/localize.py) | Boundary growth ranking and the next capture |
-| Separate local source, propagation and amplification | [replay](scripts/replay.py) | Cross-replay label, perturbation gains, intervention verdicts |
+| Separate local source, propagation and amplification | [replay](scripts/replay.py) | Cross-replay label, perturbation gains, measured intervention effects |
 | Track hypotheses and checks | [diagnosis_state](scripts/diagnosis_state.py) | `diagnosis.json`, next open check, rendered `issues.md` |
+| Decide whether to run, resume or deliver | [diagnostic_round](scripts/diagnostic_round.py) | Budget, existing job receipts, reuse, bounded outcome and probe gate |
 | Say which side deviates at an operator | [operator_verdict](scripts/operator_verdict.py) | Per-side error vs FP64, the stated bound, reading and patch direction |
 
 ## Diagnose
 
-Start a state file from the trigger, then loop on `next` until it reports a stop:
+Run triage on the evidence you already have. Start a state file from the
+acceptance report or a [reproduced native failure](references/diagnostic-round.md#plan-spend-and-resume),
+then use `next` to choose the next check:
 
 ```sh
 python scripts/triage.py --acceptance acceptance.json --report scores.json [--community search.json] --output triage.json
@@ -26,24 +29,22 @@ python scripts/diagnosis_state.py next --state diagnosis.json
 python scripts/diagnosis_state.py record --state diagnosis.json --hypothesis H1 --label LABEL --finding TEXT --evidence PATH
 ```
 
-Principles for each check:
+For a native failure, pass its run summary to triage with `--report` and use
+`--native-failure` to initialize the state instead of `--acceptance`.
 
-1. **Reproduce the observation.** Reuse the native small case, identities,
-   collectors and captures. Check that inputs, initial state, effective settings
-   and observed coordinates are comparable; resolve capture or configuration
-   mismatches first. Repeat only when needed to distinguish a stable discrepancy
-   from run-to-run variation. Preserve the intended execution semantics.
-2. **Choose the next boundary.** Start with existing stage captures. Keep the
-   first observed divergence and any later boundary that substantially increases
-   the error relevant to the task. Add [internal observations](../precision-compare/references/layerwise.md)
-   only where they distinguish these candidates. Record the nearest upstream
-   agreement and gaps in coverage; a large difference ranks a candidate but
-   does not identify its cause.
-3. **Run a discriminating replay.** First reproduce each side's own captured
-   result within the justified tolerance. At the chosen boundary, give both
-   implementations the same actual operands and state, including the incoming
-   gradient for a backward check. Use the other side's captured operands if
-   input dependence could change the conclusion. See [causal replay](examples/causal-replay.md).
+1. **Check comparability.** Verify inputs, state, effective settings and readout
+   coordinates. For a native fault, record the tested revision, failing command
+   and earliest failing operation. Test exact or related community cases against
+   this workload before reusing their fixes.
+2. **Narrow the boundary.** Use existing captures to find the nearest upstream
+   agreement, first observed difference and later error growth. Prefer offline
+   checks; sample [internal boundaries](../precision-compare/references/layerwise.md)
+   only if that can distinguish plausible causes. Reuse a valid same-side repeat.
+3. **Test the cause.** Reproduce each side's own result, then replay both with
+   the same captured operands and state (including incoming gradients).
+   [Cross-replay](examples/causal-replay.md) on the other side's inputs when it
+   can change the result. Attribute with an invariant, analytic result or FP64
+   recomputation from those operands (`operator_verdict.py`).
 
 | Replay result | Next check |
 | --- | --- |
@@ -58,46 +59,20 @@ the task's existing metrics and comparable observations.
 
 ```xml
 <diagnosis_handoff>
-  Update the case's local issues.md with the discrepancy, paired coordinates,
-  coverage and checked boundaries, including gaps. For each probe, record the
-  hypothesis, one-factor control, finding and next check. Cite supporting evidence
-  and the source revision and code when identified. Classify the discrepancy
-  as a capture or setup problem, a numerical-policy difference, a supported
-  defect, or unresolved.
-  Stage localization is a checkpoint unless it meets an explicit scope limit.
-  Otherwise, reuse the triggering case to narrow the interval until evidence
-  establishes a cause or no focused check or pending result can advance diagnosis
-  within the authorized scope and budget. Run the smallest check that can
-  distinguish the remaining explanations. If blocked, report the narrowest
-  supported interval, what was ruled out, the concrete blocker and the next check.
-  For a supported defect, propose a patch and pass a focused regression check
-  to verification when repair is in scope.
+  <output>In issues.md, record the discrepancy, coordinates, coverage, gaps and checked boundaries.</output>
+  <probe>Record hypothesis, one-factor control, finding and next check. Cite evidence, revision and code when known.</probe>
+  <classify>Setup or capture problem, numerical-policy difference, supported defect or unresolved.</classify>
+  <continue>Stage localization is a checkpoint unless the scope ends there. Reuse the case and run the smallest check that separates the remaining explanations.</continue>
+  <blocked>Once no check or pending result can help within the grant, record the narrowest proven interval, ruled-out causes, blocker and next check.</blocked>
+  <repair when="supported defect and repair in scope">Hand off a candidate patch and focused regression.</repair>
 </diagnosis_handoff>
 ```
 
-Loop steps:
-
-1. **Check alignment.** Exact-check failures (inputs, masks, rewards, counts,
-   events) are `config_mismatch`: correct setup or capture and rerun the
-   comparison. For a preflight failure, confirm support on the tested revision and
-   keep the failing command, configuration and earliest failing operation.
-2. **Run the cheapest candidate.** Triage orders checks CPU recomputation first,
-   then replay, then native capture. Scaling, reduction, mask and optimizer
-   signatures are usually settled by an FP64 recomputation of the objective,
-   gradient or update from captured operands, without a native rerun.
-3. **Localize broad differences.** Capture block boundaries for a token subset on
-   both sides plus one same-side repeat with
-   [capture_boundaries.py](../precision-compare/scripts/capture_boundaries.py)
-   ([procedure](../precision-compare/references/layerwise.md)), rank them with
-   `localize.py`, then capture the children it names. Several candidate intervals
-   can share one capture.
-4. **Cross-replay the leaf.** Save the leaf's call on both sides and run each
-   side's module on both calls with `replay_module`
-   ([example](examples/causal-replay.md)); include the incoming gradient for a
-   backward boundary. Recompute the leaf in FP64 on CPU from the same operands
-   to tell which side deviates ([agreement and accuracy](../precision-compare/references/acceptance.md#agreement-and-accuracy));
-   `operator_verdict.py` applies that table with a stated dtype bound. Either
-   side may be the one to repair. `replay.py` assigns the label and next check.
+For broad differences, rank a small paired boundary capture with `localize.py`
+and narrow only the relevant intervals. Recompute scaling, loss or updates from
+captured operands before launching another native run. Use same-hardware stack
+controls only when changing the stack can distinguish a hypothesis. A failed
+control shows stack sensitivity; it does not rule out a hardware contribution.
 
 | Label | Meaning | Next check |
 |---|---|---|
@@ -107,29 +82,41 @@ Loop steps:
 | `propagation_candidate` | Matched-input difference is within noise | Trace the differing input upstream |
 | `amplification_supported` | Output difference grows faster than the input difference | Perturb along the real input difference; check upstream source too |
 | `local_source_confirmed` | Child op deviates from reference or invariant | Intervention test |
-| `primary_cause_confirmed` / `secondary_factor_confirmed` | Intervention verdict | Repair or deliver |
+| `primary_cause_confirmed` / `secondary_factor_confirmed` | Controlled evidence ties a cause to the original failure | Repair; keep any unexplained part open |
 | `not_reproduced` / `unresolved` | Trigger absent / no actionable check left | Deliver with the blocker and next check |
 
-A local improvement repairs the task only when the task endpoint also improves;
-otherwise keep it as an operator finding. Keep
-injected state and diagnostic constraints out of original-workload verification.
+A local improvement does not establish original-task acceptance. Keep injected
+state and diagnostic constraints out of original-workload verification.
 
-**Stop** when acceptance is restored, the budget is spent, or no open hypothesis
-has an actionable check. A confirmed secondary factor does not stop diagnosis
-while the trigger remains unexplained: open a child for the remaining
-difference. Ruled-out hypotheses are not retried.
+For multi-check or resumed cases, reconcile the
+[diagnostic round ledger](references/diagnostic-round.md) before allocating more
+native resources. `diagnosis_state.py next` routes hypotheses; it does not prove
+acceptance or account for remaining accelerator time. Use only usable probe
+results for attribution. To investigate the probe itself, wait for its terminal
+result with `after`; that follow-up is diagnostic-only.
+
+- `recompare`: correct the active setup or capture mismatch and rerun a comparable
+  comparison. Record `--label config_corrected --evidence RERUN` on that hypothesis
+  once the rerun demonstrates the correction, even if the discrepancy persists.
+- `check` / `refine`: continue a discriminating check within the grant. Keep any
+  `confirmed_primary` findings while investigating the remaining difference.
+- `repair`: hand off the confirmed cause only if repair is authorized. This is
+  not a pass or an instruction to exceed limits.
+- `stop`: no further diagnosis is proposed. If acceptance has not been restored,
+  deliver the proved boundary, its limits and the condition that would reopen it.
+
+Do not retry ruled-out or inconclusive checks without a material change in
+inputs, runtime, coverage or method.
 Record a hypothesis as blocked only with `--blocker access|budget|no_actionable_check`;
 `next` keeps returning a blocked hypothesis without one, and a finding that names
 a next check is not `no_actionable_check`. An execution error met
 in an optional or diagnostic branch (crash, out-of-range index, ignored setting)
 opens its own hypothesis with a minimal reproducer instead of skipping the branch;
 setup and adapter mistakes that do not affect results go in the case log.
-Mark an issue stack-sensitive when a same-hardware stack control also fails; its
-target is an operator fix closer to FP64 with no original-case regression.
 Classify the conclusion as setup/capture, unsupported capability, expected
-numerical policy / inherent difference (every localized operator within its
-FP64 bound; recorded via `diagnosis_state.py conclude --classification
-expected_policy` or `inherent_difference`), supported defect, or unresolved;
+policy, inherent difference, supported defect or unresolved. An in-bound
+operator alone does not establish an inherent difference; explain the original
+failure with evidence or keep it unresolved.
 `diagnosis_state.py render` writes `issues.md` with checked boundaries,
 ruled-out explanations and evidence.
 
@@ -145,54 +132,52 @@ that operator changed. Keep diagnosing the remaining difference meanwhile.
 
 ## Patch and verify
 
-- Either side can be patched. Classify each candidate as a semantic or
-  execution defect (wrong function, out-of-bounds index or capacity, ignored
-  setting) or a numerical-policy difference (rounding point, accumulation order).
-- Test one patch, upgrade or configuration change at a time, ordered by cost:
-  recorded community fix, configuration switch, upstream fix, new patch. Keep
-  case-specific patches with the case.
-- Build the focused regression from the captured operands with an FP64 or
-  analytic expected value; show it fails before and passes after.
-- Run the intervention set on the original small native case: baseline, change,
-  revert (difference returns), an extra sample; for two interacting factors also
-  run A, B and A+B. `replay.py interventions` judges each factor against repeat
-  noise and labels primary or secondary causes and interactions.
-- For an execution defect, verify the original failing path and its required
-  evidence; report numerical coverage separately. Extend beyond the small case
-  only for missing coverage or an agreed requirement; measure runtime and memory
-  when relevant.
+Tools: [intervention effects](scripts/replay.py),
+[acceptance and measured identity](../precision-compare/references/acceptance.md#repair-completion-evidence),
+[interrupted run recovery](../precision-compare/references/comparison.md#recover-an-interrupted-stage).
 
-- For a numerical-policy difference, compare the library with the model's
-  reference implementation (for example its Transformers modeling code) before
-  deciding on a draft; record whether the reference keeps higher precision.
-- Verify a numerical-policy patch at the operator: it moves the patched side
-  closer to FP64 on the captured operands (`operator_verdict.py` with `patched`
-  reports `closer`). On the original case it must not
-  regress the task endpoint beyond repeat noise without an explanation; when
-  repeat noise is zero (deterministic runs), judge regression against the
-  acceptance profile's limit for that metric instead. A wider
-  A/B gap alone does not reject it, since the sides' errors can cancel; report
-  the agreement change as a secondary result.
-- Before a PR draft, record the [upstream status](../numericbridge/references/workflow.md#stages-and-handoffs)
-  at main, the latest release and the pinned ref (Compare's
-  [upstream_status.py](../precision-compare/scripts/upstream_status.py) reads
-  merged code from a local clone) and verify any backport on the user's pinned
-  version. Inspect the target repository's PR template and contribution guide
-  with [pr_draft.py](../precision-compare/scripts/pr_draft.py) `inspect --repo`
-  (for example DCO/Signed-off-by, Megatron/vLLM checklists, or template
-  headings); when the repository defines none, `pr_draft.py` applies the
-  pre-agreed NumericBridge fallback format (`Problem / Change / Validation /
-  Patch`) and records `fallback_used: true`.
+```xml
+<repair>
+  <candidate>Either side can be repaired. Try the lowest-cost applicable known fix, setting, upgrade or patch.</candidate>
+  <baseline>Reuse a comparable baseline. Change one thing at a time.</baseline>
+  <check when="execution defect">The original failing path must produce its required outputs.</check>
+  <check when="semantic defect">Demonstrate that the same regression fails before and passes after.</check>
+  <check when="precision change">Use the same operands and an analytic or FP64 reference. Separate improvement from meeting the bound; check the model's reference precision.</check>
+  <effect>Report changes to the task metric separately. A wider A/B gap alone does not distinguish exposed errors from a new regression.</effect>
+  <control>Attribute effects with a controlled comparison, not the size of the improvement. Record revert controls when available.</control>
+  <combine when="interaction could explain the result">Reuse baseline and single-change results. Measure the combined effect and its departure from their sum.</combine>
+  <extend when="coverage or regression risk warrants it">Add samples. Measure runtime and memory when relevant.</extend>
+  <verify>Require focused checks and independent acceptance on the exact final candidate or combination.</verify>
+  <route when="execution restored">Return to comparison. Report execution recovery separately from the first acceptance verdict if none existed.</route>
+  <output>Record candidate identity, paired metrics, coverage and both sets of evidence with diagnosis_state.py record. Reuse unaffected captures.</output>
+</repair>
+```
 
-A defect fix is verified when the focused regression and the original-case
-[acceptance](../precision-compare/references/acceptance.md) both pass (for an
-execution defect, the original failing path and its required evidence). A
-numerical-policy patch is verified by the operator rule above; record whether
-original-case acceptance changed. Record each
-candidate, configuration, before/after values and evidence with
-`diagnosis_state.py record`. Use [precision-compare](../precision-compare/SKILL.md#collect)
-for missing captures and [shared execution](../precision-compare/references/comparison.md#recover-an-interrupted-stage)
-for resumed runs.
+For a changed final candidate, put `focused_report` in the checkpoint candidate
+entry and include that path in its `evidence`. Save a JSON record for the same
+focused test before and after the change:
+
+```json
+{"kind":"focused-verification","schema_version":1,"defect_id":"mask-offset",
+ "base_sha256":"<base digest>","change_sha256":"<final change digest>",
+ "before":{"verdict":"fail","evidence":"evidence/focused-before.log"},
+ "after":{"verdict":"pass","evidence":"evidence/focused-after.log"}}
+```
+
+Use `request.defect_id` for a specified defect. Keep the distinct execution
+artifacts and a separate original-workload acceptance report.
+
+Draft tools: [upstream status](../numericbridge/references/workflow.md#stages-and-handoffs),
+[upstream_status.py](../precision-compare/scripts/upstream_status.py),
+[pr_draft.py](../precision-compare/scripts/pr_draft.py).
+
+```xml
+<draft_precheck>
+  <refs>Check merged code on main, latest release and the pinned ref. Verify backports on the pinned version.</refs>
+  <template>Use pr_draft.py inspect --repo to check the target template and contribution guide, including DCO and required checklist items.</template>
+  <fallback when="no template">Use Problem / Change / Validation / Patch and record fallback_used: true.</fallback>
+</draft_precheck>
+```
 
 ## Declare contribution decisions
 

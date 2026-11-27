@@ -24,10 +24,10 @@ precision-repair's `operator_verdict.py` on the captured operands:
 |---|---|
 | `a_deviates`, `b_deviates` or `shared_policy` (fails the bound) | Required, whatever `operator_optimize.enabled` says |
 | `not_the_source` (within the bound) and `operator_optimize.enabled` | Optional: bring both sides closer to FP64 |
-| `not_the_source` and not enabled | Do not enter; diagnosis delivers an inherent difference |
+| `not_the_source` and not enabled | Skip this operator. Continue diagnosing any unexplained original failure. |
 
-An acceptance `gap` verdict with `operator_optimize.enabled` enters the same way
-after diagnosis has localized an operator.
+An original-workload `gap` does not change these entry rules. Start only after
+diagnosis localizes an operator and only within the confirmed resource grant.
 
 ## Optimize
 
@@ -43,11 +43,12 @@ after diagnosis has localized an operator.
    operator. Follow the model's reference semantics (reduction dtype, rounding
    point, epsilon placement, weight offset); higher precision than the reference
    is a separate variant, not a replacement.
-4. **Check every variant** with `kernel_check.py` on the captured shapes plus
-   random and edge shapes (odd lengths, the largest reduction, extreme values),
-   two or more repeats for reproducibility, and paired timing: the baseline and
-   each variant timed on one host in one session, with warmup, a fixed sample
-   count and the same inputs.
+4. **Measure in stages.** Screen each tried variant on captured operands. For
+   kept variants and the baseline, measure captured, random and edge cases on
+   the target path. Use actual repeat runs (at least two per case) and paired
+   timings with the same inputs, warmup and sample count on one host and session.
+   Omit `bound` to use the same computed bound as diagnosis unless an override
+   is justified. Never substitute offline proxies or duplicate one output.
 5. **Iterate** within `operator_optimize.max_attempts` and the accelerator-hour
    budget. Keep each attempt's source, spec and report.
 6. **Verify end to end.** Load each kept variant into the original native case
@@ -63,10 +64,9 @@ after diagnosis has localized an operator.
   worse than the slow fix on every checked shape; its end-to-end effect is
   measured and reported, and acceptance need not pass. An optional optimization
   succeeds when a variant moves its side closer to FP64 end to end.
-  Do not discard a variant for being slower: keep every variant that is within
-  the bound, plus the baseline, and report precision and speed for each.
-  Drop only variants that are worse in both precision and speed than another
-  kept variant on the same shapes.
+  Keep the baseline and in-bound variants; being slower alone does not reject
+  a precision improvement. If none meets the bound, report the best measured
+  attempt and the remaining distance. Record screened-out attempts and reasons.
   Install kernels and toolchains only in case-private environments; load them as
   operator overrides. Do not change shared images, drivers or system packages.
   A missing toolchain that cannot be installed case-private is an access blocker.
@@ -78,18 +78,18 @@ after diagnosis has localized an operator.
 
 ## Deliver a round
 
-Each round is a submission of its own and does not wait for later rounds. Write `result/optimize/<operator>/` with each variant's source or patch, the
-`kernel_check` spec and report, timing conditions, end-to-end results and the
-handoff. Record each variant in diagnosis.json with `diagnosis_state.py record`
-and give the issue its contribution decision as precision-repair describes; a
-kernel against an upstream library is a PR draft there, with the measured speed
-in the draft. Report all variants in the community record as described in the
+Package with the [round validator](../precision-compare/scripts/operator_optimization.py).
+For sharing and draft requirements, use the
 [community guide](../precision-compare/references/community-records.md#operator-variants).
-Record `result/optimize/<operator>/open.json` with `issue`, `round_status`
-(`"handoff_open"` when later rounds remain), `entry`, `remaining_distance`
-(`relative_rmse`, `bound`, `excess`), `variants_not_yet_tried`, and `next_step`,
-so a later round resumes from it. Never fabricate `random`/`edge` cases by
-slicing `captured` arrays or repeat runs by duplicating one output array; keep
-unmeasured shape classes or timing explicitly `not_measured` or listed in
-`variants_not_yet_tried`. Measure and report; precision tiers and
-recommendations are assigned on the community side, not here.
+
+```xml
+<round>
+  <output>Under result/optimize/operator, save handoff, source, spec, report, timing and native results. Record attempts in diagnosis.json.</output>
+  <state>In open.json record issue, round_status, entry, remaining_distance (relative_rmse, bound, excess), variants_not_yet_tried and next_step.</state>
+  <reuse>If the slow fix was measured, link slow_fix.report and the reproduce.kernel_check command from the handoff.</reuse>
+  <open when="coverage, timing or end-to-end results are missing">Use handoff_open. Keep measurements and name the next missing check.</open>
+  <delivered when="required measurements are present">Use round_delivered. Include the baseline and kept changes. In each change's end_to_end record include status=measured, verdict, evidence and numeric metrics. Keep measured failures distinct from missing checks.</delivered>
+  <draft>Draft only a kept change with verified source that improves toward the reference and applies to the target. Mark unverified draft checks pending.</draft>
+  <rule>Deliver the current evidence without waiting for later rounds. Original acceptance is separate; precision tiers and recommendations belong to the server.</rule>
+</round>
+```

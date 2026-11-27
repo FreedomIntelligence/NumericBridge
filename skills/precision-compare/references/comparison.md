@@ -52,7 +52,9 @@ per-side `state` for intentionally different initial representations. See the
 
 ```sh
 python scripts/compare_tensors.py --contract gradients.json --side-a a.json --side-b b.json --output report.json
-python scripts/acceptance.py --report report.json --output acceptance.json
+python scripts/compare_tensors.py --contract gradients.json --side-a a.json --side-b a-repeat.json --output repeat.json
+python scripts/acceptance.py --report report.json --noise-for report.json repeat.json \
+  --sides A B --dtype fp32 --exact-report exact.json --output acceptance.json
 ```
 
 Comparator contracts keep `thresholds: null`; comparator exit codes are
@@ -75,8 +77,8 @@ identity matches. Use one execution JSON for preflight and capture:
 
 Fields are literal; `null` env values remove inherited variables. Environment
 adapters own scheduling, device binding and runtime/cache paths; reuse a prepared
-environment's verified launch command. In a workflow plan, declare the preflight
-receipt as an output and enforce its pass conditions with `checks`.
+environment's verified launch command. Check `/ready: true` on the capture
+receipt, or on a separate preflight receipt when that stage is needed.
 
 ### Wait for native execution
 
@@ -105,31 +107,47 @@ hashes and sizes, and large arrays stay at source:
 python scripts/evidence_bundle.py fetch fetch.json NEW_SIDE_DIRECTORY
 ```
 
-For dependency-linked commands, use a workflow plan (interface in its
-[docstring](../scripts/workflow.py)). It reuses stages whose declared inputs,
-dependency outputs, executables and execution profile are unchanged, runs
-independent stages concurrently with `--jobs`, and returns `next_action` with
-the skill to load on failure. Numeric `checks` (`min`, `max`) can route a failed
-acceptance to `on_check_failure: precision-repair`. Start a plan from
-`python scripts/workflow.py init --task inference|sft|rl --sides A,B --output plan.json`;
-the [Torch example](../examples/workflow_demo.py) shows reuse, a repair and
-original-workload verification.
+A [workflow plan](../scripts/workflow.py) reuses valid stages, runs independent
+stages with `--jobs`, and returns `next_action` when blocked. Generate a skeleton:
+`python scripts/workflow.py init --task inference|sft|rl --sides A,B --output plan.json`.
+
+Write the readiness receipt during capture; add `--preflight B` only for a
+separate check. Fill the exact-check command and observed `--dtype`; keep only
+the required reports. For capture, preflight, repeat and exact-check stages,
+list adapter scripts, configuration and local runtime identity files in
+`inputs`. Paths can be relative to the plan root or absolute. The engine hashes
+executables and declared inputs, not arbitrary command arguments or installed
+packages; refresh a local identity file when the remote runtime changes.
+The template already includes its built-in comparison scripts and helpers.
+
+The default repeat adds `--side-id A-repeat` to the first side's capture command.
+Handle it in the adapter and write separate manifests. In every comparator
+contract, declare `A-repeat` in `expected_ranks` with A's ranks; when using
+`side_conditions`, include `A-repeat` with A's settings. Keep the A/B comparison
+and A/A-repeat noise reports paired in [acceptance](acceptance.md).
+The [Torch example](../examples/workflow_demo.py) shows reuse and repair verification.
 
 ```sh
 python scripts/workflow.py run --plan task.json --workspace work [--jobs 2]
 python scripts/workflow.py status --plan task.json --workspace work
 ```
 
+Declare the full capture directory as an output, as the default plan does.
+Hashing only the manifests would miss changes to referenced arrays and rank logs.
+
 ### Recover an interrupted stage
 
-Rerun the same plan and workspace. Use `next_action.run`, `declared_outputs` and
-the case's job/process IDs to find the native run. Follow an active job; while
-its state is unknown, keep dependents blocked and advance independent work. Once
-terminal, reuse landed results only after their input, runtime, device, output
-and coverage checks pass, and record the recovery separately from the failed
-wrapper. Use `--refresh STAGE` for requested fresh measurements; descendants
-rerun and unrelated stages stay reused. Register resources reused across
-workloads in the resource catalog.
+Rerun the same plan and workspace. An `observe` action in `blocked_actions`
+identifies a still-live local child and its run. Keep its dependents blocked
+and do not rerun its prerequisites. Advance independent work within the remaining
+cumulative command budget, after reserving the live attempt's timeout. Remote adapters must still reconcile the
+native job on the remote host; a launcher exit is not terminal job evidence.
+
+Once terminal, reuse landed results only after their input, runtime, device,
+output and coverage checks pass, and record the recovery separately from the
+failed wrapper. Use `--refresh STAGE` only after reconciling any live attempt
+in that stage or its descendants. Descendants rerun and unrelated stages stay
+reused. Register resources reused across workloads in the resource catalog.
 
 ## Portable evidence
 

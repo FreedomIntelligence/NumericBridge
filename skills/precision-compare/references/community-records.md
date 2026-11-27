@@ -18,10 +18,15 @@ Use `prepare_contribution` for new evaluations, issues and tested patches. The t
 
 ## Operator variants
 
-For [operator optimization](../../operator-optimize/SKILL.md), use the dedicated `operator_optimization` evidence format and [validator](../scripts/operator_optimization.py). Record FP64 error, reproducibility, paired timings and original-workload impact when measured. Mark missing checks rather than estimating; ranking is server-owned.
+Keep standalone [operator optimization](../../operator-optimize/SKILL.md) rounds
+local. The [round validator](../scripts/operator_optimization.py) separates
+`handoff_open` (missing evidence and next action) from `round_delivered` (complete
+measurements, including measured failures). Typed intake accepts an eligible
+evaluation, issue or tested patch, not a standalone round. Share only the
+approved evidence for that contribution.
 
 ## Local preview
 
-Without MCP, keep the anonymized draft local. For legacy catalog objects, use `python -B -m community.records.submission --input submission.json --output preview.json`.
+Without MCP, keep the anonymized draft local.
 
 [Submission schema and operator setup](https://github.com/FreedomIntelligence/NumericBridge/blob/main/community/README.md#typed-contribution-input)

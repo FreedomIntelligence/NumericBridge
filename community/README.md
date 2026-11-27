@@ -29,18 +29,20 @@ operator may also enable token-free intake for new anonymous contributions.
 
 ## MCP search
 
-Install the optional server dependencies and start the endpoint from the repository root:
+For workflow lookup, connect the MCP client to `https://numericbridge.com/mcp`
+using Streamable HTTP. Search needs no token or tunnel. If unavailable or empty,
+continue the workflow without a fallback.
+
+For service maintenance and local tests only, install the server dependencies and
+run from the repository root:
 
 ```sh
 python -m pip install -r community/requirements-mcp.txt
 python -B -m community.mcp_search --index /path/to/search-index.json
 ```
 
-Connect an MCP client directly to `https://numericbridge.com/mcp` using
-Streamable HTTP. No upload token or SSH tunnel is needed for search. If you are
-running the server locally, use `http://127.0.0.1:8769/mcp` instead.
-For a client that starts its own process, use `python -B -m community.mcp_search --transport stdio --index /path/to/search-index.json`
-from the repository root instead.
+The local HTTP endpoint is `http://127.0.0.1:8769/mcp`; use `--transport stdio`
+for a local stdio test.
 
 The server exposes one tool, `search_community`. Its required arguments are
 `hardware`, `model`, `library` (the tested framework), and `task` (`inference`,
@@ -192,6 +194,13 @@ such as operator optimization; it cannot bypass typed patch validation.
 
 ### Configure agent contribution
 
+The [request template](../skills/numericbridge/references/prompt-template.md)
+includes anonymous sharing with the NumericBridge inbox by default. Change the
+sharing line to “Do not submit” or ask for local-only delivery to opt out.
+Use the choice sent with the request; do not ask for it again at intake. If the
+request says nothing about sharing, leave consent unset and continue local
+work. The existing draft confirmation applies before sending in that case.
+
 Configure the local stdio MCP in your agent client. Read the trusted site's
 `data/community-service.json` first: when present, `public_submission` advertises
 a URL with `method: "POST"` and `auth: "none"`. Use its URL as `--intake` and
@@ -200,8 +209,7 @@ omit `--token-file`. For example, **if enabled and advertised**:
 ```sh
 python -B -m community.mcp_submission \
   --intake https://numericbridge.com/v1/public-submissions \
-  --catalog-site /path/to/reviewed/catalog/site \
-  --search-index /path/to/reviewed/catalog/site/data/search-index.json
+  --catalog-site /path/to/reviewed/catalog/site
 ```
 
 If `public_submission` is absent, do not assume the public API is available.
@@ -253,10 +261,8 @@ inside the configured draft directory. Do not display, log, or paste it into a
 prompt. If local storage fails or the token is lost, keep the receipt ID;
 resubmit the exact reviewed draft through the consent flow to recover access.
 
-With `--search-index`, this client exposes both contribution and search tools. Use an
-absolute index path when launching from a different directory. Restart the MCP
-after updating its index, or configure a separate connection to the public
-search MCP for the server-managed snapshot.
+For local testing only, `--search-index` also exposes the search tool. The
+workflow uses the separate official search MCP, not this local index.
 
 For interactive confirmation, use a client that presents the MCP form to the
 user. In clients that launch from another directory, use the absolute Python

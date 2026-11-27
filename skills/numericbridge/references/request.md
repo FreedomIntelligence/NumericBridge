@@ -1,67 +1,46 @@
 # Confirm the request
 
+Methods: [acceptance](../../precision-compare/references/acceptance.md), [community lookup](workflow.md#route-community-results).
+
 ```xml
-<entry>
-  Confirm new requests or changes to target, scope or resource authorization.
-  Otherwise resume at the recorded stage.
-</entry>
+<request file="request.json">
+  <confirm>
+    <input>Model, both stacks, task (inference, SFT or RL), and requested outcome.</input>
+    <default>Start general precision checks with a small end-to-end case.</default>
+    <ask>Ask only if the answer changes the test or permission.</ask>
+    <resume>Reuse request.json. Recheck only what changed.</resume>
+  </confirm>
 
-<action>
-  Summarize hardware, model, tested framework, task (inference, SFT or RL) and
-  scope in the user's language; for a general check, propose a small end-to-end
-  case. Confirm once: the target and scope, the accelerator-hour ceiling with the
-  allowed devices, hosts or queues, and access (credentials for both sides).
-  Ask in the same confirmation whether the user agrees to share the case's
-  anonymized community record and PR drafts with the NumericBridge community
-  inbox for maintainer review, and with which credit (anonymous, a nickname or a
-  GitHub @username).
-  Use the default acceptance profile unless the user gives criteria. Check that
-  each side's official image or release artifacts for the pinned versions exist
-  on its host or can be pulled there; an unavailable artifact is an access item
-  settled at intake, not discovered during preparation.
-</action>
+  <boundaries>
+    <scope>Keep pinned versions, model, dtype and workload. Resolve launch details during setup.</scope>
+    <resources>Reuse grants. Check access and disk quota. Ask before exceeding the grant.</resources>
+    <approval>Ask before changing shared systems or moving private data outside authorized hosts.</approval>
+    <fallback>Try in-scope alternatives or wait for busy devices. Report partial results if budget ends.</fallback>
+    <acceptance>Use nb-default-v1. Do not ask for thresholds or change them after observing results.</acceptance>
+    <decisions>Choose routine setup, capture, controls and retries within the grant. Log material choices.</decisions>
+  </boundaries>
 
-<output>
-  Write request.json with the confirmed fields, pinned versions, acceptance
-  profile and pending items, and the answer as `community_contribution`:
-  `consent` (share or decline), `attribution_mode`, `attribution_name` and
-  `confirmed_at`. Record `operator_optimize` as `{"enabled": false,
-  "max_attempts": 8}` unless the user asks for optional optimization; an
-  operator outside its FP64 bound is optimized either way. Resolve discoverable
-  versions, device IDs and launch commands during environment preparation.
-</output>
-
-<next>
-  Retrieve community records. A missing grant blocks only its dependent work.
-</next>
+  <record>
+    <required>Scope, pins, resource limits, acceptance profile and open items.</required>
+    <completion_goal record_in="request.json, case-state.json">
+      <route when="measure or diagnose only" action="omit"/>
+      <route when="require acceptance" value="restore_original_acceptance"/>
+      <route when="require a named defect fixed and acceptance" value="repair_defect_and_restore_acceptance"/>
+      <require when="named defect">Record defect_id in request.json.</require>
+    </completion_goal>
+    <original_contract when="completion_goal set" freeze="before formal capture">
+      <fields>workload_sha256, base_sha256, criterion_sha256</fields>
+    </original_contract>
+    <community_contribution>
+      <default>The request template offers anonymous review by NumericBridge.</default>
+      <fields when="user chose">consent (share or decline), attribution_mode, attribution_name, confirmed_at</fields>
+      <route when="no choice">Leave consent unset. Do not ask during request confirmation.</route>
+    </community_contribution>
+    <operator_optimize>
+      <defaults enabled="false" max_attempts="8"/>
+      <rule>A confirmed out-of-bound operator still requires an optimization round.</rule>
+    </operator_optimize>
+  </record>
+  <route to="community_lookup"/>
+</request>
 ```
-
-## Ask the user
-
-The user is involved at two points only:
-
-- **Request intake**: target, scope, allowed hosts and devices, budget and
-  non-default acceptance criteria, confirmed once. Later sessions resume from
-  `request.json` without asking.
-- **Access**: a credential, account or permission the agent cannot obtain
-  (rejected key or login, missing account, no read/write permission, a required
-  shared-system or driver change, moving non-public data to a host outside the
-  request). First try connection options, alternative sources and case-private
-  workarounds, retry transient failures with backoff, and finish all work that
-  does not depend on the access.
-
-## Decide without asking
-
-Decide everything else and record it in `request.json` under `decisions` with a
-one-line reason, including: capture mode, instrumentation and diagnostic patches
-in case-private copies or environments; case-private environments and
-dependencies; download sources and mirrors; transfer of public checkpoints,
-inputs and numerical results between the request's hosts; disk use up to half of
-the case volume's free space; how the budget is split; diagnosis rounds;
-diagnostic variants (eager, FP32/FP64 reference, a reference framework), which
-do not change the task scope; retries after setup or resource failures; and
-waiting for busy devices instead of preempting jobs. Keep the model, dtype, task
-scope and acceptance limits as requested. When the budget is spent, deliver a
-partial result. Prepare community records and upstream PRs as local drafts.
-
-Continue with [community retrieval](workflow.md#route-community-results).
