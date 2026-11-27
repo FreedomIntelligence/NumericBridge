@@ -85,3 +85,28 @@ for the token in a prompt, tool call, or log. Status values include
 `pending_review`, `needs_information`, `accepted`, `declined`, and `published`;
 a result can also include `superseded_by` or linked PRs. Use `search_community`
 to verify a published case is live in the deployed search index.
+
+## Recover a legacy checkpoint
+
+If local delivery is complete but an older checkpoint asks for a catalog
+archive, leave the original checkout, measurements and request unchanged.
+Install the [local contribution dependencies](requirements-mcp.txt) in an
+isolated interpreter and run from the **current verified tooling checkout**:
+
+```sh
+python -B -m community.contribution_resume --case-dir CASE --drafts PRIVATE_DRAFTS
+```
+
+The command finds the typed input from the old checkpoint, validates local
+delivery, fetches the official catalog and writes a digest-bound local preview.
+It does not edit the case, rerun it, ask for consent, or call intake. Do not
+transfer the full case or raw evidence to this tool's catalog endpoint.
+
+`setup_required` means the local tool or its inputs are not ready;
+`catalog_unavailable` is a service/cache validation blocker, not a request for
+an archive. `preview_ready` with `awaiting_consent` is a verified preview, not
+approval. Show the exact draft and use the normal consent-aware submission tool
+only when authorized (set its `--drafts` to the same private directory).
+`already_received` reuses a bound receipt; `receipt_unverified` requires
+reconciliation and must not trigger a second send. A local-only decision stays
+local.

@@ -2,7 +2,7 @@
 
 ## Stages and handoffs
 
-Tools: [workflow plan](../../precision-compare/references/comparison.md#shared-tasks), [checkpoint](../../precision-compare/scripts/case_state.py), [upstream status](../../precision-compare/scripts/upstream_status.py).
+Tools: [workflow plan](../../precision-compare/references/comparison.md#shared-tasks), [durable execution and minimal exchange](../../precision-compare/references/automation.md), [checkpoint](../../precision-compare/scripts/case_state.py), [upstream status](../../precision-compare/scripts/upstream_status.py).
 
 ```xml
 <workflow_rules>
@@ -22,7 +22,8 @@ Tools: [workflow plan](../../precision-compare/references/comparison.md#shared-t
 
   <resume>
     <action>Validate the checkpoint first. Reconcile jobs, reuse evidence, and load only the current method.</action>
-    <rule>A reply ends a turn. Any authorized caller can resume the same case.</rule>
+    <action when="verified adapters available">Bind the plan and run it. For long authorized remote stages use the bounded controller; record its report and workspace in the checkpoint.</action>
+    <rule>A reply ends a turn, not a detached authorized controller. Any authorized caller can resume the same plan and workspace. A legacy PID alone is not an adoptable job; reconcile it separately before enabling any fresh launch.</rule>
     <route when="missing or invalid checkpoint">Recover from verified evidence and job records. Do not start over.</route>
     <route when="in_progress and runnable">Start one turn with the same grant and next_action.</route>
     <route when="job still running">Wait for a signal or bounded check. Do not relaunch or loop on unchanged state.</route>
@@ -92,6 +93,7 @@ Method: [framework-adapt](../../framework-adapt/SKILL.md#native-preflight).
 ```xml
 <stage id="environment">
   <action>Prepare each side independently. Reuse valid readiness evidence.</action>
+  <check when="vLLM on 910C or B200">Use the shared native launcher for fixed model files, explicit device namespace, process occupancy, runtime imports and visibility, and clean private IPC. Environment success does not show native readiness.</check>
   <check when="not verified">Check device, native path and capture in the first formal batch. Retain valid samples.</check>
   <exception>Run separate preflight only before a costly or risky launch.</exception>
   <output>Launch command, execution profile, runtime receipt and gaps.</output>
@@ -110,6 +112,7 @@ Methods: [capture](../../precision-compare/SKILL.md#collect), [default batch](..
   <rule>Pair online RL at matching histories. Disagreement does not identify the wrong side.</rule>
   <check>Use independent A/B captures, observed dtype, nb-default-v1 and exact checks.</check>
   <check>Bind same-side repeats to their primary reports with --noise-for.</check>
+  <transfer when="inference evidence must cross hosts">Use the approved minimal exchange protocol. Only top-100 ID inventories go to the authorized peer; only verified reviewer-addressed summaries go to the authorized comparison destination. Keep raw logs and full rows in place. No transfer without the specific grant.</transfer>
   <check when="completion_goal set">Use request.original_contract. Embed tested_identity from the unchanged baseline onward.</check>
   <output>Workload, stack versions, coverage, metrics and verdict.</output>
   <route when="one side only">Report standalone checks, not A/B acceptance. Stay partial if A/B was required.</route>
@@ -223,6 +226,7 @@ Methods: [submission guide](../../precision-compare/references/community-records
   <check tool="community_contribution_capabilities">Public accepts new anonymous drafts. Named credit requires authenticated intake.</check>
   <check tool="check_contribution_catalog">Use the official catalog resolved by the local contribution tool. Never ask the contributor for archives, paths or checksums. Do not use a search index or stale workspace as a validation baseline.</check>
   <prepare tool="prepare_contribution">Scan private identifiers. Review public and maintainer-only contents.</prepare>
+  <resume when="legacy catalog blocker or local MCP not mounted">From a verified current tooling checkout run python -B -m community.contribution_resume --case-dir CASE --drafts PRIVATE_DRAFTS. It validates the old delivery and makes a local preview only, without replacing the case's tested identity. Treat setup_required, catalog_unavailable and preview_ready/awaiting_consent as different states. Never reconstruct a send from an unverified receipt or repeat the evaluation.</resume>
   <route when="catalog_unavailable">Preserve the local result and sanitized draft source, record the error and contribution resume action, and report the blocker. Do not ask the user to choose local-only just because the service is unavailable. Retry preparation on resume without rerunning evaluation.</route>
   <check when="patch">Verify the pinned target template and exact tested diff.</check>
   <record>Save community_draft_sha256 for the current preview. After edits, prepare and review a new draft.</record>

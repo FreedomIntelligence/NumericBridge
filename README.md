@@ -56,6 +56,8 @@ The [workflow](skills/numericbridge/references/workflow.md) loads only the metho
 
 Task recipes: [Inference](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md).
 
+[Two-side automation](skills/precision-compare/references/automation.md) covers validated plans, bounded remote resume, native vLLM preflight on Ascend 910C and B200, and explicitly granted minimal inference evidence exchange. For a completed legacy case held at catalog validation, [recover its official preview](community/numeric-workflow-integration.md#recover-a-legacy-checkpoint) without reevaluating or submitting it.
+
 ## Typical cases
 
 Browse the [public case library](https://numericbridge.com/#/cases) and [measured reports](https://numericbridge.com/paper.html). Published records and evidence are served separately; the workflow checkout and the current Skills release do not contain them.

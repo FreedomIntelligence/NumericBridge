@@ -84,6 +84,9 @@ import time
 
 from .conditions import canonical, load_json
 from .record_run import load_execution, record_run, summarize_run
+from .remote_stage import MAX_PROFILE, WAIT as REMOTE_WAIT, load as load_remote, profile as validate_remote
+
+REMOTE_WRAPPER = Path(__file__).with_name('remote_stage.py')
 
 SKILLS = {'framework-adapt', 'precision-compare', 'precision-repair', 'operator-optimize'}
 ACCEPTANCE_ROUTES = {
@@ -142,9 +145,9 @@ def fingerprint(path, symlinks=True, ancestors=frozenset()):
     return dict(kind='file', sha256=h.hexdigest(), bytes=after.st_size)
 
 
-def _plan(path):
+def _plan(path, spec=None):
     path = Path(path).resolve()
-    spec = load_json(path)
+    spec = load_json(path) if spec is None else spec
     _require(isinstance(spec, dict) and spec.get('schema_version') == 1, 'plan schema_version must be 1')
     _require(isinstance(spec.get('id'), str) and ID.fullmatch(spec['id']), 'invalid workflow id')
     _require(_positive(spec.get('budget_seconds')), 'positive budget_seconds required')
@@ -161,6 +164,18 @@ def _plan(path):
         _require(isinstance(name, str) and ID.fullmatch(name) and name not in by_id, 'unique stage IDs required')
         _require(stage.get('skill') in SKILLS, 'unknown stage skill')
         _require(stage.get('on_check_failure', stage['skill']) in SKILLS, 'unknown check-failure skill')
+        if 'remote_profile' in stage:
+            value = stage['remote_profile']
+            _require(isinstance(value, str) and value and '{' not in value and '}' not in value,
+                     'remote_profile must name a fixed trusted profile file')
+            _require('argv' not in stage and 'execution' not in stage and stage.get('cache', True) is True,
+                     'remote stage supplies its own argv, execution context and cache')
+            _require(stage.get('outputs') == {'receipt': 'remote.json'},
+                     'remote stage has one local output: the terminal receipt')
+            validate_remote(load_remote(root / value, MAX_PROFILE))
+            stage['argv'] = [sys.executable, '-B', str(REMOTE_WRAPPER), 'run', '--profile', str(root / value),
+                             '--key', '{stage_key}', '--output', '{run}/remote.json']
+            stage['inputs'] = [*stage.get('inputs', []), value, str(REMOTE_WRAPPER)]
         argv = stage.get('argv')
         _require(isinstance(argv, list) and argv and all(isinstance(x, str) and '\0' not in x for x in argv) and argv[0], 'literal argv required')
         _require(not any(x.startswith('TODO') for x in argv), 'stage ' + str(name) + ' argv contains a TODO placeholder')
@@ -327,7 +342,11 @@ def _recover(workspace, state):
                     and metadata.get('end') and _positive(wall)):
                 receipt.update(status='pending_validation', returncode=0)
                 continue
-        receipt.update(status='interrupted', reason='previous runner ended before recording verified outputs')
+        if receipt['identity']['stage'].get('remote_profile'):
+            # An SSH/controller exit says nothing about the existing remote reservation.
+            receipt.update(status='remote_wait', reason='reconcile the same remote reservation after controller exit')
+        else:
+            receipt.update(status='interrupted', reason='previous runner ended before recording verified outputs')
 
 
 def _execution(stage, root, completed):
@@ -338,10 +357,11 @@ def _execution(stage, root, completed):
     return (root / value).resolve()
 
 
-def _argv(stage, root, run, completed):
+def _argv(stage, root, run, completed, key=None):
     def replace(match):
         return completed[match[1]]['outputs'][match[2]]['path']
-    return [TOKEN.sub(replace, arg).replace('{root}', str(root)).replace('{run}', str(run))
+    return [key if 'remote_profile' in stage and arg == '{stage_key}' else
+            TOKEN.sub(replace, arg).replace('{root}', str(root)).replace('{run}', str(run))
             for arg in stage['argv']]
 
 
@@ -464,6 +484,11 @@ def _finish(root, stage, receipt, key, completed, folder, command, workload):
                    returncode=command['returncode'])
     if command['status'] == 'completed':
         _validate_outputs(receipt, stage, folder, key, root, completed, workload)
+    elif 'remote_profile' in stage and (command['returncode'] == REMOTE_WAIT
+                                        or command['status'] in ('timed_out', 'interrupted')):
+        receipt.update(status='remote_wait', reason='remote stage awaiting verified terminal receipt')
+    elif 'remote_profile' in stage and command['returncode'] != 1:
+        receipt.update(status='remote_uncertain', reason='remote terminal state is unverified; reconcile the original reservation')
     else:
         receipt['reason'] = 'native command ' + command['status']
 
@@ -481,6 +506,10 @@ def _prepare(spec, root, stage, workspace, state, completed, entries, execute, f
     except (OSError, ValueError) as exc:
         return _action(stage, str(exc))
     same = latest and latest['key'] == key
+    recovering_remote = latest and latest['status'] in ('remote_wait', 'remote_uncertain')
+    if recovering_remote and not same:
+        return _action(stage, 'remote stage identity changed while waiting; reconcile the original reservation first',
+                       latest, state='interrupted')
     recovered = False
     if latest and name not in forced and latest['status'] == 'pending_validation' and not same:
         return _action(stage, 'terminal inputs changed; reconcile prior run', latest, state='interrupted')
@@ -490,7 +519,7 @@ def _prepare(spec, root, stage, workspace, state, completed, entries, execute, f
         folder = Path(latest['run'])
         command = load_json(folder / 'command.json')
         profile, _ = load_execution(_execution(stage, root, completed))
-        if command.get('cwd') != str(root) or command.get('argv') != profile.get('argv_prefix', []) + _argv(stage, root, folder, completed):
+        if command.get('cwd') != str(root) or command.get('argv') != profile.get('argv_prefix', []) + _argv(stage, root, folder, completed, key):
             latest.update(status='invalid_outputs', reason='terminal command does not match reserved stage')
         else:
             latest['status'] = 'completed'
@@ -501,7 +530,10 @@ def _prepare(spec, root, stage, workspace, state, completed, entries, execute, f
         completed[name] = latest
         entries.append(_entry(latest, reused=True))
         return None
-    if same and name not in forced and latest['status'] != 'completed':
+    if recovering_remote and not execute:
+        return _action(stage, latest['reason'], latest,
+                       state='observe_remote' if latest['status'] == 'remote_wait' else 'action_required')
+    if same and name not in forced and latest['status'] != 'completed' and not recovering_remote:
         return _action(stage, latest.get('reason', latest['status']), latest)
     if live_dependents:
         return _action(stage, 'waiting for live dependents: ' + ', '.join(sorted(live_dependents)),
@@ -527,7 +559,9 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
         if any(dep in forced for dep in stage['depends_on']):
             forced.add(stage['id'])
     live = {r['stage']: r for r in state['history'] if r['status'] == 'running'}
-    refreshing_live = sorted(forced & live.keys())
+    waiting_remote = {s['id'] for s in stages if (_latest(state, s['id']) or {}).get('status')
+                      in ('remote_wait', 'remote_uncertain')}
+    refreshing_live = sorted(forced & (live.keys() | waiting_remote))
     _require(not refreshing_live, 'cannot refresh stages while their recorded children may be running: '
              + ', '.join(refreshing_live))
     observed_budget = sum(r['timeout'] for r in live.values())
@@ -577,7 +611,7 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
                                    outputs={}, run_prefix=f"{stage['side']}-{task}-", timeout=timeout, wall_seconds=0)
                     state['history'].append(receipt)
                     _save(workspace, state)
-                    argv = lambda run, stage=stage: _argv(stage, root, run, completed)
+                    argv = lambda run, stage=stage, key=key: _argv(stage, root, run, completed, key)
                     submit = pool.submit if pool else _inline
                     future = submit(record_run, workspace / 'runs', stage['side'], task, timeout, argv, root,
                                     execution=_execution(stage, root, completed))
@@ -591,7 +625,8 @@ def _walk(spec, root, stages, workspace, state, execute, refresh, deadline=None,
                 _finish(root, stage, receipt, key, completed, folder, command, workload)
                 _save(workspace, state)
                 if receipt['status'] != 'completed':
-                    actions.append(_action(stage, receipt.get('reason', receipt['status']), receipt))
+                    actions.append(_action(stage, receipt.get('reason', receipt['status']), receipt,
+                                           state='observe_remote' if receipt['status'] == 'remote_wait' else 'action_required'))
                 else:
                     completed[stage['id']] = receipt
                     entries.append(_entry(receipt, reused=False))
@@ -619,6 +654,25 @@ def run_workflow(plan_path, workspace, refresh=(), time_budget_seconds=None, job
         result = _walk(spec, root, stages, workspace, state, True, refresh, deadline, jobs)
         _save(workspace, state)
         return result
+
+
+def watch_workflow(plan_path, workspace, *, seconds, interval=15, jobs=1):
+    """Bounded controller for a verified plan; independent branches run while a remote stage waits."""
+    _require(_positive(seconds) and _positive(interval), 'watch duration and interval must be positive')
+    _require(interval >= 1, 'watch interval must be at least one second')
+    deadline = time.monotonic() + seconds
+    plan_identity = fingerprint(plan_path)
+    report = None
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        _require(fingerprint(plan_path) == plan_identity, 'plan changed during watch; stop and reconcile before restarting')
+        report = run_workflow(plan_path, workspace, time_budget_seconds=remaining, jobs=jobs)
+        if not any(a['state'] in ('observe', 'observe_remote') for a in report['blocked_actions']):
+            return report
+        time.sleep(max(0, min(interval, deadline - time.monotonic())))
+    return dict(report or inspect_workflow(plan_path, workspace), watch='deadline_reached', retry_after_seconds=interval)
 
 
 def inspect_workflow(plan_path, workspace):
@@ -724,9 +778,35 @@ def init_plan(task, sides, plan_id=None, *, preflight_sides=(), dtype=None):
                 workload=dict(task=task, sides=list(sides)), stages=stages)
 
 
+def bind_plan(template, bindings, output):
+    """Fill an existing plan with trusted case-owned stage adapters; never execute it."""
+    template, output = Path(template).resolve(), Path(output).resolve()
+    _require(template.parent == output.parent, 'Write bound plan beside its template to preserve relative paths')
+    spec, overlays = load_json(template), load_json(bindings)
+    stages = {stage['id']: stage for stage in spec['stages']}
+    _require(isinstance(overlays, dict) and set(overlays) <= set(stages), 'bindings must name existing stages')
+    permitted = {'argv', 'inputs', 'outputs', 'execution', 'timeout', 'checks', 'env_keys', 'remote_profile', 'cache'}
+    for name, overlay in overlays.items():
+        _require(isinstance(overlay, dict) and set(overlay) <= permitted,
+                 'stage binding may change launch and outputs, not the DAG or acceptance routing')
+        stage = stages[name]
+        if 'remote_profile' in overlay:
+            stage.pop('argv', None)
+            stage.pop('execution', None)
+        stage.update(overlay)
+    _plan(output, spec)
+    with output.open('x') as stream:
+        json.dump(spec, stream, indent=2, allow_nan=False)
+        stream.write('\n')
+    return output
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.partition('\n\nDetails:\n')[0], formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', choices=('run', 'status', 'init'))
+    parser.add_argument('command', choices=('run', 'status', 'init', 'bind', 'watch'))
+    parser.add_argument('--bindings')
+    parser.add_argument('--watch-seconds', type=float)
+    parser.add_argument('--poll-seconds', type=float)
     parser.add_argument('--plan')
     parser.add_argument('--workspace')
     parser.add_argument('--refresh', action='append', default=[])
@@ -741,6 +821,11 @@ def main(argv=None):
     parser.add_argument('--output')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'bind':
+            _require(args.plan and args.bindings and args.output, 'bind requires --plan, --bindings and --output')
+            print(json.dumps(dict(plan=str(bind_plan(args.plan, args.bindings, args.output)), runnable=True)))
+            return 0
+        _require(args.bindings is None, '--bindings applies to bind')
         if args.command == 'init':
             _require(args.task and args.sides and args.output, 'init requires --task, --sides A,B and --output')
             plan = init_plan(args.task, args.sides.split(','), args.id, preflight_sides=args.preflight, dtype=args.dtype)
@@ -751,11 +836,17 @@ def main(argv=None):
                                   if any(x.startswith('TODO') for x in s['argv'])])))
             return 0
         _require(not args.preflight and args.dtype is None, '--preflight and --dtype apply to init')
-        _require(args.plan and args.workspace, 'run/status require --plan and --workspace')
-        _require(args.command == 'run' or not (args.refresh or args.time_budget_seconds is not None or args.jobs != 1),
-                 '--refresh, --time-budget-seconds and --jobs apply to run')
-        report = (run_workflow(args.plan, args.workspace, args.refresh, args.time_budget_seconds, args.jobs)
-                  if args.command == 'run' else inspect_workflow(args.plan, args.workspace))
+        _require(args.plan and args.workspace, 'run/status/watch require --plan and --workspace')
+        if args.command == 'watch':
+            _require(not args.refresh and args.time_budget_seconds is None, 'watch does not refresh or replace its time budget')
+            report = watch_workflow(args.plan, args.workspace, seconds=args.watch_seconds,
+                                    interval=15 if args.poll_seconds is None else args.poll_seconds, jobs=args.jobs)
+        else:
+            _require(args.watch_seconds is None and args.poll_seconds is None, 'watch options require watch')
+            _require(args.command == 'run' or not (args.refresh or args.time_budget_seconds is not None or args.jobs != 1),
+                     '--refresh, --time-budget-seconds and --jobs apply to run')
+            report = (run_workflow(args.plan, args.workspace, args.refresh, args.time_budget_seconds, args.jobs)
+                      if args.command == 'run' else inspect_workflow(args.plan, args.workspace))
     except (OSError, ValueError, KeyError, TypeError, OverflowError) as exc:
         print(json.dumps(dict(status='error', reason=str(exc))))
         return 2

@@ -15,6 +15,7 @@ Methods: [acceptance](../../precision-compare/references/acceptance.md), [commun
     <scope>Keep pinned versions, model, dtype and workload. Resolve launch details during setup.</scope>
     <resources>Reuse grants. Check access and disk quota. Ask before exceeding the grant.</resources>
     <approval>Ask before changing shared systems or moving private data outside authorized hosts.</approval>
+    <exchange when="cross-host inference">If authorized, record allowed fields, source, peer and local comparison destination once. Default: no private transfer. A peer inventory grant does not permit sending scores to the peer or posting to the community; bind the exact per-run artifacts before export.</exchange>
     <fallback>Try in-scope alternatives or wait for busy devices. Report partial results if budget ends.</fallback>
     <acceptance>Use nb-default-v1. Do not ask for thresholds or change them after observing results.</acceptance>
     <decisions>Choose routine setup, capture, controls and retries within the grant. Log material choices.</decisions>

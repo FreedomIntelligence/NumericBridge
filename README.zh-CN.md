@@ -56,6 +56,8 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 
 任务配方：[推理](skills/precision-compare/references/inference.md) · [SFT](skills/precision-compare/references/sft.md) · [RL](skills/precision-compare/references/rl.md)。
 
+[双端自动化](skills/precision-compare/references/automation.md)包括可执行计划、有界后台续跑、Ascend 910C 与 B200 的原生 vLLM 预检，以及经明确授权的最小推理证据交换。对已完成本地评测但卡在目录校验的旧案例，可[恢复正式预览](community/numeric-workflow-integration.md#recover-a-legacy-checkpoint)，无需重评或提交。
+
 ## 典型案例
 
 实测案例见[社区案例库](https://numericbridge.com/#/cases)及[结果与证据](https://numericbridge.com/paper.html)。公开记录和证据由官网独立提供，不随工作流检出或当前 Skills 发行包分发。
