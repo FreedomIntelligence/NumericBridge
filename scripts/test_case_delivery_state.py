@@ -105,6 +105,51 @@ class CaseDeliveryTests(unittest.TestCase):
                             for row in summary['candidates']))
         self.assertTrue(all(row['review_state'] == 'pending_review' for row in summary['community']))
 
+    def test_default_diagnosis_cannot_be_replaced_by_a_submission_receipt(self):
+        state = dict(checkpoint(), failure_policy='diagnose')
+        for status, next_action in (('done', None), ('in_progress', 'Prepare the draft')):
+            state.update(status=status, next_action=next_action)
+            self.assertInvalid(state, 'fail requires evidence of completed diagnosis', request={'failure_policy': 'diagnose'})
+        state.update(stage='delivery', status='partial', next_action=None,
+                     open_items=['No discriminating cause established'], resume_when='Native layer probes available')
+        state['delivery_summary'].pop('community')
+        state['delivery_summary']['delivery']['outcome'] = 'partial'
+        self.assertEqual(validate(state, request={'failure_policy': 'diagnose'})['status'], 'ok')
+
+    def test_confirmed_measure_only_is_allowed_but_cannot_replace_diagnose(self):
+        state = dict(checkpoint(), failure_policy='measure_only')
+        self.assertInvalid(state, 'requires an explicit community review request', request={'failure_policy': 'measure_only'})
+        request = {'failure_policy': 'measure_only', 'community_contribution': {'review_requested': True}}
+        self.assertEqual(validate(state, request=request)['status'], 'ok')
+        self.assertInvalid(state, 'checkpoint failure_policy must match', request={'failure_policy': 'diagnose'})
+        self.assertInvalid(dict(state, completion_goal=REPAIR_GOAL), 'measure_only is not compatible')
+        self.assertInvalid(dict(state, failure_policy='guess'), 'failure_policy must be diagnose or measure_only')
+
+    def test_diagnosed_failure_checks_local_evidence_not_just_a_reference(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            request = {'failure_policy': 'diagnose'}
+            state = dict(template(), status='done', stage='delivery', next_action=None,
+                         failure_policy='diagnose', delivery='report.md')
+            (root / 'report.md').write_text('Report')
+            summary = state['delivery_summary']
+            summary['original'] = acceptance(root, 'baseline', 2)
+            self.assertEqual(summary['original']['verdict'], 'fail')
+            delivery = summary['delivery'] = dict(outcome='bounded_attribution', evidence=['diagnosis.json'],
+                                                  diagnosis_evidence='diagnosis.json')
+            self.assertInvalid(state, 'cannot read diagnosis evidence', request=request, case_dir=root)
+            diagnosis = {'kind': 'diagnosis', 'schema_version': 1, 'trigger': {'verdict': 'fail'},
+                         'conclusion': {'classification': 'unresolved', 'summary': 'No cause established'},
+                         'checks': [{'finding': 'Controlled operator A/B', 'evidence': ['probe.json']}]}
+            saved = root / 'diagnosis.json'
+            saved.write_text(json.dumps(diagnosis))
+            self.assertInvalid(state, 'unresolved cases stay partial', request=request, case_dir=root)
+            diagnosis['conclusion'].update(classification='expected_policy', summary='Confirmed different reduction policy')
+            saved.write_text(json.dumps(diagnosis))
+            self.assertEqual(validate(state, request=request, case_dir=root)['status'], 'ok')
+            delivery['evidence'].clear()
+            self.assertInvalid(state, 'listed in delivery.evidence', request=request, case_dir=root)
+
     def test_terminal_delivery_rejects_partial_outcome_and_active_jobs(self):
         state = dict(template(), status='done', stage='delivery', next_action=None,
                      delivery='report.md', running_jobs=[dict(host='a', job_or_pid='job-1', check_command='status job-1')])

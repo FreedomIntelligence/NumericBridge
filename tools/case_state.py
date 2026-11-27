@@ -53,6 +53,11 @@ delivery_summary schema_version 1:
   the requested defect_id if specified. For restore_original_acceptance only,
   an unchanged accepted run can close; use acceptance_retested after a failure.
 
+New requests record failure_policy (diagnose by default, or explicit
+measure_only) in both request and checkpoint. A diagnosed fail delivered as
+bounded attribution requires delivery_summary.delivery.diagnosis_evidence.
+Older records without a policy keep their original validation contract.
+
 Done or partial delivery requires reconciled jobs. Done cannot claim
 outcome=partial or carry required open_items. Partial names the resume condition.
 `template` initializes the delivery summary.
@@ -78,6 +83,7 @@ REJECTED = {'active_jobs': 'running_jobs', 'waiting_jobs': 'running_jobs', 'nati
 _RESTORE_ACCEPTANCE = 'restore_original_acceptance'
 _REPAIR_DEFECT = 'repair_defect_and_restore_acceptance'
 _COMPLETION_GOALS = (_RESTORE_ACCEPTANCE, _REPAIR_DEFECT)
+_FAILURE_POLICIES = ('diagnose', 'measure_only')
 _ACCEPTED = ('pass', 'gap')
 _NONPASSING = ('fail', 'noise_limited')
 _ACCEPTED_OUTCOMES = ('acceptance_passed', 'acceptance_restored', 'acceptance_retested')
@@ -409,7 +415,41 @@ def _verify_repair_delivery(original, verdict, refs, delivery, candidates, curre
                 _local_file(case_dir, trigger.get(key), path + f'.original.baseline.native_failure.{key}', problems)
 
 
-def _delivery_summary(summary, problems, *, done, goal, request, case_dir):
+def _diagnosis_delivery(delivery, problems, *, case_dir):
+    ref = delivery.get('diagnosis_evidence')
+    path = 'delivery_summary.delivery.diagnosis_evidence'
+    refs = delivery.get('evidence')
+    if not _nonblank(ref) or not isinstance(refs, list) or ref not in refs:
+        problems.append(f'{path}: fail requires evidence of completed diagnosis, listed in delivery.evidence')
+        return
+    if case_dir is None:
+        return
+    try:
+        root = Path(case_dir).resolve()
+        relative = Path(ref)
+        if relative.is_absolute() or '..' in relative.parts:
+            raise ValueError('use a case-relative diagnosis file')
+        saved = (root / relative).resolve()
+        if not saved.is_relative_to(root):
+            raise ValueError('diagnosis file must stay in the case directory')
+        report = json.loads(saved.read_text(encoding='utf-8'))
+    except (OSError, ValueError, RuntimeError) as exc:
+        problems.append(f'{path}: cannot read diagnosis evidence: {exc}')
+        return
+    trigger = report.get('trigger') if isinstance(report, dict) else None
+    conclusion = report.get('conclusion') if isinstance(report, dict) else None
+    checks = report.get('checks') if isinstance(report, dict) else None
+    if (not isinstance(report, dict) or report.get('kind') != 'diagnosis' or report.get('schema_version') != 1
+            or not isinstance(trigger, dict) or trigger.get('verdict') != 'fail'
+            or not isinstance(conclusion, dict) or not _nonblank(conclusion.get('summary'))
+            or conclusion.get('classification') not in ('expected_policy', 'inherent_difference', 'supported_defect')
+            or not isinstance(checks, list) or not any(isinstance(check, dict) and _nonblank(check.get('finding'))
+                and isinstance(check.get('evidence'), list) and any(_nonblank(item) for item in check['evidence'])
+                for check in checks)):
+        problems.append(f'{path}: fail requires a concluded diagnosis with supporting checks; unresolved cases stay partial')
+
+
+def _delivery_summary(summary, problems, *, done, goal, failure_policy, request, case_dir):
     path = 'delivery_summary'
     if not isinstance(summary, dict):
         problems.append(f'{path} must be an object')
@@ -453,6 +493,8 @@ def _delivery_summary(summary, problems, *, done, goal, request, case_dir):
                             'or not_run with reproduced native failure')
         if done and outcome == 'partial':
             problems.append(f'{path}.delivery outcome partial is not a done delivery')
+        if done and verdict == 'fail' and failure_policy == 'diagnose' and outcome == 'bounded_attribution':
+            _diagnosis_delivery(delivery, problems, case_dir=case_dir)
     candidates = summary.get('candidates')
     current = _candidates(candidates, path + '.candidates', problems)
     if done and case_dir is not None:
@@ -550,11 +592,26 @@ def validate(state, *, request=None, case_dir=None):
             problems.append(f'request.completion_goal must be {valid_goals} when supplied')
         elif completion_goal != request.get('completion_goal'):
             problems.append('checkpoint completion_goal must match the confirmed request')
+    failure_policy = state.get('failure_policy')
+    if 'failure_policy' in state and failure_policy not in _FAILURE_POLICIES:
+        problems.append('failure_policy must be diagnose or measure_only')
+    if isinstance(request, dict):
+        requested_policy = request.get('failure_policy')
+        if 'failure_policy' in request and requested_policy not in _FAILURE_POLICIES:
+            problems.append('request.failure_policy must be diagnose or measure_only')
+        if failure_policy != requested_policy:
+            problems.append('checkpoint failure_policy must match the confirmed request')
+    if failure_policy == 'measure_only' and completion_goal in _COMPLETION_GOALS:
+        problems.append('measure_only is not compatible with a repair completion_goal')
     sharing = request.get('community_contribution') if isinstance(request, dict) else None
     summary = state.get('delivery_summary')
     share_requested = isinstance(sharing, dict) and sharing.get('consent') == 'share'
     if status == 'done' and share_requested and not community_stage:
         problems.append('done with recorded share consent requires resolving the community_contribution stage')
+    if community_stage and failure_policy in _FAILURE_POLICIES and isinstance(request, dict) and not (
+        share_requested or (isinstance(sharing, dict) and sharing.get('review_requested') is True)
+    ):
+        problems.append('community contribution requires an explicit community review request or recorded share consent')
     if community_stage or (status == 'done' and share_requested):
         _community_completion(state, summary, problems)
     repair = completion_goal in _COMPLETION_GOALS
@@ -566,7 +623,8 @@ def validate(state, *, request=None, case_dir=None):
     if status == 'partial' and not _nonblank(state.get('resume_when')):
         problems.append(f'partial {label} requires resume_when')
     if 'delivery_summary' in state:
-        _delivery_summary(summary, problems, done=local_complete, goal=completion_goal, request=request, case_dir=case_dir)
+        _delivery_summary(summary, problems, done=local_complete, goal=completion_goal, failure_policy=failure_policy,
+                          request=request, case_dir=case_dir)
     return dict(status='ok' if not problems else 'invalid', problems=problems)
 
 

@@ -23,6 +23,11 @@ Methods: [acceptance](../../precision-compare/references/acceptance.md), [commun
 
   <record>
     <required>Scope, pins, resource limits, acceptance profile and open items.</required>
+    <failure_policy record_in="request.json, case-state.json">
+      <default value="diagnose">For new cases, diagnose a failed numerical acceptance in the existing grant when no explicit choice is supplied. Record the default; do not ask to confirm it.</default>
+      <route when="user explicitly requests measurement only" value="measure_only">Deliver a verified failure without diagnosis. A comparison or delivery request alone does not mean measurement only.</route>
+      <rule>Record before formal capture and reuse on resume. Do not infer or retrofit this field on legacy pinned cases. A repair completion_goal is incompatible with measure_only.</rule>
+    </failure_policy>
     <completion_goal record_in="request.json, case-state.json">
       <route when="measure or diagnose only" action="omit"/>
       <route when="require acceptance" value="restore_original_acceptance"/>
@@ -33,9 +38,10 @@ Methods: [acceptance](../../precision-compare/references/acceptance.md), [commun
       <fields>workload_sha256, base_sha256, criterion_sha256</fields>
     </original_contract>
     <community_contribution>
-      <default>The request template offers anonymous review by NumericBridge.</default>
-      <fields when="user chose">consent (share or decline), attribution_mode, attribution_name, confirmed_at</fields>
-      <route when="no choice">Leave consent unset. Do not ask during request confirmation.</route>
+      <default>Local delivery. Do not treat the task, handoff or optimization choice as a request to share.</default>
+      <fields when="user requests community review">review_requested=true. A request for a preview does not authorize a send.</fields>
+      <fields when="user approves or declines the exact draft">consent (share or decline), attribution_mode, attribution_name, confirmed_at, reviewed_draft_sha256 and destination when sharing.</fields>
+      <route when="no choice">Leave consent unset and deliver locally. Do not ask during request confirmation.</route>
     </community_contribution>
     <operator_optimize>
       <defaults enabled="false" max_attempts="8"/>

@@ -119,8 +119,8 @@ Methods: [capture](../../precision-compare/SKILL.md#collect), [default batch](..
   <route when="one side only">Report standalone checks, not A/B acceptance. Stay partial if A/B was required.</route>
   <route when="pass or gap without repair goal" to="delivery">Consider optional optimization for a gap only if enabled.</route>
   <route when="pass or gap with repair goal" to="repair">Apply the completion gate; do not skip a named defect.</route>
-  <route when="fail and measurement only" to="delivery">Report the observed failure.</route>
-  <route when="fail otherwise" to="diagnosis"/>
+  <route when="fail and request.failure_policy=measure_only explicitly confirmed" to="delivery">Report the observed failure; do not imply attribution or repair.</route>
+  <route when="fail otherwise" to="diagnosis">Default for new requests, including those that only say to compare and deliver. No separate grant is implied.</route>
   <route when="noise_limited">Stabilize the run.</route>
   <route when="incomplete">Fill missing coverage.</route>
 </stage>
@@ -203,14 +203,16 @@ Methods: [checkpoint validator](../../precision-compare/scripts/case_state.py), 
     <unchanged when="restore_original_acceptance">acceptance_retested</unchanged>
   </outcome>
   <outcome when="other pass or gap">acceptance_passed</outcome>
-  <outcome when="observed failure satisfies request">bounded_attribution with evidence</outcome>
+  <outcome when="fail and explicit measure_only">Deliver the observed failure as bounded_attribution without claiming a cause.</outcome>
+  <outcome when="fail and diagnosis establishes a bounded attribution and no repair completion goal remains">Use bounded_attribution. Run the diagnosis audit and include the supported conclusion and checks in diagnosis.json. Reference that file in delivery_summary.delivery.diagnosis_evidence and delivery.evidence.</outcome>
+  <route when="required diagnosis is unresolved and no authorized decisive check remains">Deliver partial with open_items and resume_when. Do not enter contribution.</route>
   <outcome when="reproduced native failure without numerical acceptance">Use original.native_failure and verdict not_run.</outcome>
   <route when="required work blocked and jobs settled">Deliver partial with open_items and resume_when. Do not submit.</route>
   <output>Write the local report: versions, coverage, criterion, verdict, blockers, focused results and paired metrics.</output>
   <output>Link saved evidence. List optional work and incomplete_drafts separately.</output>
   <check>Apply any repair completion gate. Validate case-state.json against request.json.</check>
-  <route when="local result complete and sharing agreed or pending" to="community_contribution">Keep in_progress and save next_action.</route>
-  <route when="local result complete and no contribution pending">Set done and next_action=null.</route>
+  <route when="local result complete and community review explicitly requested or exact draft already authorized" to="community_contribution">Keep in_progress and save next_action.</route>
+  <route when="local result complete and no explicit contribution request">Deliver locally; set done and next_action=null.</route>
 </stage>
 ```
 
@@ -220,7 +222,7 @@ Methods: [submission guide](../../precision-compare/references/community-records
 
 ```xml
 <stage id="community_contribution">
-  <entry>Local delivery complete. A PASS can be shared without an issue or patch.</entry>
+  <entry>Validate local completion against the confirmed request first. An unresolved required diagnosis or repair is partial and ineligible, regardless of consent or a prior receipt. A complete measured result can be shared without an issue or patch if the task's policy allows it.</entry>
   <boundary>Only submit to NumericBridge. Never open or update upstream PRs/MRs, fork publicly or push.</boundary>
   <boundary>Give runners no upstream write credentials. Maintainers handle upstream filing.</boundary>
   <route when="declined or nothing shareable">Keep local. Do not ask again.</route>
