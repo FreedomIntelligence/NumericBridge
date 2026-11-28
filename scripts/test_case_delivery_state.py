@@ -116,6 +116,48 @@ class CaseDeliveryTests(unittest.TestCase):
         state['delivery_summary']['delivery']['outcome'] = 'partial'
         self.assertEqual(validate(state, request={'failure_policy': 'diagnose'})['status'], 'ok')
 
+    def test_standard_dispatch_requires_contract_before_formal_comparison(self):
+        request = {'failure_policy': 'diagnose', 'completion_goal': REPAIR_GOAL}
+        state = dict(template(), **request)
+        state.update(stage='environment', next_action='Resolve runtime identity')
+        self.assertEqual(validate(state, request=request)['status'], 'ok')
+        state.update(stage='comparison', next_action='Launch original native capture')
+        self.assertInvalid(state, 'formal comparison requires the confirmed original_contract', request=request)
+        request = dict(repair_request(), failure_policy='diagnose')
+        self.assertEqual(validate(state, request=request)['status'], 'ok')
+
+    def test_standard_dispatch_requires_native_acceptance_not_just_a_diagnosis(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            request = dict(repair_request(), failure_policy='diagnose', community_contribution={'review_requested': True})
+            state = dict(template(), completion_goal=REPAIR_GOAL, failure_policy='diagnose', delivery='report.md')
+            (root / 'report.md').write_text('Baseline and follow-up report\n')
+            diagnosis = {'kind': 'diagnosis', 'schema_version': 1, 'trigger': {'verdict': 'fail'},
+                         'conclusion': {'classification': 'expected_policy', 'summary': 'Rounding behavior differs'},
+                         'checks': [{'finding': 'Controlled native comparison', 'evidence': ['baseline.json']}]}
+            (root / 'diagnosis.json').write_text(json.dumps(diagnosis))
+            summary = state['delivery_summary']
+            baseline = acceptance(root, 'baseline', 1.1)
+            self.assertEqual(baseline['verdict'], 'fail')
+            summary.update(original=baseline, delivery=dict(outcome='bounded_attribution', evidence=['diagnosis.json'],
+                                                           diagnosis_evidence='diagnosis.json'))
+            state.update(status='done', stage='delivery', next_action=None)
+            self.assertInvalid(state, 'requires an accepted original outcome', request=request, case_dir=root)
+            state.update(status='in_progress', stage='community_contribution', next_action='Prepare review')
+            self.assertInvalid(state, 'requires an accepted original outcome', request=request, case_dir=root)
+            state.update(stage='diagnosis', next_action='Evaluate an in-scope candidate')
+            self.assertEqual(validate(state, request=request, case_dir=root)['status'], 'ok')
+            summary['delivery']['outcome'] = 'partial'
+            state.update(status='partial', stage='delivery', next_action=None,
+                         open_items=['Original workload failed'], resume_when='An approved native capture can run')
+            self.assertEqual(validate(state, request=request, case_dir=root)['status'], 'ok')
+            accepted = acceptance(root, 'retest', 1.005)
+            self.assertEqual(accepted['verdict'], 'gap')
+            summary.update(original=dict(accepted, baseline=baseline),
+                           delivery=dict(outcome='acceptance_retested', evidence=['retest.json']))
+            state.update(status='in_progress', stage='community_contribution', next_action='Prepare review', open_items=[])
+            self.assertEqual(validate(state, request=request, case_dir=root)['status'], 'ok')
+
     def test_confirmed_measure_only_is_allowed_but_cannot_replace_diagnose(self):
         state = dict(checkpoint(), failure_policy='measure_only')
         self.assertInvalid(state, 'requires an explicit community review request', request={'failure_policy': 'measure_only'})

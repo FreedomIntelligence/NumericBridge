@@ -8,8 +8,8 @@ Tools: [workflow plan](../../precision-compare/references/comparison.md#shared-t
 <workflow_rules>
   <plan>Use workflow.py init per task. Reuse verified stages and run independent sides in parallel.</plan>
   <handoff>Carry request, plan, workspace, tested identities, job records, evidence, diagnosis, budget and next_action.</handoff>
-  <scope>Continue through delivery and eligible contribution under the same grant.</scope>
-  <priority>Advance independent work while blocked. Prioritize actionable open cases over new cases.</priority>
+  <scope>For standard A/B evaluation, keep the case open until the supported original workload produces pass or gap under the fixed acceptance criterion. A failed measurement, a supported attribution, or a focused fix is evidence to continue from, not completion. Only then proceed to eligible contribution.</scope>
+  <priority>Use the same authorized resources across stages. Advance independent work while blocked. Do not wait for confirmation when an actionable check, isolated candidate or original-workload verification is already authorized.</priority>
   <jobs>Track each job to terminal status. Record host, ID or PID, and status command.</jobs>
   <failure>Read failure_class and logs. Retry only in scope; record unverified branches and reproducers.</failure>
 
@@ -114,13 +114,13 @@ Methods: [capture](../../precision-compare/SKILL.md#collect), [default batch](..
   <check>Use independent A/B captures, observed dtype, nb-default-v1 and exact checks.</check>
   <check>Bind same-side repeats to their primary reports with --noise-for.</check>
   <transfer when="inference evidence must cross hosts">Use the approved minimal exchange protocol. Only top-100 ID inventories go to the authorized peer; only verified reviewer-addressed summaries go to the authorized comparison destination. Keep raw logs and full rows in place. No transfer without the specific grant.</transfer>
-  <check when="completion_goal set">Use request.original_contract. Embed tested_identity from the unchanged baseline onward.</check>
+  <check when="completion_goal set">Freeze request.original_contract and validate the comparison checkpoint before formal capture. Embed tested_identity from the unchanged baseline onward. Never replace the locked workload, base or criterion with a candidate's values.</check>
   <output>Workload, stack versions, coverage, metrics and verdict.</output>
   <route when="one side only">Report standalone checks, not A/B acceptance. Stay partial if A/B was required.</route>
-  <route when="pass or gap without repair goal" to="delivery">Consider optional optimization for a gap only if enabled.</route>
-  <route when="pass or gap with repair goal" to="repair">Apply the completion gate; do not skip a named defect.</route>
-  <route when="fail and request.failure_policy=measure_only explicitly confirmed" to="delivery">Report the observed failure; do not imply attribution or repair.</route>
-  <route when="fail otherwise" to="diagnosis">Default for new requests, including those that only say to compare and deliver. No separate grant is implied.</route>
+  <route when="pass or gap on the unchanged original workload with no named defect" to="delivery">Apply the acceptance gate. Retain an earlier failure if this was an unchanged retest. Optional optimization of a gap does not delay accepted delivery.</route>
+  <route when="pass or gap on a candidate or a named defect is requested" to="repair">Apply the completion gate to the exact final candidate and focused verification; do not skip a named defect.</route>
+  <route when="fail and explicit standalone measure_only with no completion_goal" to="delivery">Report the observed failure; do not imply attribution or repair.</route>
+  <route when="fail otherwise" to="diagnosis">Continue within the existing grant; do not deliver a failure as a completed standard A/B evaluation.</route>
   <route when="noise_limited">Stabilize the run.</route>
   <route when="incomplete">Fill missing coverage.</route>
 </stage>
@@ -154,7 +154,8 @@ Method: [repair and verification](../../precision-repair/SKILL.md#patch-and-veri
   <entry>Authorized change and comparable reproducer.</entry>
   <action>Verify the smallest focused fix. Reuse single-change results before testing a combination.</action>
   <check when="original metric worsens">Check for regressions and remaining defects. Keep verified local findings.</check>
-  <route when="execution restored" to="comparison">Collect the original workload again.</route>
+  <route when="candidate is fit for original-workload verification" to="comparison">Collect comparable native evidence for the exact candidate under the fixed original workload and criterion. Reuse unaffected valid captures.</route>
+  <route when="retest still fails and an untried in-scope check can change the decision" to="diagnosis">Keep the baseline and failed candidate evidence. Reopen the remaining difference without weakening the criterion or repeating the same failed check.</route>
   <output>Separate focused results from original-workload acceptance.</output>
   <completion>
     <changed>Keep the baseline. Verify focused fail-before/pass-after and match request.defect_id if specified.</changed>
@@ -203,11 +204,11 @@ Methods: [checkpoint validator](../../precision-compare/scripts/case_state.py), 
     <unchanged when="restore_original_acceptance">acceptance_retested</unchanged>
   </outcome>
   <outcome when="other pass or gap">acceptance_passed</outcome>
-  <outcome when="fail and explicit measure_only">Deliver the observed failure as bounded_attribution without claiming a cause.</outcome>
-  <outcome when="fail and diagnosis establishes a bounded attribution and no repair completion goal remains">Use bounded_attribution. Run the diagnosis audit and include the supported conclusion and checks in diagnosis.json. Reference that file in delivery_summary.delivery.diagnosis_evidence and delivery.evidence.</outcome>
-  <route when="required diagnosis is unresolved and no authorized decisive check remains">Deliver partial with open_items and resume_when. Do not enter contribution.</route>
-  <outcome when="reproduced native failure without numerical acceptance">Use original.native_failure and verdict not_run.</outcome>
-  <route when="required work blocked and jobs settled">Deliver partial with open_items and resume_when. Do not submit.</route>
+  <outcome when="fail and explicit standalone measure_only with no completion_goal">Deliver the observed failure as bounded_attribution without claiming a cause.</outcome>
+  <outcome when="fail and standalone diagnostic scope complete with no completion_goal">Use bounded_attribution only with a supported conclusion and checks in diagnosis.json. Run the diagnosis audit and reference the file in delivery_summary.delivery.diagnosis_evidence and delivery.evidence.</outcome>
+  <outcome when="reproduced native failure without numerical acceptance">Record original.native_failure and verdict not_run. Do not treat it as an accepted result.</outcome>
+  <route when="completion_goal is set and original acceptance is unmet and required work remains runnable">Keep in_progress and record the next action. Continue diagnosis, repair or verification under the existing grant.</route>
+  <route when="required work blocked and jobs settled">Deliver partial with open_items and resume_when. Record the tested evidence, exact blocker and smallest grant or change needed to resume. Do not submit.</route>
   <output>Write the local report: versions, coverage, criterion, verdict, blockers, focused results and paired metrics.</output>
   <output>Link saved evidence. List optional work and incomplete_drafts separately.</output>
   <check>Apply any repair completion gate. Validate case-state.json against request.json.</check>

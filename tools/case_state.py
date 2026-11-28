@@ -322,6 +322,13 @@ def _tested_acceptance(refs, verdict, case_dir, path, problems):
 _CONTRACT_KEYS = ('workload_sha256', 'base_sha256', 'criterion_sha256')
 
 
+def _original_contract(request):
+    contract = request.get('original_contract') if isinstance(request, dict) else None
+    if isinstance(contract, dict) and all(_matches(_DIGEST, contract.get(key)) for key in _CONTRACT_KEYS):
+        return tuple(contract[key] for key in _CONTRACT_KEYS)
+    return None
+
+
 def _focused_report(final, base, change, defect_id, case_dir, path, problems):
     ref = final.get('focused_report')
     if not isinstance(final.get('evidence'), list) or ref not in final['evidence']:
@@ -357,12 +364,9 @@ def _verify_repair_delivery(original, verdict, refs, delivery, candidates, curre
     cid = delivery.get('candidate_id') if isinstance(delivery, dict) else None
     if outcome not in _ACCEPTED_OUTCOMES:
         problems.append('repair done requires an accepted original outcome, not a bounded finding')
-    contract = request.get('original_contract') if isinstance(request, dict) else None
-    locked = None
-    if not isinstance(contract, dict) or not all(_matches(_DIGEST, contract.get(key)) for key in _CONTRACT_KEYS):
+    locked = _original_contract(request)
+    if locked is None:
         problems.append('repair done requires the confirmed request.original_contract workload, base and criterion digests')
-    else:
-        locked = tuple(contract[key] for key in _CONTRACT_KEYS)
     defect_id = request.get('defect_id') if isinstance(request, dict) else None
     if goal == _REPAIR_DEFECT and not _nonblank(defect_id):
         problems.append('specified defect repair requires request.defect_id')
@@ -603,6 +607,9 @@ def validate(state, *, request=None, case_dir=None):
             problems.append('checkpoint failure_policy must match the confirmed request')
     if failure_policy == 'measure_only' and completion_goal in _COMPLETION_GOALS:
         problems.append('measure_only is not compatible with a repair completion_goal')
+    if (state.get('stage') == 'comparison' and status == 'in_progress' and failure_policy == 'diagnose'
+            and completion_goal in _COMPLETION_GOALS and _original_contract(request) is None):
+        problems.append('formal comparison requires the confirmed original_contract workload, base and criterion digests')
     sharing = request.get('community_contribution') if isinstance(request, dict) else None
     summary = state.get('delivery_summary')
     share_requested = isinstance(sharing, dict) and sharing.get('consent') == 'share'

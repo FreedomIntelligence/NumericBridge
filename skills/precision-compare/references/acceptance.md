@@ -40,7 +40,8 @@ when judging that capture. In a workflow plan, declare the capture's identity as
 an output and pass it by artifact reference from a declared dependency. Produce
 new evidence for a changed version. Do not attach a new identity to old metrics.
 
-For a requested repair, freeze `request.json`'s `original_contract` before formal
+For standard A/B evaluation or another acceptance completion goal, freeze
+`request.json`'s `original_contract` before formal
 capture. Use the workload and base digests above and `criterion_sha256` from
 `acceptance.py --criterion-only --dtype DTYPE --optimizer OPTIMIZER`. Use those
 same settings and `--exact-report` for the formal verdict. Do not copy settings
