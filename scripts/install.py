@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
-INSTALLABLE_SKILLS = ('framework-adapt', 'numericbridge', 'operator-optimize', 'precision-compare', 'precision-repair')
+INSTALLABLE_SKILLS = ('framework-adapt', 'numericbridge', 'operator-optimize', 'operator-verify', 'precision-compare', 'precision-repair')
 COMMUNITY_DATA_NAMES = {'community-search.json', 'search-index.json', 'evaluations.json',
                         'repairs.json', 'relations.json'}
 
@@ -55,7 +55,7 @@ def install_skills(source, destination):
             raise FileExistsError(destination / folder.name)
     for folder in folders:
         shutil.copytree(folder, destination / folder.name,
-                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'),
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '.lake'),
                         copy_function=_copy_workflow_file)
         if folder.name == 'precision-compare':
             shutil.copytree(ROOT / 'tools',
