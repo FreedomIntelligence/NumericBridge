@@ -85,8 +85,8 @@ python -B -m scripts validate
 ## Supported by
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-dark.png">
-  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-light.png" alt="Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel and Shenzhen Research Institute of Big Data">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/88c51c49cb5f1da694bfdfd76d88bb3adc4ca0b8/assets/readme-supporters-dark.png">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/88c51c49cb5f1da694bfdfd76d88bb3adc4ca0b8/assets/readme-supporters-light.png" alt="Sun Yat-sen University, CUHK-Shenzhen, Shenzhen Loop Area Institute, China Merchants Lion Rock AI Lab, AutoKernel, Shenzhen Research Institute of Big Data and Huawei">
 </picture>
 
-[Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/) · [Shenzhen Research Institute of Big Data](https://www.sribd.cn/en)
+[Sun Yat-sen University](https://www.sysu.edu.cn/) · [The Chinese University of Hong Kong, Shenzhen](https://www.cuhk.edu.cn/en) · [Shenzhen Loop Area Institute](https://www.slai.edu.cn/en) · [China Merchants Lion Rock AI Lab](https://lionrocklab.com/) · [AutoKernel](https://autokernel.cn/) · [Shenzhen Research Institute of Big Data](https://www.sribd.cn/en) · [Huawei](https://www.huawei.com/en/)

@@ -85,8 +85,8 @@ python -B -m scripts validate
 ## 支持单位
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-dark.png">
-  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/21c6406591393233bd9928e7b28227fc0fe5925b/assets/readme-supporters-light.png" alt="中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司和深圳市大数据研究院">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/88c51c49cb5f1da694bfdfd76d88bb3adc4ca0b8/assets/readme-supporters-dark.png">
+  <img src="https://raw.githubusercontent.com/FreedomIntelligence/NumericBridge-site/88c51c49cb5f1da694bfdfd76d88bb3adc4ca0b8/assets/readme-supporters-light.png" alt="中山大学、香港中文大学（深圳）、深圳河套学院、招商局狮子山人工智能实验室、智子芯元（深圳）科技有限责任公司、深圳市大数据研究院和华为">
 </picture>
 
-[中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/) · [深圳市大数据研究院](https://www.sribd.cn/)
+[中山大学](https://www.sysu.edu.cn/) · [香港中文大学（深圳）](https://www.cuhk.edu.cn/) · [深圳河套学院](https://www.slai.edu.cn/) · [招商局狮子山人工智能实验室](https://lionrocklab.com/) · [智子芯元（深圳）科技有限责任公司](https://autokernel.cn/) · [深圳市大数据研究院](https://www.sribd.cn/) · [华为](https://www.huawei.com/cn/)
