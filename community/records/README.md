@@ -27,6 +27,7 @@ directly and do not depend on a browser or a running site.
 | Hardware, libraries, settings | Evaluation sides or repair environment |
 | Framework under test | Evaluation side `frameworks`, repair `affected_library`, or `data/frameworks.json` for historical observations |
 | Measurements, coverage, run status, acceptance | Original evaluation or repair verification |
+| Report-only recommendation veto | Evaluation `recommendation_eligible` |
 | Cases, issues, solutions and their relationships | `data/relations.json` |
 | Upstream PR/MR contributions and append-only status events | `data/upstream.json` |
 | Public titles, summaries and affected workflows | Record `content`, or `data/content.json` for historical records |
@@ -127,6 +128,12 @@ verification links. Select an exact checkpoint to retrieve recommendations. Each
 configuration retains its checkpoint and revision. Solutions expose their
 `issue_ids` and `verification_ids`.
 The original numerical acceptance field retains its recorded value.
+An evaluation may set `recommendation_eligible` to the boolean `false` to keep
+all its configurations searchable as report-only evidence without recommending
+them or offering them as version alternatives. Search reports `report-only` in
+the affected configuration's `recommendation_gaps` and carries the explicit flag
+in its `record` metadata. Omission preserves the existing rules, and `true` does
+not override any other recommendation gate.
 
 For new records, include `model.architecture` and `model.size` when known. Use the
 architecture name separately from `model.name` and `model.revision`. Use `size`

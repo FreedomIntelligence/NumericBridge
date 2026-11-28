@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 
 from .models import model_facets, model_group
+from .validation import validate_recommendation_eligible
 
 
 def _matches_model(record, model, model_size):
@@ -134,6 +135,8 @@ class Catalog:
 
     def _add(self, kind, identity, record, source):
         _require(isinstance(identity, str) and bool(identity), 'missing stable record id')
+        if kind == 'comparison':
+            validate_recommendation_eligible(record)
         key = (kind, identity)
         _require(key not in self._records, 'duplicate typed record id: ' + repr(key))
         self._records[key] = dict(kind=kind, id=identity, source=source, record=deepcopy(record))

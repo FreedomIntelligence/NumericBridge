@@ -255,6 +255,7 @@ def normalize_draft(draft, *, receipt_id=None):
             'acceptance_raw': ev.get('acceptance'),
             'acceptance_verdict': verdict,
             'acceptance_passed': passed,
+            **({'recommendation_eligible': ev['recommendation_eligible']} if 'recommendation_eligible' in ev else {}),
             'sides': sides,
             'comparison_ids': [c.get('id') for c in (ev.get('comparisons') or [])],
         })

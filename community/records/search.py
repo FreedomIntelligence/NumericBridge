@@ -229,14 +229,18 @@ def compile_index(catalog):
                 validation = record.get('validation', {})
                 coverage = [count for r in comparisons for count in r['coverage']] if kind == 'comparison' else validation.get('coverage', {})
                 description = catalog.content(kind, identity)
+                record_metadata = dict(kind=kind, id=identity, source=deepcopy(record_entry['source']),
+                                       status=record.get('status'), acceptance=record.get('acceptance')
+                                       if kind == 'comparison' else validation.get('acceptance'))
+                if kind == 'comparison' and 'recommendation_eligible' in record:
+                    record_metadata['recommendation_eligible'] = record['recommendation_eligible']
                 config = dict(id=f'{kind}:{identity}:{side.get("id", position)}', hardware=side['hardware'],
                               platforms=platforms, model=name, model_revision=model.get('revision'),
                               model_architecture=architecture, model_group=group, model_size=size,
                               frameworks=frameworks, libraries=libraries,
                               tasks=tasks, settings=deepcopy(side.get('settings', {})),
                               scope=localized(description, 'summary'), content=description,
-                              date=record.get('date'), record=dict(kind=kind, id=identity, source=deepcopy(record_entry['source']),
-                                                               status=record.get('status'), acceptance=record.get('acceptance') if kind == 'comparison' else validation.get('acceptance')),
+                              date=record.get('date'), record=record_metadata,
                               coverage=deepcopy(coverage), recommendations=[], recommendation_gaps=[],
                               keys=dict(hardware=[_key(p) for p in platforms], model=sorted(model_keys),
                                         model_identity=sorted(identity_keys),
@@ -255,6 +259,8 @@ def compile_index(catalog):
                 if case['category'] == 'workflow-benchmark':
                     gaps.append('workflow-only-evidence')
                 if kind == 'comparison':
+                    if record.get('recommendation_eligible') is False:
+                        gaps.append('report-only')
                     if not _acceptance_passed(record.get('acceptance')):
                         gaps.append('no-recorded-numerical-acceptance')
                     if record.get('status') != 'completed' or record.get('scope_status') == 'partial' or record.get('whole_task_completed') is False:
