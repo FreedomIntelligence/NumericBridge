@@ -109,10 +109,12 @@ def smoke_zip(archive, root):
           'CPU FP32/BF16 gradient comparison covered 12 values.')
 
 
-def build_release(version, output):
+def build_release(version, output, *, distribution='skills'):
     if not re.fullmatch(VERSION, version):
         raise ValueError('Version must have the form vMAJOR.MINOR.PATCH (e.g. v1.2.3)')
-    name = f'numericbridge-skills-{version}.zip'
+    if distribution not in ('skills', 'workflow'):
+        raise ValueError('Unknown release distribution')
+    name = f'numericbridge-{distribution}-{version}.zip'
     assets = [output / name, output / f'{name}.sha256']
     for asset in assets:
         if asset.exists() or asset.is_symlink():
@@ -135,13 +137,13 @@ def build_release(version, output):
     return assets
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(*, distribution='skills', description=__doc__):
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--version', required=True, help='version as vMAJOR.MINOR.PATCH')
     parser.add_argument('--output', required=True, type=Path, help='directory for new release assets')
     args = parser.parse_args()
     try:
-        assets = build_release(args.version, args.output)
+        assets = build_release(args.version, args.output, distribution=distribution)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         parser.error(str(error))
     for asset in assets:

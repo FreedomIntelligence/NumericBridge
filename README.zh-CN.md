@@ -27,16 +27,16 @@ NumericBridge 用于对比、诊断和修复推理、训练与强化学习（RL�
 
 ## 快速开始
 
-**无需克隆即可安装。** 在 [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/skills-v0.1.1) 中选择一个 `skills-vMAJOR.MINOR.PATCH` 版本，将其附件中的 `numericbridge-skills-*.zip` 和对应的 `.zip.sha256` 校验文件下载到同一目录。不要下载 GitHub 自动生成的 “Source code” 压缩包。把下方的示例版本换成你下载的版本：
+**无需克隆即可安装。** 从 [NumericBridge Workflow 发行页](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/workflow-v0.2.0) 下载 `numericbridge-workflow-*.zip` 和对应的 `.zip.sha256` 校验文件到同一目录。不要下载 GitHub 自动生成的 “Source code” 压缩包。将 `version` 设为下载的版本：
 
 ```sh
-version=v0.1.1
-archive="numericbridge-skills-$version.zip"
-skills="numericbridge-skills-$version"
-shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
+version=v0.2.0
+archive="numericbridge-workflow-$version.zip"
+workflow="numericbridge-workflow-$version"
+shasum -a 256 -c "$archive.sha256" && mkdir "$workflow" && unzip "$archive" -d "$workflow"
 ```
 
-在 Linux 上也可以用 `sha256sum -c "$archive.sha256"` 代替 `shasum -a 256 -c "$archive.sha256"`。让 Agent 客户端从解压后的目录加载五个 Skill，或将五个 Skill 文件夹一起复制到客户端的 Skill 目录。新版 Skills ZIP 包含共享工具，但不附带社区记录或检索索引；旧版可能包含快照。[更新与从仓库安装](tools/README.md#portable-skills)
+在 Linux 上也可以使用 `sha256sum -c "$archive.sha256"`。工作流 ZIP 保持 Agent Skills 安装结构：让客户端从解压目录加载，或把五个目录一起安装。包内含共享工具，不含社区记录或检索索引。[更新与从仓库安装](tools/README.md#portable-skills)
 
 **需要源码时**，用 `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` 获取干净的当前版本；完整 Git 历史仍保留以前公开发布过的记录。
 
@@ -45,7 +45,7 @@ shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$s
 **跑一次梯度比较。** 安装 PyTorch 和 NumPy 后，运行下面的 CPU 示例。它使用相同的分类器、初始权重和同一批输入，分别用 FP32 和 BF16 做反向传播。输出会列出梯度差异，并给出两份采集结果及 `report.json` 的保存路径。
 
 ```sh
-python -B "$skills/precision-compare/examples/compare_gradients.py"
+python -B "$workflow/precision-compare/examples/compare_gradients.py"
 ```
 
 自己的任务从 [NumericBridge Skill](skills/numericbridge/SKILL.md) 开始，也可以复制[通用任务模板](skills/numericbridge/references/prompt-template.md)。讲清楚你想解决什么，有已有案例或运行材料就一并给出，不用自己写实验步骤。
@@ -60,7 +60,7 @@ python -B "$skills/precision-compare/examples/compare_gradients.py"
 
 ## 典型案例
 
-实测案例见[社区案例库](https://numericbridge.com/#/cases)及[结果与证据](https://numericbridge.com/paper.html)。公开记录和证据由官网独立提供，不随工作流检出或当前 Skills 发行包分发。
+实测案例见[社区案例库](https://numericbridge.com/#/cases)及[结果与证据](https://numericbridge.com/paper.html)。公开记录和证据由官网独立提供，不随工作流检出或发行包分发。
 
 ## 评测与修复历史
 

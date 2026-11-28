@@ -27,16 +27,16 @@ The workflow reuses the confirmed setup and evidence across native preparation, 
 
 ## Getting started
 
-**Install without cloning.** On [GitHub Releases](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/skills-v0.1.1), choose a `skills-vMAJOR.MINOR.PATCH` release and download the `numericbridge-skills-*.zip` asset and its matching `.zip.sha256` file into the same directory. Do not use GitHub's “Source code” archives. Replace the example version with the one you downloaded:
+**Install without cloning.** Download the `numericbridge-workflow-*.zip` asset and its matching `.zip.sha256` file from [NumericBridge Workflow releases](https://github.com/FreedomIntelligence/NumericBridge/releases/tag/workflow-v0.2.0) into the same directory. Do not use GitHub's “Source code” archives. Set `version` to the version you downloaded:
 
 ```sh
-version=v0.1.1
-archive="numericbridge-skills-$version.zip"
-skills="numericbridge-skills-$version"
-shasum -a 256 -c "$archive.sha256" && mkdir "$skills" && unzip "$archive" -d "$skills"
+version=v0.2.0
+archive="numericbridge-workflow-$version.zip"
+workflow="numericbridge-workflow-$version"
+shasum -a 256 -c "$archive.sha256" && mkdir "$workflow" && unzip "$archive" -d "$workflow"
 ```
 
-On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256 -c "$archive.sha256"`. Point your agent client at the directory containing the five skills, or copy the five skill folders together into its skills directory. New Skills ZIP builds include the shared tools, but no community records or search index; older releases may include a snapshot. [Updates and checkout-based installation](tools/README.md#portable-skills)
+On Linux you can use `sha256sum -c "$archive.sha256"` instead. The workflow ZIP keeps the Agent Skills layout: point your client at the extracted directory or install all five folders together. It includes the shared tools, but no community records or search index. [Updates and checkout-based installation](tools/README.md#portable-skills)
 
 **Develop from source.** Use `git clone --depth 1 https://github.com/FreedomIntelligence/NumericBridge.git` for a clean current checkout without the historical catalog objects. Full Git history still contains independently published older revisions.
 
@@ -45,7 +45,7 @@ On Linux you can use `sha256sum -c "$archive.sha256"` in place of `shasum -a 256
 **Run a first comparison.** With PyTorch and NumPy installed, run this CPU example. It uses the same classifier, weights and batch for two backward passes, one in FP32 and one in BF16. The output gives the gradient differences and the path to both captures and `report.json`.
 
 ```sh
-python -B "$skills/precision-compare/examples/compare_gradients.py"
+python -B "$workflow/precision-compare/examples/compare_gradients.py"
 ```
 
 For your workload, start with the [NumericBridge Skill](skills/numericbridge/SKILL.md) or copy the [request template](skills/numericbridge/references/prompt-template.md). Describe what you want to achieve, and include any existing case or run details you have.
@@ -60,7 +60,7 @@ Task recipes: [Inference](skills/precision-compare/references/inference.md) · [
 
 ## Typical cases
 
-Browse the [public case library](https://numericbridge.com/#/cases) and [measured reports](https://numericbridge.com/paper.html). Published records and evidence are served separately; the workflow checkout and the current Skills release do not contain them.
+Browse the [public case library](https://numericbridge.com/#/cases) and [measured reports](https://numericbridge.com/paper.html). Published records and evidence are served separately; the workflow checkout and release ZIP do not contain them.
 
 ## Evaluation and repair history
 

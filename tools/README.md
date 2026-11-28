@@ -53,20 +53,22 @@ python -B /path/to/skills/precision-compare/scripts/community_search.py \
 From a checkout, use `python -B -m tools.community_search` with the same flags.
 The CLI requires an explicit index. It is not a fallback for the workflow.
 
-### Build a skills release
+### Build a workflow release
 
 From a clean checkout with development requirements and CPU Torch installed:
 
 ```sh
-python -B -m scripts.skills_release --version v1.2.3 --output /path/to/fresh/dist
+python -B -m scripts validate
+python -B -m scripts.workflow_release --version v1.2.3 --output /path/to/fresh/dist
 ```
 
 The builder reuses the standalone exporter and tests a fresh extraction before
-writing the ZIP and its SHA-256 file. To publish, use the
-[Publish skills release workflow](../.github/workflows/skills-release.yml) on an
-existing `skills-v1.2.3` tag, after the workflow is on the default branch. The
-workflow validates and then creates a new GitHub Release; it does not overwrite
-existing release assets.
+writing `numericbridge-workflow-v1.2.3.zip` and its `.zip.sha256` file. Tag the
+reviewed source commit as `workflow-v1.2.3`. Create a GitHub Release draft for
+that existing tag, upload both assets, and verify the checksum on a fresh
+GitHub download before publishing. Use the title `NumericBridge Workflow v1.2.3`.
+Do not overwrite existing releases or assets. The original `skills-v*` releases
+retain their tags, downloads and [legacy release workflow](../.github/workflows/skills-release.yml).
 
 The workflow engine fingerprints its own implementation files, so engine changes
 invalidate earlier reuse identities. Historical runs stay untouched; affected
