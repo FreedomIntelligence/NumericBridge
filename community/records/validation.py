@@ -100,6 +100,12 @@ def validate(site):
     return len(ids)
 
 
+def validate_recommendation_eligible(record):
+    """Validate the optional evaluation recommendation veto without defaulting it."""
+    if type(record.get('recommendation_eligible', True)) is not bool:
+        raise ValueError(f'{record["id"]}: recommendation_eligible must be a boolean')
+
+
 def validate_evaluations(site):
     """Check peer identities, measured values, coverage and immutable provenance."""
     data = json.loads((site / 'data/evaluations.json').read_text(encoding='utf-8'))
@@ -129,6 +135,7 @@ def validate_evaluations(site):
         model_facets(record['model'])
         if record['acceptance'] is not None and not isinstance(record['acceptance'], (str, dict)):
             raise ValueError('Invalid numerical acceptance')
+        validate_recommendation_eligible(record)
         for key in ('common', 'differences', 'notes'):
             if not isinstance(record[key], list) or any(not isinstance(x, str) or not x.strip() for x in record[key]):
                 raise ValueError('Evaluation conditions and notes must be text lists')

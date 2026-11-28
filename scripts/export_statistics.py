@@ -14,9 +14,10 @@ import json
 from pathlib import Path
 import re
 
+from community.records.validation import validate_recommendation_eligible
 from . import plan_history_integration as INTEGRATION
 FIELDS = {'id', 'date', 'title', 'framework', 'task', 'status', 'scope_status', 'whole_task_completed',
-          'acceptance', 'model', 'summary', 'sides', 'common', 'differences',
+          'acceptance', 'recommendation_eligible', 'model', 'summary', 'sides', 'common', 'differences',
           'comparisons', 'notes', 'visibility'}
 PRIVATE = re.compile(r'(?i)(?:/Users/|/home/|\bssh\b|\blion\b|\bmodelmate\d*\b|'
                      r'\b(?:PID|PGID|JobUID|PodUID|boot_id|pidbirth)\b|refs/precision-archives/)')
@@ -54,6 +55,7 @@ def export(base, source):
         unknown = set(original) - FIELDS - {'archive', 'evidence'}
         if unknown:
             raise ValueError(f'{identity}: unreviewed fields {sorted(unknown)}')
+        validate_recommendation_eligible(original)
         record = {key: deepcopy(value) for key, value in original.items() if key in FIELDS}
         normalized = normalize_hardware_display(record)
         record['provenance'] = {
